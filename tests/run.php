@@ -1,0 +1,474 @@
+<?php
+/**
+ * SoftMyMarket test runner.
+ *
+ *   php tests/run.php            # fast, read-only unit tests (no database writes)
+ *   php tests/run.php --db       # also run database-backed checks
+ *   php tests/run.php --filter=pricing
+ *
+ * The suite never writes to the database: every check is a read or a pure
+ * function call, so it is safe to run against a live store.
+ *
+ * Exit code 0 = all green, 1 = at least one failure.
+ */
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('The test runner can only be used from the command line.');
+}
+
+require dirname(__DIR__) . '/includes/bootstrap.php';
+
+/* ------------------------------------------------------------------ harness */
+
+final class T
+{
+    public static int $passed = 0;
+    /** @var list<string> */
+    public static array $failures = [];
+    public static string $current = '';
+    public static string $filter = '';
+
+    public static function case(string $name, callable $body): void
+    {
+        if (self::$filter !== '' && stripos($name, self::$filter) === false) {
+            return;
+        }
+        self::$current = $name;
+        try {
+            $body();
+            self::$passed++;
+            echo "  \033[32m✓\033[0m {$name}\n";
+        } catch (Throwable $e) {
+            self::$failures[] = $name . ' — ' . $e->getMessage();
+            echo "  \033[31m✗\033[0m {$name}\n    " . $e->getMessage() . "\n";
+        }
+    }
+
+    public static function same(mixed $expected, mixed $actual, string $what = ''): void
+    {
+        if ($expected !== $actual) {
+            throw new RuntimeException(sprintf(
+                '%sexpected %s, got %s',
+                $what !== '' ? $what . ': ' : '',
+                var_export($expected, true),
+                var_export($actual, true)
+            ));
+        }
+    }
+
+    public static function true(bool $value, string $what = ''): void
+    {
+        if (!$value) {
+            throw new RuntimeException($what !== '' ? $what : 'expected true');
+        }
+    }
+
+    public static function false(bool $value, string $what = ''): void
+    {
+        if ($value) {
+            throw new RuntimeException($what !== '' ? $what : 'expected false');
+        }
+    }
+
+    public static function contains(string $needle, string $haystack, string $what = ''): void
+    {
+        if (!str_contains($haystack, $needle)) {
+            throw new RuntimeException(sprintf('%sexpected to find "%s" in "%s"', $what !== '' ? $what . ': ' : '', $needle, $haystack));
+        }
+    }
+
+    public static function summary(): int
+    {
+        $failed = count(self::$failures);
+        echo "\n" . str_repeat('-', 60) . "\n";
+        if ($failed === 0) {
+            echo "\033[32mAll " . self::$passed . " checks passed.\033[0m\n";
+            return 0;
+        }
+        echo "\033[31m{$failed} failed\033[0m, " . self::$passed . " passed:\n";
+        foreach (self::$failures as $failure) {
+            echo '  - ' . $failure . "\n";
+        }
+        return 1;
+    }
+}
+
+$options = getopt('', ['db', 'filter::']);
+$withDb = array_key_exists('db', $options);
+T::$filter = (string) ($options['filter'] ?? '');
+
+echo "SoftMyMarket test suite — PHP " . PHP_VERSION . "\n";
+echo 'Mode: ' . ($withDb ? "unit + database" : 'unit only') . "\n\n";
+
+/* ------------------------------------------------------------------ helpers */
+
+T::case('helpers: slugify strips punctuation and lowercases', function (): void {
+    T::same('samsung-galaxy-s24-ultra', slugify('  Samsung Galaxy S24 Ultra! '));
+    T::same('galaxy-s24-5g', slugify('Galaxy S24 / 5G'));
+    T::true(str_starts_with(slugify('!!!'), 'item-'), 'fallback slug for punctuation-only input');
+});
+
+T::case('helpers: money formats LKR without trailing zeros', function (): void {
+    T::same('Rs 1,250', money(1250));
+    T::same('Rs 1,250.50', money('1250.5'));
+    T::same('Rs 0', money(null));
+    T::same('1,250', money(1250, false));
+});
+
+T::case('helpers: compact_number abbreviates thousands and millions', function (): void {
+    T::same('999', compact_number(999));
+    T::same('1.2k', compact_number(1234));
+    T::same('2M', compact_number(2_000_000));
+});
+
+T::case('helpers: limit_text truncates with an ellipsis', function (): void {
+    T::same('short', limit_text('short', 20));
+    T::same('abcd…', limit_text('abcdefghij', 5));
+});
+
+T::case('helpers: initials', function (): void {
+    T::same('KP', initials('Kasun Perera'));
+    T::same('A', initials('amal'));
+});
+
+T::case('helpers: phone normalisation accepts local and +94 formats', function (): void {
+    T::same('0771234567', normalize_phone('0771234567'));
+    T::same('0771234567', normalize_phone('+94 77 123 4567'));
+    T::same('0771234567', normalize_phone('94771234567'));
+    T::same('0771234567', normalize_phone('771234567'));
+    T::same('077 123 4567', phone_display('0771234567'));
+    T::true(is_valid_phone('0771234567'));
+    T::false(is_valid_phone('12345'));
+    T::false(is_valid_phone(''));
+});
+
+T::case('helpers: drive_file_id reads every Google Drive link shape', function (): void {
+    $id = '1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVw';
+    T::same($id, drive_file_id('https://drive.google.com/file/d/' . $id . '/view?usp=sharing'));
+    T::same($id, drive_file_id('https://drive.google.com/open?id=' . $id));
+    T::same($id, drive_file_id('https://drive.google.com/uc?export=download&id=' . $id));
+    T::same($id, drive_file_id('https://docs.google.com/uc?id=' . $id . '&export=download'));
+    T::same($id, drive_file_id($id));
+    T::same(null, drive_file_id('https://example.com/nope.jpg'));
+    T::same(null, drive_file_id(''));
+});
+
+T::case('helpers: img_url proxies Drive links and keeps https URLs', function (): void {
+    $drive = 'https://drive.google.com/file/d/1a2B3c4D5e6F7g8H9i0JkLmNoPqRsTuVw/view';
+    T::same('/image.php?src=' . rawurlencode($drive), img_url($drive));
+    T::same('https://cdn.example.com/a.jpg', img_url('https://cdn.example.com/a.jpg'));
+    T::same('/assets/img/logo.png', img_url('/assets/img/logo.png'));
+    T::contains('/image.php?placeholder=1', img_url(''));
+});
+
+T::case('helpers: paginate clamps pages and computes offsets', function (): void {
+    $pager = paginate(100, 1, 24);
+    T::same(1, $pager['page']);
+    T::same(5, $pager['pages']);
+    T::same(0, $pager['offset']);
+    T::same(1, $pager['from']);
+    T::same(24, $pager['to']);
+    T::false($pager['hasPrev']);
+    T::true($pager['hasNext']);
+
+    $clamped = paginate(100, 99, 24);
+    T::same(5, $clamped['page']);
+    T::false($clamped['hasNext']);
+    T::same(100, $clamped['to']);
+
+    $empty = paginate(0, 1, 24);
+    T::same(0, $empty['from']);
+    T::same(0, $empty['to']);
+    T::same(1, $empty['pages']);
+});
+
+T::case('helpers: order and payment status labels are complete', function (): void {
+    foreach (['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'REFUNDED'] as $status) {
+        $label = order_status_label($status);
+        T::true($label !== '' && $label !== $status, "missing label for {$status}");
+    }
+    T::contains('status-badge', order_status_badge('DELIVERED'));
+    T::true(payment_status_label('UNPAID') !== '');
+    T::true(payment_status_label('PAID') !== '');
+});
+
+T::case('helpers: uuid v4 shape and uniqueness', function (): void {
+    $a = uuid();
+    $b = uuid();
+    T::true((bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $a), 'uuid shape: ' . $a);
+    T::true($a !== $b, 'uuids must differ');
+});
+
+T::case('helpers: build_tree nests children by parent id', function (): void {
+    $rows = [
+        ['id' => 1, 'parent_id' => null, 'name' => 'Root'],
+        ['id' => 2, 'parent_id' => 1, 'name' => 'Child'],
+        ['id' => 3, 'parent_id' => 2, 'name' => 'Grandchild'],
+    ];
+    $tree = build_tree($rows, null);
+    T::same(1, count($tree));
+    T::same('Child', $tree[0]['children'][0]['name']);
+    T::same('Grandchild', $tree[0]['children'][0]['children'][0]['name']);
+});
+
+T::case('helpers: e() escapes once and e_nl2br keeps line breaks', function (): void {
+    T::same('&lt;b&gt;hi&lt;/b&gt;', e('<b>hi</b>'));
+    T::same('&amp;amp;', e('&amp;'));
+    T::contains('<br', e_nl2br("a\nb"));
+});
+
+/* ----------------------------------------------------------------- security */
+
+T::case('security: signed tokens round-trip and reject tampering', function (): void {
+    $token = Security::sign(['uid' => 42, 'scope' => 'reset']);
+    $payload = Security::verify($token);
+    T::true(is_array($payload), 'token should verify');
+    T::same(42, $payload['uid']);
+    T::same('reset', $payload['scope']);
+    T::same(null, Security::verify($token . 'x'), 'tampered token must fail');
+    T::same(null, Security::verify('garbage'), 'garbage token must fail');
+});
+
+T::case('security: expired tokens are rejected', function (): void {
+    $token = Security::sign(['uid' => 1], -10);
+    T::same(null, Security::verify($token));
+});
+
+T::case('security: encrypt/decrypt round-trip and random IV', function (): void {
+    $plain = 'Seylan secret 1234';
+    $one = Security::encrypt($plain);
+    $two = Security::encrypt($plain);
+    T::true($one !== $two, 'ciphertext must be randomised');
+    T::same($plain, Security::decrypt($one));
+    T::same(null, Security::decrypt(substr($one, 0, -4)));
+});
+
+T::case('security: password hashing uses bcrypt and verifies', function (): void {
+    $hash = Auth::hashPassword('Password123!');
+    T::true(password_verify('Password123!', $hash), 'hash should verify');
+    T::false(password_verify('wrong', $hash), 'wrong password must fail');
+    T::true(password_get_info($hash)['algo'] !== 0, 'expected a real algorithm');
+});
+
+T::case('security: password policy rejects weak passwords', function (): void {
+    T::true(count(Auth::passwordErrors('short')) > 0, 'short password must fail');
+    T::same([], Auth::passwordErrors('Password123!'));
+});
+
+T::case('security: constant-time comparison', function (): void {
+    T::true(Security::equals('abc', 'abc'));
+    T::false(Security::equals('abc', 'abd'));
+    T::false(Security::equals(null, ''));
+});
+
+T::case('security: role permission matrix', function (): void {
+    $constant = (new ReflectionClass('Auth'))->getReflectionConstant('PERMISSIONS');
+    T::true($constant !== false, 'PERMISSIONS constant is missing');
+    $matrix = $constant->getValue();
+
+    T::same(['*'], $matrix['admin'], 'admin should be unrestricted');
+    T::true(in_array('orders.manage', $matrix['staff'], true), 'staff cannot manage orders');
+    T::true(in_array('products.manage', $matrix['staff'], true), 'staff cannot manage products');
+    T::false(in_array('users.manage', $matrix['staff'], true), 'staff must not manage the team');
+    T::false(in_array('settings.manage', $matrix['staff'], true), 'staff must not change settings');
+    T::same(['account.self'], $matrix['customer'], 'customers must only have account.self');
+});
+
+/* ---------------------------------------------------------------- validator */
+
+T::case('validator: required, email and length rules', function (): void {
+    $result = Validator::make(
+        ['name' => 'Amal', 'email' => 'amal@example.lk'],
+        ['name' => 'required|string|max:120', 'email' => 'required|email']
+    )->validate();
+    T::true($result['valid'], 'valid payload: ' . json_encode($result['errors']));
+    T::same('amal@example.lk', $result['data']['email']);
+
+    $bad = Validator::make(['email' => 'not-an-email'], ['email' => 'required|email'])->validate();
+    T::false($bad['valid']);
+    T::true(isset($bad['errors']['email']));
+
+    $missing = Validator::make([], ['name' => 'required'])->validate();
+    T::false($missing['valid']);
+});
+
+T::case('validator: numeric rules fire after casts', function (): void {
+    $result = Validator::make(
+        ['price' => '1500', 'stock' => '12', 'note' => 'x'],
+        ['price' => 'required|numeric|min:1', 'stock' => 'required|int|min:0']
+    )->validate();
+    T::true($result['valid'], 'errors: ' . json_encode($result['errors']));
+
+    $neg = Validator::make(['price' => '-5'], ['price' => 'required|numeric|min:0'])->validate();
+    T::false($neg['valid'], 'negative price must fail min rule');
+});
+
+T::case('validator: unknown keys are dropped from clean data', function (): void {
+    $result = Validator::make(['code' => 'WELCOME10', 'is_admin' => '1'], ['code' => 'required|string'])->validate();
+    T::true($result['valid']);
+    T::true(!array_key_exists('is_admin', $result['data']), 'mass-assignment key must be stripped');
+});
+
+/* ----------------------------------------------------------------- payments */
+
+T::case('payments: method code mapping covers every gateway', function (): void {
+    T::same('CARD_SEYLAN', PaymentManager::methodCode('seylan'));
+    T::same('CARD_SEYLAN', PaymentManager::methodCode('card'));
+    T::same('BANK_TRANSFER', PaymentManager::methodCode('bank'));
+    T::same('BANK_TRANSFER', PaymentManager::methodCode('bank_transfer'));
+    T::same('KOKO', PaymentManager::methodCode('koko'));
+    T::same('PAYZY', PaymentManager::methodCode('payzy'));
+    T::same('MINTPAY', PaymentManager::methodCode('mintpay'));
+    T::same('COD', PaymentManager::methodCode('cod'));
+});
+
+T::case('payments: reverse mapping', function (): void {
+    T::same('seylan', PaymentManager::keyForMethod('CARD_SEYLAN'));
+    T::same('bank_transfer', PaymentManager::keyForMethod('BANK_TRANSFER'));
+    T::same('cod', PaymentManager::keyForMethod('COD'));
+    T::same('koko', PaymentManager::keyForMethod('KOKO'));
+});
+
+T::case('payments: all six gateways are registered', function (): void {
+    $keys = array_map(static fn ($gateway) => $gateway->key, PaymentManager::gateways());
+    foreach (['cod', 'bank_transfer', 'card_seylan', 'koko', 'payzy', 'mintpay'] as $key) {
+        T::true(in_array($key, $keys, true), "gateway {$key} is not registered (got: " . implode(', ', $keys) . ')');
+    }
+});
+
+/* --------------------------------------------------------------- catalogue */
+
+T::case('catalog: filter parsing ignores junk and clamps numbers', function (): void {
+    $filters = Catalog::parseFilters([
+        'q' => '  laptop ',
+        'min' => '1000',
+        'max' => 'abc',
+        'page' => '-3',
+        'per' => '500',
+        'sort' => 'nonsense',
+    ]);
+    T::same('laptop', $filters['q']);
+    T::same(1000.0, $filters['min']);
+    T::same('newest', $filters['sort'], 'unknown sort falls back to newest');
+    T::same(1, $filters['page'], 'page must clamp to 1');
+    T::same([], $filters['brand']);
+    T::same('', $filters['condition'], 'unknown condition is dropped');
+});
+
+T::case('catalog: price bounds are swapped when reversed', function (): void {
+    $filters = Catalog::parseFilters(['min' => '9000', 'max' => '1500']);
+    T::same(1500.0, $filters['min']);
+    T::same(9000.0, $filters['max']);
+    $negative = Catalog::parseFilters(['min' => '-50']);
+    T::same(0.0, (float) $negative['min']);
+});
+
+T::case('catalog: rating and flags are clamped', function (): void {
+    $filters = Catalog::parseFilters(['rating' => '99', 'in_stock' => '1', 'on_sale' => 'on', 'condition' => 'used']);
+    T::same(5, $filters['rating']);
+    T::true($filters['in_stock']);
+    T::true($filters['on_sale']);
+    T::same('used', $filters['condition']);
+    T::same(1, Catalog::parseFilters(['rating' => '0'])['rating']);
+});
+
+/* --------------------------------------------------------------------- db */
+
+if ($withDb) {
+    echo "\nDatabase checks\n";
+
+    T::case('db: schema has every expected table', function (): void {
+        $expected = ['users', 'user_addresses', 'categories', 'brands', 'products', 'reviews', 'cart_items',
+            'wishlist_items', 'orders', 'order_items', 'order_events', 'payments', 'coupons',
+            'coupon_redemptions', 'inventory_movements', 'notifications', 'settings', 'rate_limits',
+            'audit_log', 'newsletter_subscribers', 'contact_messages', 'search_log', 'password_resets'];
+        $tables = array_map(static fn ($row) => (string) $row['t'], Database::all('SHOW TABLES AS t'));
+        foreach ($expected as $table) {
+            $full = Database::table($table);
+            $found = in_array($full, $tables, true) || in_array($table, $tables, true);
+            T::true($found, "missing table: {$full} (have: " . implode(', ', $tables) . ')');
+        }
+    });
+
+    T::case('db: category tree is consistent', function (): void {
+        $orphans = Database::int(
+            'SELECT COUNT(*) FROM ' . Database::table('categories') . ' c
+             LEFT JOIN ' . Database::table('categories') . ' p ON p.id = c.parent_id
+             WHERE c.parent_id IS NOT NULL AND p.id IS NULL'
+        );
+        T::same(0, $orphans, 'orphaned categories');
+        $badDepth = Database::int(
+            'SELECT COUNT(*) FROM ' . Database::table('categories') . ' c
+             JOIN ' . Database::table('categories') . ' p ON p.id = c.parent_id
+             WHERE c.depth <> p.depth + 1'
+        );
+        T::same(0, $badDepth, 'categories with an inconsistent depth');
+    });
+
+    T::case('db: products reference real categories and brands', function (): void {
+        $badCategory = Database::int(
+            'SELECT COUNT(*) FROM ' . Database::table('products') . ' p
+             LEFT JOIN ' . Database::table('categories') . ' c ON c.id = p.category_id
+             WHERE c.id IS NULL'
+        );
+        T::same(0, $badCategory, 'products with a missing category');
+        $badBrand = Database::int(
+            'SELECT COUNT(*) FROM ' . Database::table('products') . ' p
+             LEFT JOIN ' . Database::table('brands') . ' b ON b.id = p.brand_id
+             WHERE p.brand_id IS NOT NULL AND b.id IS NULL'
+        );
+        T::same(0, $badBrand, 'products with a missing brand');
+        $badPrice = Database::int('SELECT COUNT(*) FROM ' . Database::table('products') . ' WHERE price < 0');
+        T::same(0, $badPrice, 'products with a negative price');
+    });
+
+    T::case('db: every user has a hashed password', function (): void {
+        $rows = Database::all('SELECT email, password_hash FROM ' . Database::table('users') . ' LIMIT 500');
+        T::true($rows !== [], 'no users found — run the installer first');
+        foreach ($rows as $row) {
+            $info = password_get_info((string) $row['password_hash']);
+            T::true(($info['algo'] ?? 0) !== 0, 'plaintext password for ' . $row['email']);
+        }
+    });
+
+    T::case('db: order totals match their items', function (): void {
+        $rows = Database::all(
+            'SELECT o.id, o.order_number, o.subtotal, COALESCE(SUM(i.total), 0) AS items_total
+             FROM ' . Database::table('orders') . ' o
+             LEFT JOIN ' . Database::table('order_items') . ' i ON i.order_id = o.id
+             GROUP BY o.id, o.order_number, o.subtotal
+             HAVING ABS(o.subtotal - items_total) > 0.01
+             LIMIT 10'
+        );
+        T::same([], $rows, 'orders whose subtotal does not match their line items');
+    });
+
+    T::case('db: every order has a timeline event', function (): void {
+        $missing = Database::int(
+            'SELECT COUNT(*) FROM ' . Database::table('orders') . ' o
+             WHERE NOT EXISTS (SELECT 1 FROM ' . Database::table('order_events') . ' e WHERE e.order_id = o.id)'
+        );
+        T::same(0, $missing, 'orders without any order_events row');
+    });
+
+    T::case('db: pricing quote is arithmetically correct', function (): void {
+        $cart = [
+            'subtotal' => 20000.0,
+            'items' => [
+                ['quantity' => 2, 'free_shipping' => false, 'product' => ['weight_grams' => 500]],
+            ],
+        ];
+        $quote = Pricing::quote($cart, null, 'COD');
+        T::true(abs($quote['total'] - ($quote['subtotal'] + $quote['shipping'] + $quote['tax'] - $quote['discount'])) < 0.01, 'total must equal the breakdown');
+        T::true($quote['subtotal'] >= 0 && $quote['total'] >= 0);
+    });
+
+    T::case('db: reports return well-formed rows', function (): void {
+        $summary = Reports::summary();
+        T::true(is_array($summary) && $summary !== [], 'reports summary is empty');
+    });
+}
+
+exit(T::summary());

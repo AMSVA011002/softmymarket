@@ -1,0 +1,220 @@
+<?php
+/**
+ * Store settings: general content, commerce rules, payment gateways, hero slides.
+ */
+declare(strict_types=1);
+
+require __DIR__ . '/includes/bootstrap.php';
+admin_require('settings.manage');
+
+$tab = (string) query('tab', 'general');
+$groups = admin_setting_groups();
+$gatewayFields = admin_gateway_fields();
+$gatewayConfig = admin_gateway_config();
+$slides = View::heroSlides();
+$returnUrl = admin_url('settings.php', ['tab' => $tab]);
+
+/** Render one settings input. */
+$renderField = static function (string $key, array $meta): string {
+    $value = Settings::get($key, (string) $meta['default']);
+    $id = 'set-' . preg_replace('/[^a-z0-9_-]/i', '-', $key);
+    $label = '<label class="form-label small mb-1" for="' . e($id) . '">' . e($meta['label']) . '</label>';
+    $help = !empty($meta['help']) ? '<div class="form-text">' . e($meta['help']) . '</div>' : '';
+    $name = 'settings[' . $key . ']';
+    $control = match ($meta['type']) {
+        'textarea' => '<textarea class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" rows="3">' . e($value) . '</textarea>',
+        'bool' => '<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="' . e($id) . '" name="' . e($name) . '" value="1"' . ((int) $value === 1 ? ' checked' : '') . '><label class="form-check-label small" for="' . e($id) . '">Enabled</label></div>',
+        'number' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="number" step="0.01" value="' . e($value) . '">',
+        'color' => '<input class="form-control form-control-sm form-control-color" id="' . e($id) . '" name="' . e($name) . '" type="color" value="' . e($value) . '">',
+        'email' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="email" value="' . e($value) . '">',
+        default => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" value="' . e($value) . '">',
+    };
+    return $label . $control . $help;
+};
+
+$adminTitle = 'Settings';
+$adminSubtitle = 'Branding, commerce rules, payment providers and page content';
+$adminActions = '<a class="btn btn-sm btn-soft" href="/" target="_blank" rel="noopener"><i class="bi bi-shop me-1"></i> View store</a>';
+require __DIR__ . '/includes/layout-top.php';
+?>
+<ul class="nav nav-tabs mb-3 flex-wrap">
+  <?php
+  $tabLabels = ['general' => 'Store', 'commerce' => 'Commerce', 'content' => 'Content', 'payments' => 'Payments', 'hero' => 'Hero slides'];
+  foreach ($tabLabels as $value => $label): ?>
+    <li class="nav-item"><a class="nav-link <?= $tab === $value ? 'active' : '' ?>" href="<?= e(admin_url('settings.php', ['tab' => $value])) ?>"><?= e($label) ?></a></li>
+  <?php endforeach; ?>
+</ul>
+
+<?php if ($tab === 'payments'): ?>
+  <form method="post" action="/admin/actions.php">
+    <?= Csrf::field() ?>
+    <input type="hidden" name="action" value="gateway_save">
+    <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <?php foreach ($gatewayFields as $gatewayKey => $gatewayMeta): $current = (array) ($gatewayConfig[$gatewayKey] ?? []); ?>
+      <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <h2 class="h6 fw-bold mb-0"><i class="bi <?= e($gatewayMeta['icon']) ?> me-1"></i> <?= e($gatewayMeta['label']) ?></h2>
+          <span class="badge text-bg-<?= !empty($current['enabled']) ? 'success' : 'secondary' ?>"><?= !empty($current['enabled']) ? 'Enabled' : 'Disabled' ?></span>
+        </div>
+        <div class="row g-2">
+          <?php foreach ($gatewayMeta['fields'] as $fieldKey => $fieldMeta): $fieldId = 'gw-' . $gatewayKey . '-' . $fieldKey; $value = $current[$fieldKey] ?? $fieldMeta['default']; ?>
+            <div class="<?= in_array($fieldMeta['type'], ['textarea', 'bool'], true) ? 'col-12' : 'col-md-6 col-lg-4' ?>">
+              <?php if ($fieldMeta['type'] === 'bool'): ?>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" value="1" <?= !empty($value) ? 'checked' : '' ?>>
+                  <label class="form-check-label small" for="<?= e($fieldId) ?>"><?= e($fieldMeta['label']) ?></label>
+                </div>
+              <?php else: ?>
+                <label class="form-label small mb-1" for="<?= e($fieldId) ?>"><?= e($fieldMeta['label']) ?></label>
+                <?php if ($fieldMeta['type'] === 'select'): ?>
+                  <select class="form-select form-select-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]">
+                    <?php foreach ((array) ($fieldMeta['options'] ?? []) as $optionValue => $optionLabel): ?>
+                      <option value="<?= e((string) $optionValue) ?>" <?= (string) $value === (string) $optionValue ? 'selected' : '' ?>><?= e((string) $optionLabel) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                <?php elseif ($fieldMeta['type'] === 'textarea'): ?>
+                  <textarea class="form-control form-control-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" rows="2"><?= e((string) $value) ?></textarea>
+                <?php elseif ($fieldMeta['type'] === 'password'): ?>
+                  <input class="form-control form-control-sm" id="<?= e($fieldId) ?>" type="password" autocomplete="new-password" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" value="" placeholder="<?= (string) $value !== '' ? '•••••• saved — leave blank to keep' : 'Not set' ?>">
+                <?php elseif ($fieldMeta['type'] === 'number'): ?>
+                  <input class="form-control form-control-sm" id="<?= e($fieldId) ?>" type="number" step="0.01" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" value="<?= e((string) $value) ?>">
+                <?php else: ?>
+                  <input class="form-control form-control-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" value="<?= e((string) $value) ?>" <?= $fieldKey === 'secret' || $fieldKey === 'api_key' ? 'placeholder="' . ((string) $value !== '' ? 'Saved — leave blank to keep' : 'Not set') . '"' : '' ?>>
+                <?php endif; ?>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+
+        <?php if ($gatewayKey === 'bank_transfer'): $accounts = (array) ($current['accounts'] ?? []); ?>
+          <hr>
+          <h3 class="h6 fw-bold mb-2">Bank accounts shown to customers</h3>
+          <div data-bank-rows>
+            <?php foreach (array_merge($accounts, [['bank' => '', 'branch' => '', 'name' => '', 'number' => '']]) as $account): ?>
+              <div class="row g-2 mb-2" data-bank-row>
+                <div class="col-6 col-lg-3"><input class="form-control form-control-sm" name="bank[bank][]" value="<?= e((string) ($account['bank'] ?? '')) ?>" placeholder="Bank"></div>
+                <div class="col-6 col-lg-2"><input class="form-control form-control-sm" name="bank[branch][]" value="<?= e((string) ($account['branch'] ?? '')) ?>" placeholder="Branch"></div>
+                <div class="col-6 col-lg-3"><input class="form-control form-control-sm" name="bank[name][]" value="<?= e((string) ($account['name'] ?? '')) ?>" placeholder="Account name"></div>
+                <div class="col-6 col-lg-3"><input class="form-control form-control-sm" name="bank[number][]" value="<?= e((string) ($account['number'] ?? '')) ?>" placeholder="Account number"></div>
+                <div class="col-12 col-lg-1"><button class="btn btn-sm btn-soft w-100" type="button" data-bank-remove><i class="bi bi-x"></i></button></div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <button class="btn btn-sm btn-soft" type="button" data-bank-add><i class="bi bi-plus-lg"></i> Add account</button>
+        <?php endif; ?>
+
+        <p class="small text-ink-400 mt-2 mb-0">
+          Callback URL: <code><?= e(url('/payment/notify.php?gateway=' . $gatewayKey)) ?></code> ·
+          Return URL: <code><?= e(url('/payment/return.php?gateway=' . $gatewayKey)) ?></code>
+        </p>
+      </div>
+    <?php endforeach; ?>
+    <div class="d-flex gap-2">
+      <button class="btn btn-brand" type="submit"><i class="bi bi-check2 me-1"></i> Save payment settings</button>
+      <a class="btn btn-soft" href="<?= e(admin_url('settings.php', ['tab' => 'payments'])) ?>">Discard changes</a>
+    </div>
+  </form>
+
+<?php elseif ($tab === 'hero'): ?>
+  <form method="post" action="/admin/actions.php">
+    <?= Csrf::field() ?>
+    <input type="hidden" name="action" value="hero_slides_save">
+    <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <p class="small text-ink-500">Up to three slides on the home page carousel. Leave everything blank to use the built-in slides.</p>
+    <?php foreach ($slides as $index => $slide): $slideNumber = $index + 1; ?>
+      <div class="card-soft p-3 mb-3">
+        <h2 class="h6 fw-bold mb-2">Slide <?= $slideNumber ?></h2>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-eyebrow">Eyebrow</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-eyebrow" name="slide_eyebrow[]" value="<?= e((string) ($slide['eyebrow'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-title">Headline</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-title" name="slide_title[]" value="<?= e((string) ($slide['title'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-highlight">Highlighted line</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-highlight" name="slide_highlight[]" value="<?= e((string) ($slide['highlight'] ?? '')) ?>">
+          </div>
+          <div class="col-12">
+            <label class="form-label small" for="s<?= $slideNumber ?>-description">Description</label>
+            <textarea class="form-control form-control-sm" id="s<?= $slideNumber ?>-description" name="slide_description[]" rows="2"><?= e((string) ($slide['description'] ?? '')) ?></textarea>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-ctalabel">Button label</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-ctalabel" name="slide_cta_label[]" value="<?= e((string) ($slide['cta_label'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-ctaurl">Button link</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-ctaurl" name="slide_cta_url[]" value="<?= e((string) ($slide['cta_url'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-theme">Theme</label>
+            <select class="form-select form-select-sm" id="s<?= $slideNumber ?>-theme" name="slide_theme[]">
+              <?php foreach (['green' => 'Brand green', 'blue' => 'Ocean blue', 'light' => 'Light'] as $value => $label): ?>
+                <option value="<?= e($value) ?>" <?= ($slide['theme'] ?? 'green') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-secondarylabel">Second button label</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-secondarylabel" name="slide_secondary_label[]" value="<?= e((string) ($slide['secondary_label'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-secondaryurl">Second button link</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-secondaryurl" name="slide_secondary_url[]" value="<?= e((string) ($slide['secondary_url'] ?? '')) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s<?= $slideNumber ?>-icon">Decorative icon</label>
+            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-icon" name="slide_icon[]" value="<?= e((string) ($slide['icon'] ?? 'bi-bag-heart')) ?>">
+          </div>
+        </div>
+      </div>
+    <?php endforeach; ?>
+    <button class="btn btn-brand" type="submit"><i class="bi bi-check2 me-1"></i> Save hero slides</button>
+  </form>
+
+<?php else: ?>
+  <?php $group = $groups[$tab] ?? $groups['general']; ?>
+  <form method="post" action="/admin/actions.php">
+    <?= Csrf::field() ?>
+    <input type="hidden" name="action" value="settings_save">
+    <input type="hidden" name="group" value="<?= e($tab) ?>">
+    <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <div class="card-soft p-3">
+      <div class="row g-3">
+        <?php foreach ($group as $key => $meta): ?>
+          <div class="<?= in_array($meta['type'], ['textarea'], true) ? 'col-12' : 'col-md-6' ?>">
+            <?= $renderField($key, $meta) ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <button class="btn btn-brand mt-3" type="submit"><i class="bi bi-check2 me-1"></i> Save settings</button>
+  </form>
+<?php endif; ?>
+
+<?php
+$adminInlineScript = <<<'JS'
+(function () {
+  var rows = document.querySelector('[data-bank-rows]');
+  var add = document.querySelector('[data-bank-add]');
+  if (add && rows) {
+    add.addEventListener('click', function () {
+      var row = rows.querySelector('[data-bank-row]').cloneNode(true);
+      row.querySelectorAll('input').forEach(function (input) { input.value = ''; });
+      rows.appendChild(row);
+    });
+  }
+  document.addEventListener('click', function (event) {
+    var remove = event.target.closest('[data-bank-remove]');
+    if (!remove) return;
+    var row = remove.closest('[data-bank-row]');
+    var list = document.querySelector('[data-bank-rows]');
+    if (row && list && list.querySelectorAll('[data-bank-row]').length > 1) row.remove();
+  });
+})();
+JS;
+require __DIR__ . '/includes/layout-bottom.php';
+?>

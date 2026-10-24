@@ -1,0 +1,5 @@
+# The installer writes config/config.php and locks itself with storage/installed.lock.
+# Once the store is live you may delete this whole folder.
+<FilesMatch "\.(md|log|lock)$">
+  Require all denied
+</FilesMatch>

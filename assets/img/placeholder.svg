@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Product image placeholder">
+  <defs>
+    <linearGradient id="p" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecfdf0"/>
+      <stop offset="1" stop-color="#e8f0fb"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" fill="url(#p)"/>
+  <g fill="none" stroke="#0c800f" stroke-opacity=".45" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M250 210h140l-12 86a22 22 0 0 1-22 19h-72a22 22 0 0 1-22-19l-12-86Z"/>
+    <path d="M290 214v-18a30 30 0 0 1 60 0v18"/>
+  </g>
+  <text x="320" y="380" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#0a6510">SoftMyMarket</text>
+</svg>

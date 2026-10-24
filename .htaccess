@@ -1,0 +1,68 @@
+# ===========================================================================
+# SoftMyMarket — Apache configuration (shared hosting friendly)
+# ===========================================================================
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Force HTTPS once TLS is active on the host (enable after SSL is issued).
+    # RewriteCond %{HTTPS} !=on
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Pretty product / category URLs are optional; the app works with .php URLs
+    # out of the box. Uncomment to enable /p/{slug} and /c/{slug} aliases.
+    # RewriteRule ^p/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
+    # RewriteRule ^c/([a-z0-9-]+)/?$ category.php?slug=$1 [L,QSA]
+</IfModule>
+
+# ---- never expose application internals -----------------------------------
+RedirectMatch 404 ^/(config|includes|database|storage|tests|tools|docs|install/lib)(/|$)
+RedirectMatch 404 /\.(git|env|htaccess|htpasswd|editorconfig)(/|$)
+RedirectMatch 404 /(README|DEPLOYMENT|SECURITY|CHANGELOG)\.md$
+RedirectMatch 404 /database\.sql$
+RedirectMatch 404 /composer\.(json|lock)$
+
+# ---- security headers -----------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(self)"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    # HSTS — only enable after the certificate is confirmed working.
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# ---- default PHP hardening (duplicated in .user.ini for CGI/FPM) ----------
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag log_errors on
+    php_value session.cookie_httponly 1
+    php_value session.cookie_samesite Lax
+    php_value session.use_strict_mode 1
+    php_value upload_max_filesize 6M
+    php_value post_max_size 8M
+</IfModule>
+
+# ---- compression ----------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# ---- long-lived caching for versioned static assets ----------------------
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType image/webp "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+</IfModule>
+
+# ---- large uploads (payment slips) ---------------------------------------
+<IfModule mod_security.c>
+    SecFilterEngine Off
+</IfModule>
