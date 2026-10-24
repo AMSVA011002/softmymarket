@@ -263,11 +263,17 @@ T::case('security: constant-time comparison', function (): void {
     T::false(Security::equals(null, ''));
 });
 
-T::case('security: Role permission matrix', function (): void {
-    // Auth::can() depends on the session; assert the map through reflection-free helpers.
-    T::true(method_exists('Auth', 'can'));
-    T::true(method_exists('Auth', 'requirePermission'));
-    T::true(method_exists('Auth', 'requireRole'));
+T::case('security: role permission matrix', function (): void {
+    $constant = (new ReflectionClass('Auth'))->getReflectionConstant('PERMISSIONS');
+    T::true($constant !== false, 'PERMISSIONS constant is missing');
+    $matrix = $constant->getValue();
+
+    T::same(['*'], $matrix['admin'], 'admin should be unrestricted');
+    T::true(in_array('orders.manage', $matrix['staff'], true), 'staff cannot manage orders');
+    T::true(in_array('products.manage', $matrix['staff'], true), 'staff cannot manage products');
+    T::false(in_array('users.manage', $matrix['staff'], true), 'staff must not manage the team');
+    T::false(in_array('settings.manage', $matrix['staff'], true), 'staff must not change settings');
+    T::same(['account.self'], $matrix['customer'], 'customers must only have account.self');
 });
 
 /* ---------------------------------------------------------------- validator */
