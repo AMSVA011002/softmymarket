@@ -213,8 +213,20 @@ if (is_post() && !$installed) {
                             if ($seedDemo) {
                                 define('SMM_SEED_ALLOW_WEB', true);
                                 require ROOT_PATH . '/tools/seed.php';
-                                $result = seed_demo_data();
-                                flash('info', 'Demo catalogue seeded: ' . number_format($result['products']) . ' products, ' . number_format($result['customers']) . ' customers.');
+                                // The seeder reports progress on stdout; capture it so it
+                                // never lands in the middle of the installer's HTML.
+                                ob_start();
+                                try {
+                                    $result = seed_demo_data();
+                                    $seedLog = (string) ob_get_clean();
+                                    flash('info', 'Demo catalogue seeded: ' . number_format($result['products']) . ' products, ' . number_format($result['customers']) . ' customers.');
+                                } catch (Throwable $seedError) {
+                                    // A slow or restricted host must not lose the admin
+                                    // account that was just created.
+                                    $seedLog = (string) ob_get_clean();
+                                    error_log('Demo seeding failed during install: ' . $seedError->getMessage());
+                                    flash('warning', 'Your store is installed, but the demo catalogue could not be seeded on this host. Run "php tools/seed.php --demo" from the command line, or add products from the dashboard.');
+                                }
                             }
 
                             @file_put_contents($lockFile, json_encode([
