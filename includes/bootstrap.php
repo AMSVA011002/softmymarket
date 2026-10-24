@@ -31,8 +31,30 @@ spl_autoload_register(static function (string $class): void {
 /** ------------------------------------------------------------- configuration */
 $configFile = ROOT_PATH . '/config/config.php';
 if (!is_file($configFile)) {
-    if (!IS_CLI && !str_starts_with($_SERVER['SCRIPT_NAME'] ?? '', '/install')) {
-        header('Location: /install/index.php', true, 302);
+    if (!IS_CLI && !str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install')) {
+        // Nothing works without a database. Explain instead of redirecting: on
+        // hosts where install/ is blocked by .htaccess a redirect would loop.
+        http_response_code(503);
+        header('Content-Type: text/html; charset=utf-8');
+        $hasInstaller = is_file(ROOT_PATH . '/install/index.php');
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>SoftMyMarket is not configured</title>'
+            . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
+            . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:640px">'
+            . '<div class="card shadow-sm"><div class="card-body p-4">'
+            . '<h1 class="h4 fw-bold mb-3">SoftMyMarket is not configured yet</h1>'
+            . '<p class="text-secondary">The application could not find <code>config/config.php</code>, '
+            . 'which holds the database credentials.</p>'
+            . '<ol class="small text-secondary">'
+            . '<li>Copy <code>config/config.example.php</code> to <code>config/config.php</code>.</li>'
+            . '<li>Fill in <code>db.host</code>, <code>db.name</code>, <code>db.user</code>, <code>db.pass</code> '
+            . 'and a 64-character <code>app.key</code>.</li>'
+            . '<li>Import <code>database/install.sql</code> in phpMyAdmin.</li>'
+            . ($hasInstaller ? '<li>Or run the guided installer at <a href="/install/index.php">/install/</a>.</li>' : '')
+            . '</ol>'
+            . '<p class="small text-secondary mb-0">Full instructions: <code>docs/AEONFREE.md</code>.</p>'
+            . '</div></div></div></body></html>';
         exit;
     }
     // The installer needs the defaults to render its own form.

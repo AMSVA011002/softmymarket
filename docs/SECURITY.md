@@ -68,8 +68,14 @@ tested rather than taken on faith.
   ```
   default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';
   object-src 'none'; img-src 'self' data: blob: https:;
-  script-src 'self' 'nonce-<per-request>'; connect-src 'self'
+  script-src 'self' 'nonce-<per-request>' https://www.googletagmanager.com;
+  connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com
   ```
+
+  Google Tag Manager is only allowed because the analytics snippet is optional;
+  every other script must be same-origin **and** carry the nonce. There are no
+  inline `onclick`/`onsubmit` handlers anywhere in the code base — behaviours are
+  attached with `data-*` attributes in `assets/js/app.js`.
 
   Inline scripts must carry `nonce="<?= e(Security::nonce()) ?>"`. No CDN is
   required — Bootstrap is vendored under `assets/vendor/`.
@@ -249,6 +255,12 @@ the deny rules from [DEPLOYMENT.md §12](DEPLOYMENT.md#12-nginx-vps-notes).
       only after merchant approval
 - [ ] Seeded demo customers/orders removed or passwords rotated
 - [ ] `storage/installed.lock` exists; `/install/` returns 404 or is deleted
+      (the shipped `.htaccess` already returns 404 for `install/index.php`, and
+      **Admin → Tools → Lock the installer** writes the lock file)
+- [ ] Database password rotated after setup (it was shared in plain text) and
+      `config/config.php` is 0640 — it is git-ignored on purpose
+- [ ] Seeded administrator password changed on first sign-in
+- [ ] `robots.txt` disallows `/admin/`, `/account/`, `/payment/` (shipped)
 - [ ] `curl -I https://site/config/config.php` → 403/404
 - [ ] Cron/backup job configured; restore tested once
 - [ ] `php tests/run.php --db` passes on the production database

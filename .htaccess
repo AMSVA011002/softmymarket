@@ -1,40 +1,77 @@
 # ===========================================================================
-# SoftMyMarket — Apache configuration (shared hosting friendly)
+# SoftMyMarket — Apache configuration for shared hosting (aeonfree / hstn.me)
 # ===========================================================================
-Options -Indexes -MultiViews
-DirectoryIndex index.php
+# This file is deliberately conservative: every block is wrapped in an
+# <IfModule> test so a host without that module (or with a restricted
+# AllowOverride) does not return "500 Internal Server Error".
 
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    # Force HTTPS once TLS is active on the host (enable after SSL is issued).
-    # RewriteCond %{HTTPS} !=on
-    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+DirectoryIndex index.php index.html
 
-    # Pretty product / category URLs are optional; the app works with .php URLs
-    # out of the box. Uncomment to enable /p/{slug} and /c/{slug} aliases.
-    # RewriteRule ^p/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
-    # RewriteRule ^c/([a-z0-9-]+)/?$ category.php?slug=$1 [L,QSA]
+# -Indexes stops directory listings. If the host rejects the Options directive
+# it will show a 500 error on every page — in that case comment out the two
+# lines below (the app itself never needs them).
+<IfModule mod_autoindex.c>
+    Options -Indexes
 </IfModule>
 
-# ---- never expose application internals -----------------------------------
-RedirectMatch 404 ^/(config|includes|database|storage|tests|tools|docs|install/lib)(/|$)
-RedirectMatch 404 /\.(git|env|htaccess|htpasswd|editorconfig)(/|$)
-RedirectMatch 404 /(README|DEPLOYMENT|SECURITY|CHANGELOG)\.md$
-RedirectMatch 404 /database\.sql$
-RedirectMatch 404 /composer\.(json|lock)$
+# ---------------------------------------------------------------------------
+# HTTPS
+# ---------------------------------------------------------------------------
+# aeonfree issues a free certificate for *.hstn.me. Once it is active, uncomment
+# the three lines below to force HTTPS everywhere.
+#<IfModule mod_rewrite.c>
+#    RewriteEngine On
+#    RewriteCond %{HTTPS} !=on
+#    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+#    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+#</IfModule>
 
-# ---- security headers -----------------------------------------------------
+# Optional pretty URLs (the app works fine with .php URLs out of the box).
+#<IfModule mod_rewrite.c>
+#    RewriteEngine On
+#    RewriteRule ^p/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
+#    RewriteRule ^c/([a-z0-9-]+)/?$ category.php?slug=$1 [L,QSA]
+#</IfModule>
+
+# ---------------------------------------------------------------------------
+# Never serve application internals
+# ---------------------------------------------------------------------------
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/(config|includes|database|storage|tests|docs)(/|$)
+    RedirectMatch 404 ^/(tools|install)/.*\.(php|md|sql|lock)$
+    RedirectMatch 404 /\.(git|env|htaccess|htpasswd|editorconfig)(/|$)
+    RedirectMatch 404 /(README|DEPLOYMENT|SECURITY|CHANGELOG|AEONFREE)\.md$
+</IfModule>
+
+<FilesMatch "\.(sql|sql\.gz|log|lock|ini|dist|bak|sh|md|json|yml|yaml)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
 <IfModule mod_headers.c>
+    Header always unset X-Powered-By
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(self)"
     Header always set Cross-Origin-Opener-Policy "same-origin"
-    # HSTS — only enable after the certificate is confirmed working.
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    # Enable only after HTTPS is confirmed working:
     # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
-# ---- default PHP hardening (duplicated in .user.ini for CGI/FPM) ----------
+# ---------------------------------------------------------------------------
+# PHP hardening for hosts that run PHP as an Apache module (mod_php).
+# Under PHP-FPM/CGI these directives are ignored — .user.ini covers that case.
+# ---------------------------------------------------------------------------
 <IfModule mod_php.c>
     php_flag display_errors off
     php_flag log_errors on
@@ -44,25 +81,32 @@ RedirectMatch 404 /composer\.(json|lock)$
     php_value upload_max_filesize 6M
     php_value post_max_size 8M
 </IfModule>
-
-# ---- compression ----------------------------------------------------------
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+<IfModule mod_php7.c>
+    php_flag display_errors off
+    php_value upload_max_filesize 6M
+    php_value post_max_size 8M
 </IfModule>
 
-# ---- long-lived caching for versioned static assets ----------------------
+# ---------------------------------------------------------------------------
+# Compression + caching (both optional, both guarded)
+# ---------------------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/json image/svg+xml
+</IfModule>
+
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 30 days"
     ExpiresByType application/javascript "access plus 30 days"
     ExpiresByType image/svg+xml "access plus 30 days"
-    ExpiresByType font/woff2 "access plus 1 year"
     ExpiresByType image/webp "access plus 30 days"
     ExpiresByType image/jpeg "access plus 30 days"
     ExpiresByType image/png "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
-# ---- large uploads (payment slips) ---------------------------------------
-<IfModule mod_security.c>
-    SecFilterEngine Off
-</IfModule>
+# ---------------------------------------------------------------------------
+# Error pages (optional)
+# ---------------------------------------------------------------------------
+# ErrorDocument 404 /404.php

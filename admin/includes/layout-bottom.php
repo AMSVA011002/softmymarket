@@ -4,7 +4,7 @@
 <div class="position-fixed bottom-0 end-0 p-3 d-flex flex-column gap-2" data-toast-stack style="z-index:1090"></div>
 <script src="<?= e(asset('assets/vendor/bootstrap/bootstrap.bundle.min.js')) ?>"></script>
 <script src="<?= e(asset('assets/js/app.js')) ?>"></script>
-<script>
+<script nonce="<?= e(Security::nonce()) ?>">
   (function () {
     var toggle = document.querySelector('[data-admin-toggle]');
     var sidebar = document.querySelector('[data-admin-sidebar]');
@@ -20,7 +20,7 @@
   })();
 </script>
 <?php if (!empty($adminInlineScript)): ?>
-<script><?= $adminInlineScript ?></script>
+<script nonce="<?= e(Security::nonce()) ?>"><?= $adminInlineScript ?></script>
 <?php endif; ?>
 </body>
 </html>

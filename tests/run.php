@@ -22,11 +22,18 @@ require dirname(__DIR__) . '/includes/bootstrap.php';
 
 /* ------------------------------------------------------------------ harness */
 
+/** Thrown by T::skip() so a case can opt out without failing. */
+final class SkippedCase extends RuntimeException
+{
+}
+
 final class T
 {
     public static int $passed = 0;
     /** @var list<string> */
     public static array $failures = [];
+    /** @var list<string> */
+    public static array $skipped = [];
     public static string $current = '';
     public static string $filter = '';
 
@@ -40,10 +47,20 @@ final class T
             $body();
             self::$passed++;
             echo "  \033[32m✓\033[0m {$name}\n";
+        } catch (SkippedCase) {
+            // already reported by skip()
         } catch (Throwable $e) {
             self::$failures[] = $name . ' — ' . $e->getMessage();
             echo "  \033[31m✗\033[0m {$name}\n    " . $e->getMessage() . "\n";
         }
+    }
+
+    /** Skip a case whose PHP extension is missing on this host. */
+    public static function skip(string $reason): never
+    {
+        self::$skipped[] = self::$current . ' — ' . $reason;
+        echo "  \033[33m·\033[0m {$reason}\n";
+        throw new SkippedCase($reason);
     }
 
     public static function same(mixed $expected, mixed $actual, string $what = ''): void
@@ -83,8 +100,10 @@ final class T
     {
         $failed = count(self::$failures);
         echo "\n" . str_repeat('-', 60) . "\n";
+        $skipped = count(self::$skipped);
         if ($failed === 0) {
-            echo "\033[32mAll " . self::$passed . " checks passed.\033[0m\n";
+            echo "\033[32mAll " . self::$passed . " checks passed"
+                . ($skipped > 0 ? " ({$skipped} skipped)" : '') . ".\033[0m\n";
             return 0;
         }
         echo "\033[31m{$failed} failed\033[0m, " . self::$passed . " passed:\n";
@@ -237,6 +256,9 @@ T::case('security: expired tokens are rejected', function (): void {
 });
 
 T::case('security: encrypt/decrypt round-trip and random IV', function (): void {
+    if (!function_exists('openssl_encrypt')) {
+        T::skip('openssl extension not available — Security::encrypt() is unused at runtime');
+    }
     $plain = 'Seylan secret 1234';
     $one = Security::encrypt($plain);
     $two = Security::encrypt($plain);
@@ -372,6 +394,53 @@ T::case('catalog: rating and flags are clamped', function (): void {
     T::true($filters['on_sale']);
     T::same('used', $filters['condition']);
     T::same(1, Catalog::parseFilters(['rating' => '0'])['rating']);
+});
+
+/* ---------------------------------------------------------------- sql files */
+
+T::case('sql: database/install.sql creates every table in schema.sql', function (): void {
+    $root = dirname(__DIR__);
+    $schema = (string) file_get_contents($root . '/database/schema.sql');
+    $install = (string) file_get_contents($root . '/database/install.sql');
+
+    preg_match_all('/CREATE TABLE `(\w+)`/', $schema, $matches);
+    $expected = $matches[1];
+    T::true(count($expected) >= 23, 'expected at least 23 tables in schema.sql, found ' . count($expected));
+
+    foreach ($expected as $table) {
+        T::contains('CREATE TABLE `' . $table . '`', $install, "install.sql is missing table {$table}");
+    }
+    T::contains('DROP TABLE IF EXISTS `users`', $install, 'install.sql must be re-runnable');
+
+    // The production script must not carry the demo catalogue.
+    T::false(str_contains($install, "INSERT INTO `products`"), 'install.sql should stay schema + admin only');
+});
+
+T::case('sql: install.sql seeds an administrator and the store settings', function (): void {
+    $install = (string) file_get_contents(dirname(__DIR__) . '/database/install.sql');
+    T::contains("INSERT INTO `users`", $install, 'no administrator insert');
+    T::contains("'admin'", $install, 'the inserted user must have the admin role');
+    T::true((bool) preg_match('/\$2y\$12\$[.\/A-Za-z0-9]{53}/', $install), 'admin password must be a bcrypt cost-12 hash');
+    T::contains("('store_name', 'SoftMyMarket')", $install, 'store settings are missing');
+});
+
+T::case('sql: demo-data.sql only touches catalogue tables', function (): void {
+    $demo = (string) file_get_contents(dirname(__DIR__) . '/database/demo-data.sql');
+    preg_match_all('/INSERT IGNORE INTO `(\w+)`/', $demo, $matches);
+    T::true($matches[1] !== [], 'demo-data.sql has no inserts');
+    foreach (array_unique($matches[1]) as $table) {
+        T::true(in_array($table, ['categories', 'brands', 'products', 'coupons'], true),
+            "demo-data.sql must not insert into {$table}");
+    }
+    T::contains('/assets/img/demo/product-01.svg', $demo, 'demo products should use the bundled artwork');
+});
+
+T::case('assets: every demo product image exists', function (): void {
+    $root = dirname(__DIR__);
+    for ($i = 1; $i <= 12; $i++) {
+        $path = sprintf('%s/assets/img/demo/product-%02d.svg', $root, $i);
+        T::true(is_file($path), 'missing ' . $path);
+    }
 });
 
 /* --------------------------------------------------------------------- db */

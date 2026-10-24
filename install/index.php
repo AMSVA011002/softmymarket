@@ -333,7 +333,7 @@ $done = (bool) query('done') || $installed;
           <div class="alert alert-warning small">No configuration file found — go back to step 1.</div>
           <a class="btn btn-soft" href="/install/index.php?step=1">Back</a>
         <?php else: ?>
-          <form method="post" onsubmit="return confirm('Import the schema now? Existing SoftMyMarket tables will be replaced.');">
+          <form method="post" data-install-confirm>
             <?= Csrf::field() ?>
             <input type="hidden" name="step" value="2">
             <button class="btn btn-brand" type="submit">Import schema</button>
@@ -360,5 +360,15 @@ $done = (bool) query('done') || $installed;
     <?php endif; ?>
   </div>
 </div>
+<script nonce="<?= e(Security::nonce()) ?>">
+  // Confirm before replacing tables (kept out of inline onsubmit for the CSP).
+  document.querySelectorAll('form[data-install-confirm]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (!window.confirm('Import the schema now? Existing SoftMyMarket tables will be replaced.')) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 </body>
 </html>

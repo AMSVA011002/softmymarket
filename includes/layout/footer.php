@@ -200,7 +200,7 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
 <script src="<?= e(asset('assets/js/app.js')) ?>" defer></script>
 <?php if (Settings::get('google_analytics_id') !== ''): ?>
   <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e(Settings::get('google_analytics_id')) ?>"></script>
-  <script>
+  <script nonce="<?= e(Security::nonce()) ?>">
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());

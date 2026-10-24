@@ -348,7 +348,7 @@ require INCLUDES_PATH . '/layout/header.php';
   </section>
 <?php endif; ?>
 
-<script type="application/ld+json">
+<script type="application/ld+json" nonce="<?= e(Security::nonce()) ?>">
 <?= json_encode([
     '@context' => 'https://schema.org',
     '@type' => 'Product',

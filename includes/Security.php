@@ -49,8 +49,8 @@ final class Security
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline' https:",
-            "script-src 'self' 'nonce-" . self::nonce() . "'",
-            "connect-src 'self'",
+            "script-src 'self' 'nonce-" . self::nonce() . "' https://www.googletagmanager.com",
+            "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com",
             "manifest-src 'self'",
         ]);
         header('Content-Security-Policy: ' . $csp);
@@ -74,6 +74,32 @@ final class Security
             return strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https';
         }
         return false;
+    }
+
+    /**
+     * Best-effort scheme for generated absolute URLs (emails, payment callbacks).
+     *
+     * Looser than isHttps(): shared hosts often terminate TLS at a proxy that
+     * only announces itself through X-Forwarded-Proto. Guessing "https" there
+     * avoids mixed-content links, while cookies stay on the strict check so a
+     * Secure cookie is never issued over plain HTTP.
+     */
+    public static function scheme(): string
+    {
+        if (self::isHttps()) {
+            return 'https';
+        }
+        $forwarded = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+        if ($forwarded === 'https' || $forwarded === 'wss') {
+            return 'https';
+        }
+        if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') {
+            return 'https';
+        }
+        if (strtolower((string) ($_SERVER['HTTP_FRONT_END_HTTPS'] ?? '')) === 'on') {
+            return 'https';
+        }
+        return 'http';
     }
 
     public static function clientIp(): string

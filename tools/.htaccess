@@ -1,1 +1,8 @@
-Require all denied
+# Deny all direct HTTP access (Apache 2.4 and 2.2 syntax).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

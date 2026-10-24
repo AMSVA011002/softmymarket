@@ -88,6 +88,7 @@ function admin_nav_groups(): array
         'System' => [
             ['Settings', 'settings.php', 'bi-gear', 'settings.manage', null],
             ['Team', 'team.php', 'bi-person-badge', 'users.manage', null],
+            ['Tools', 'tools.php', 'bi-tools', 'settings.manage', null],
         ],
     ];
 }

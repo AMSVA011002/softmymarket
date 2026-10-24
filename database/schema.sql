@@ -2,8 +2,16 @@
 -- SoftMyMarket — MySQL schema
 --
 -- Target: MySQL 5.7+/8.0 and MariaDB 10.3+, shared hosting friendly.
---   1. Import this file once (phpMyAdmin or the installer in /install).
---   2. Then run /install to create the first administrator and demo data.
+--
+-- TWO WAYS TO INSTALL
+--   * Deployment (recommended, no SSH needed): import database/install.sql,
+--     which is this file plus the default settings and the first administrator,
+--     then optionally database/demo-data.sql. Import both in phpMyAdmin.
+--   * Web installer: open /install/ — it imports THIS file and then asks for the
+--     administrator account. (Blocked by .htaccess on the aeonfree deployment.)
+--
+-- This file is canonical: every table definition lives here and nowhere else.
+-- tests/run.php fails if install.sql ever drifts from it.
 --
 -- Conventions
 --   * InnoDB everywhere, utf8mb4_unicode_ci so Sinhala/Tamil text is safe.
