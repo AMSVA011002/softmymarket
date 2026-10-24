@@ -568,6 +568,76 @@ switch ($action) {
         Audit::log('settings.gateways', 'settings');
         $done('success', 'Payment methods updated.');
 
+    /* ------------------------------------------------------------ tools */
+    case 'installer_lock':
+        admin_require('settings.manage');
+        $lockPath = STORAGE_PATH . '/installed.lock';
+        if (is_file($lockPath)) {
+            $done('info', 'The installer is already locked.');
+        }
+        $written = @file_put_contents($lockPath, (string) json_encode([
+            'installed_at' => date('c'),
+            'version' => SMM_VERSION,
+            'locked_by' => (int) Auth::id(),
+        ], JSON_PRETTY_PRINT));
+        if ($written === false) {
+            $done('danger', 'Could not write storage/installed.lock. Create the file manually or chmod storage/ to 775.');
+        }
+        @chmod($lockPath, 0640);
+        Audit::log('installer.locked', 'system');
+        $done('success', 'Installer locked. /install/ can no longer change this database.');
+
+    case 'seed_demo':
+        // Web seeder for hosts without SSH. Bounded so it cannot hit the
+        // free plan's execution limit, and off by default for staff.
+        admin_require('settings.manage');
+        $productsWanted = min(2000, max(0, post_int('products')));
+        $customersWanted = min(2000, max(0, post_int('customers')));
+        $ordersWanted = min(200, max(0, post_int('orders')));
+        if ($productsWanted + $customersWanted + $ordersWanted === 0) {
+            $done('warning', 'Enter at least one count to generate.');
+        }
+        @set_time_limit(180);
+        ignore_user_abort(true);
+
+        // The seeder is written for the CLI; allow it to be included here.
+        if (!defined('SMM_SEED_ALLOW_WEB')) {
+            define('SMM_SEED_ALLOW_WEB', true);
+        }
+        require_once ROOT_PATH . '/tools/seed.php';
+
+        $summary = [];
+        try {
+            $categoryIds = seed_catalog_tree();
+            $brandMap = seed_catalog_brands();
+            seed_catalog_coupons();
+            ob_start();
+            if ($productsWanted > 0) {
+                $summary[] = number_format(seed_products($productsWanted, $categoryIds, $brandMap)) . ' products';
+            }
+            if ($customersWanted > 0) {
+                $summary[] = number_format(seed_customers($customersWanted)) . ' customers';
+            }
+            if ($ordersWanted > 0) {
+                $summary[] = number_format(seed_orders($ordersWanted)) . ' orders';
+            }
+            ob_end_clean();
+        } catch (Throwable $e) {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            error_log('Web seeding failed: ' . $e->getMessage());
+            Audit::log('tools.seed_failed', 'system', null, ['error' => $e->getMessage()]);
+            $done('danger', 'Seeding stopped: ' . $e->getMessage() . ' — lower the counts and try again.');
+        }
+
+        Audit::log('tools.seed', 'system', null, [
+            'products' => $productsWanted,
+            'customers' => $customersWanted,
+            'orders' => $ordersWanted,
+        ]);
+        $done('success', 'Generated ' . implode(', ', $summary) . '.');
+
     default:
         $done('danger', 'Unknown action.');
 }

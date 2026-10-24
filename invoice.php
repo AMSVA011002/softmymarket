@@ -30,7 +30,7 @@ require INCLUDES_PATH . '/layout/header.php';
   <div class="container-page" style="max-width:900px">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <a class="btn btn-soft btn-sm" href="<?= Auth::isTeam() ? '/admin/order.php?id=' . (int) $order['id'] : '/account/order.php?id=' . (int) $order['id'] ?>"><i class="bi bi-arrow-left"></i> Back</a>
-      <button class="btn btn-brand btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Print / save PDF</button>
+      <button class="btn btn-brand btn-sm" type="button" data-print><i class="bi bi-printer"></i> Print / save PDF</button>
     </div>
 
     <div class="card-soft p-4 invoice-sheet">

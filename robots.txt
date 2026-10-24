@@ -1,0 +1,16 @@
+# SoftMyMarket
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /account/
+Disallow: /actions/
+Disallow: /api/
+Disallow: /install/
+Disallow: /payment/
+Disallow: /invoice.php
+Disallow: /checkout.php
+Disallow: /cart.php
+Disallow: /track.php
+Disallow: /order-success.php
+
+Sitemap: /sitemap.php

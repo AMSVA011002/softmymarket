@@ -82,7 +82,7 @@ final class Csrf
             echo '<div class="card shadow-sm"><div class="card-body p-4 text-center">';
             echo '<h1 class="h4 fw-bold mb-2">Your session expired</h1>';
             echo '<p class="text-secondary mb-4">For your security the form could not be verified. Please reload the page and submit it again.</p>';
-            echo '<button class="btn btn-success" onclick="location.reload()">Reload page</button>';
+            echo '<a class="btn btn-success" href="">Reload page</a>';
             echo '<a class="btn btn-outline-secondary ms-2" href="/">Go to ' . $appName . '</a>';
             echo '</div></div></div></body></html>';
             exit;

@@ -83,9 +83,8 @@ function url(string $path = '', array $query = []): string
 {
     $base = rtrim((string) Config::get('app.url', ''), '/');
     if ($base === '') {
-        $scheme = Security::isHttps() ? 'https' : 'http';
         $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $base = $scheme . '://' . $host;
+        $base = Security::scheme() . '://' . $host;
     }
     $path = '/' . ltrim($path, '/');
     if ($path === '/') {

@@ -463,6 +463,12 @@
     });
   });
 
+  /* ------------------------------------------------------------ printing */
+  // Replaces inline onclick="window.print()" so the CSP can forbid inline JS.
+  $$("[data-print]").forEach((button) => {
+    button.addEventListener("click", () => window.print());
+  });
+
   /* ------------------------------------------------- password visibility */
   $$("[data-toggle-password]").forEach((button) => {
     button.addEventListener("click", () => {

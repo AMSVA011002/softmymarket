@@ -385,8 +385,10 @@ function seed_products(int $count, array $categoryIds, array $brands): int
         $slug = slugify($title) . '-' . $index;
         $specs = $words['specs'];
         $specs['SKU'] = 'SMM-' . str_pad((string) $index, 6, '0', STR_PAD_LEFT);
-        $image = 'https://picsum.photos/seed/smm-' . $index . '/800/800';
-        $gallery = ['https://picsum.photos/seed/smm-' . $index . '-b/800/800'];
+        // Cycle through the bundled artwork so every seeded product has an image
+        // that works offline; replace with Drive links from the product editor.
+        $image = '/assets/img/demo/product-' . str_pad((string) (($index % 12) + 1), 2, '0', STR_PAD_LEFT) . '.svg';
+        $gallery = [$image];
 
         $rows[] = [
             'uuid' => uuid(),

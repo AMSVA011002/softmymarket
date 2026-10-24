@@ -1,8 +1,10 @@
 # SoftMyMarket
 
 A production-ready, single-vendor marketplace for Sri Lanka — **PHP 8.1 + MySQL +
-Bootstrap 5**, no Composer, no build step, deployable to any shared hosting
-account.
+Bootstrap 5**, no Composer, no build step.
+
+**Live deployment:** `softmymarket.hstn.me` (aeonfree free plan) — see
+[docs/AEONFREE.md](docs/AEONFREE.md) for the step-by-step install.
 
 The UI/UX and database design mirror the `softdealz` reference store
 (same brand palette `#0c800f` / `#0a57a0`, LKR pricing, order-status pipeline,
@@ -52,33 +54,36 @@ HTML/CSS/JS/PHP/MySQL stack.
 
 ---
 
-## Quick start
+## Quick start (shared hosting, no SSH)
+
+1. Upload every folder to the web root — **including `config/config.php`**
+   (git-ignored, it holds the DB password) or create it from
+   `config/config.example.php`.
+2. phpMyAdmin → select the database → **Import** →
+   [`database/install.sql`](database/install.sql)
+   (23 tables + settings + the first admin).
+   Optional: [`database/demo-data.sql`](database/demo-data.sql) for 12 demo
+   products, 12 categories, 8 brands and 5 coupons.
+3. Open the site, sign in at `/login.php`, change the password, then
+   **Admin → Tools → Lock the installer**.
+4. Add the rest of the catalogue in **Admin → Tools → Seed demo data** (works
+   without SSH, batched for free-plan time limits) or from the product screens.
+
+### Command line (VPS / local)
 
 ```bash
-# 1. upload the project to your web root, then:
-cp config/config.example.php config/config.php     # edit DB details
-mysql -u USER -p DBNAME < database/schema.sql
-
-# 2. create the admin account (or run the web installer instead)
-#    https://your-domain.lk/install/
-
-# 3. seed the catalogue
+php tools/deploy-check.php                                  # verify the deployment
 php tools/seed.php --products=10000 --customers=10000 --orders=250
-
-# 4. run the checks
 php tests/run.php            # unit tests, no DB writes
 php tests/run.php --db       # + database integrity checks
 ```
-
-Prefer the browser? Open `/install/` and follow the three steps: requirements +
-database → schema import → admin account (with optional demo data).
 
 Demo logins after seeding (change before going live):
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | the address you set in the installer | your password |
-| Customer (any seeded account) | `customer1.<hash>@example.lk` — see **Admin → Customers** | `Password123!` |
+| Admin (from `install.sql`) | `admin@softmymarket.hstn.me` | `SoftMy@Admin2026` |
+| Customer (any seeded account) | see **Admin → Customers** | `Password123!` |
 
 ---
 
@@ -87,15 +92,15 @@ Demo logins after seeding (change before going live):
 ```
 index.php  shop.php  category.php  product.php  cart.php  checkout.php
 track.php  invoice.php  deals.php  brands.php  login.php  register.php …
-admin/            dashboard (orders, products, payments, settings, reports …)
+admin/            dashboard (orders, products, payments, settings, reports, tools …)
 account/          customer account pages
 actions/          POST handlers (auth, cart, checkout, account, review …)
 api/              JSON endpoints (cart, wishlist, live-orders, search-suggest)
 payment/          start / return / notify / simulate / proof
 includes/         core: Database, Auth, Security, Csrf, models, services
 assets/           Bootstrap, Icons, app CSS/JS (vendored, no CDN)
-database/         schema.sql (single source of truth)
-tools/            seed.php (catalogue + customers + orders)
+database/         schema.sql (canonical), install.sql (deploy), demo-data.sql
+tools/            seed.php, deploy-check.php (CLI diagnostics)
 install/          three-step web installer
 storage/          logs, cache, uploads, sessions, backups (not web-readable)
 docs/             deployment, database, security documentation
@@ -106,7 +111,10 @@ tests/            CLI test suite
 
 ## Documentation
 
-* [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — shared-hosting deployment, HTTPS,
+* [docs/AEONFREE.md](docs/AEONFREE.md) — the live deployment on aeonfree
+  (`softmymarket.hstn.me`): upload, SQL import, first-run checklist, free-plan
+  limits, backups
+* [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — generic shared-hosting deployment, HTTPS,
   cron, gateways, mail, post-deploy checklist, Nginx notes
 * [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 23 tables,
   status pipeline, category tree, seeding, maintenance SQL
@@ -146,16 +154,16 @@ going live.
 
 ---
 
-## Credentials the maintainer will supply
+## Status of the live deployment
 
-Before the final deployment the store owner provides:
+| Item | State |
+| --- | --- |
+| Database credentials | configured (`sql306.hstn.me` / `mseet_43261025_softmymarket`) |
+| SQL scripts | ready — `database/install.sql` + `database/demo-data.sql` |
+| Domain | `softmymarket.hstn.me` — set `app.url` once SSL is active |
+| Payment gateways | COD + bank transfer enabled; Seylan / KOKO / Payzy / Mintpay await merchant credentials |
+| SMTP | not configured — mail uses the host's sendmail |
+| Demo data | import `demo-data.sql` or use Admin → Tools |
 
-1. MySQL host / port / database / user / password
-2. Hosting control panel + SSH/SFTP access details
-3. Domain + SSL status (for `app.url` and secure cookies)
-4. Merchant credentials for Seylan, KOKO, Payzy, Mintpay (or confirmation to stay
-   in COD + bank-transfer mode)
-5. SMTP mailbox credentials for transactional email
-
-Insert them through the installer or `config/config.php`; nothing else needs to
-change.
+Rotate the database password that was shared during setup, and change the
+seeded administrator password on first sign-in.
