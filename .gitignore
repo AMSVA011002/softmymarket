@@ -1,0 +1,31 @@
+# ---------------------------------------------------------------------------
+# SoftMyMarket — files that must never be committed
+# ---------------------------------------------------------------------------
+config/config.php
+config/*.local.php
+
+# installer lock — created by install/index.php
+storage/installed.lock
+
+# runtime storage
+storage/logs/*
+!storage/logs/.gitkeep
+storage/cache/*
+!storage/cache/.gitkeep
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/backups/*
+!storage/backups/.gitkeep
+storage/sessions/*
+!storage/sessions/.gitkeep
+
+# build / tooling artefacts
+node_modules/
+tools/node_modules/
+tests/.php-wasm/
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
