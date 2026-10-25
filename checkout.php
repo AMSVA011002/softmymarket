@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 // "Buy now" adds a single product and continues straight to checkout.
 $buyNow = query_int('buy');

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $pageTitle = 'Returns & refunds';
 $pageDescription = 'Our 7-day returns policy, refund timelines and how to start a return.';

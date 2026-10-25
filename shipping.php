@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $freeShip = Settings::float('free_shipping_threshold', 15000);
 $flat = Settings::float('default_shipping_fee', 450);

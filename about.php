@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $pageTitle = 'About us';
 $pageDescription = 'SoftMyMarket is a single-vendor marketplace in Colombo delivering genuine products island-wide.';

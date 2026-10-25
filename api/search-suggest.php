@@ -11,7 +11,7 @@ declare(strict_types=1);
  * query on every keystroke.
  */
 
-require dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 RateLimiter::guard('search');
 

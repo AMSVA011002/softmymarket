@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $featuredCategories = Catalog::featuredCategories(12);
 $deals = Catalog::dealProducts(8);
@@ -37,7 +37,15 @@ require INCLUDES_PATH . '/layout/header.php';
           <div class="hero-slide hero-<?= e($slide['theme']) ?>">
             <div class="container-page">
               <div class="row align-items-center g-4">
-                <div class="col-lg-7 <?= $slide['theme'] === 'light' ? 'text-ink-900' : 'text-white' ?>">
+                <?php
+                $heroImage = trim((string) ($slide['image'] ?? ''));
+                $heroSrc = $heroImage !== '' ? img_url($heroImage, $slide['title'], 900) : '';
+                // Proxied images accept a target width; ask for a crisp hero size.
+                if (str_starts_with($heroSrc, '/image.php?')) {
+                    $heroSrc .= '&w=900';
+                }
+                ?>
+                <div class="col-lg-<?= $heroImage !== '' ? '7' : '9' ?> <?= $slide['theme'] === 'light' ? 'text-ink-900' : 'text-white' ?>">
                   <span class="eyebrow"><?= e($slide['eyebrow']) ?></span>
                   <h1 class="display-5 fw-bold mt-3 mb-2">
                     <?= e($slide['title']) ?><br>
@@ -54,9 +62,15 @@ require INCLUDES_PATH . '/layout/header.php';
                     <div><dt>Returns</dt><dd>7 days</dd></div>
                   </dl>
                 </div>
-                <div class="col-lg-5 d-none d-lg-grid">
-                  <div class="hero-visual"><i class="bi <?= e($slide['icon']) ?>"></i></div>
-                </div>
+                <?php if ($heroImage !== ''): ?>
+                  <div class="col-lg-5">
+                    <div class="hero-visual">
+                      <img class="hero-visual-img" src="<?= e($heroSrc) ?>"
+                           alt="<?= e(trim($slide['title'] . ' ' . $slide['highlight'])) ?>"
+                           width="900" height="675" loading="lazy" decoding="async">
+                    </div>
+                  </div>
+                <?php endif; ?>
               </div>
             </div>
           </div>

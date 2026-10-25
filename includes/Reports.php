@@ -166,12 +166,15 @@ final class Reports
     {
         [$start, $end] = self::range($from, $to);
         return Database::all(
-            "SELECT COALESCE(u.name, o.customer_name) AS name, o.email, o.user_id,
+            // One row per customer. The display name is aggregated so the query
+            // is valid under ONLY_FULL_GROUP_BY (and strict SQL engines), and
+            // grouping never depends on how a dialect resolves aliases.
+            "SELECT MAX(COALESCE(u.name, o.customer_name)) AS name, o.email, o.user_id,
                     COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS spent
                FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
               WHERE o.placed_at BETWEEN :start AND :end AND o.status <> 'CANCELLED'
-           GROUP BY o.email, o.user_id, name
+           GROUP BY o.email, o.user_id
            ORDER BY spent DESC
               LIMIT " . max(1, min(50, $limit)),
             ['start' => $start, 'end' => $end]
@@ -202,7 +205,7 @@ final class Reports
           LEFT JOIN coupons c ON c.id = o.coupon_id
               WHERE o.placed_at BETWEEN :start AND :end
                 AND (o.coupon_id IS NOT NULL OR o.coupon_code IS NOT NULL)
-           GROUP BY code
+           GROUP BY c.code, o.coupon_code
            ORDER BY uses DESC
               LIMIT " . max(1, min(50, $limit)),
             ['start' => $start, 'end' => $end]

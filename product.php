@@ -5,7 +5,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $slug = trim((string) query('slug', ''));
 $productId = query_int('id');

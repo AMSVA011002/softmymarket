@@ -5,7 +5,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $slug = (string) query('slug', '');
 $category = Catalog::categoryBySlug($slug);

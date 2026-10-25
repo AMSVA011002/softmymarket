@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 header('X-Content-Type-Options: nosniff');

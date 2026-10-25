@@ -7,7 +7,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 admin_require('settings.manage');
 
 /** Extension we genuinely need vs. nice to have. */

@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 if (!is_post()) {
     redirect('/admin/index.php');
@@ -477,29 +477,41 @@ switch ($action) {
 
     case 'hero_slides_save':
         admin_require('settings.manage');
+        // Slides ticked for removal are skipped; blank headlines are dropped too,
+        // so an "Add slide" card left empty never reaches the storefront.
+        $removed = array_map('intval', array_values((array) ($_POST['slide_delete'] ?? [])));
+        $images = (array) ($_POST['slide_image'] ?? []);
         $slides = [];
-        $titles = (array) ($_POST['slide_title'] ?? []);
-        foreach ($titles as $index => $title) {
+        foreach ((array) ($_POST['slide_title'] ?? []) as $index => $title) {
+            if (in_array((int) $index, $removed, true)) {
+                continue;
+            }
             $title = trim((string) $title);
             if ($title === '') {
                 continue;
             }
+            // Same link rules as product images: Drive share links are folded
+            // into the canonical file/d/ID/view shape, plain https URLs are kept.
+            $image = normalize_image_url((string) ($images[$index] ?? ''));
             $slides[] = [
-                'eyebrow' => trim((string) ($_POST['slide_eyebrow'][$index] ?? '')),
-                'title' => $title,
-                'highlight' => trim((string) ($_POST['slide_highlight'][$index] ?? '')),
-                'description' => trim((string) ($_POST['slide_description'][$index] ?? '')),
-                'cta_label' => trim((string) ($_POST['slide_cta_label'][$index] ?? 'Shop now')),
-                'cta_url' => trim((string) ($_POST['slide_cta_url'][$index] ?? '/shop.php')),
-                'secondary_label' => trim((string) ($_POST['slide_secondary_label'][$index] ?? '')),
-                'secondary_url' => trim((string) ($_POST['slide_secondary_url'][$index] ?? '')),
+                'eyebrow' => mb_substr(trim((string) ($_POST['slide_eyebrow'][$index] ?? '')), 0, 60),
+                'title' => mb_substr($title, 0, 120),
+                'highlight' => mb_substr(trim((string) ($_POST['slide_highlight'][$index] ?? '')), 0, 120),
+                'description' => mb_substr(trim((string) ($_POST['slide_description'][$index] ?? '')), 0, 400),
+                'cta_label' => mb_substr(trim((string) ($_POST['slide_cta_label'][$index] ?? '')) ?: 'Shop now', 0, 40),
+                'cta_url' => mb_substr(trim((string) ($_POST['slide_cta_url'][$index] ?? '')) ?: '/shop.php', 0, 300),
+                'secondary_label' => mb_substr(trim((string) ($_POST['slide_secondary_label'][$index] ?? '')), 0, 40),
+                'secondary_url' => mb_substr(trim((string) ($_POST['slide_secondary_url'][$index] ?? '')), 0, 300),
                 'theme' => in_array($_POST['slide_theme'][$index] ?? '', ['green', 'blue', 'light'], true) ? (string) $_POST['slide_theme'][$index] : 'green',
-                'icon' => trim((string) ($_POST['slide_icon'][$index] ?? 'bi-bag-heart')),
+                'image' => (string) ($image ?? ''),
             ];
+            if (count($slides) >= View::HERO_SLIDE_LIMIT) {
+                break;
+            }
         }
         Settings::set('hero_slides', $slides === [] ? '' : (string) json_encode($slides, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        Audit::log('settings.hero_slides', 'settings');
-        $done('success', 'Hero slides saved.');
+        Audit::log('settings.hero_slides', 'settings', null, ['slides' => count($slides)]);
+        $done('success', $slides === [] ? 'All custom slides removed — the built-in slides are showing again.' : 'Hero slides saved (' . count($slides) . ').');
 
     /* ------------------------------------------------------------ messages */
     case 'message_read':
