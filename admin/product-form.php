@@ -47,7 +47,7 @@ if (!is_array($gallery)) {
     $gallery = [];
 }
 // The first slot mirrors the primary image; keep four editable slots.
-$slots = array_slice(array_values(array_unique(array_merge($gallery, ['', '', '', ''])), 0), 0, 4);
+$slots = array_slice(array_values(array_unique(array_merge($gallery, ['', '', '', '']))), 0, 4);
 $specs = $product['specs'] ?? [];
 if (!is_array($specs) || $specs === []) {
     $specs = ['' => ''];

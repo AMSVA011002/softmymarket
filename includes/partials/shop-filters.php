@@ -89,7 +89,7 @@ $renderTree = static function (array $nodes, int $level) use (&$renderTree, $byP
         <?php foreach ($facets['brands'] as $brand): ?>
           <label class="filter-option">
             <input class="form-check-input" type="checkbox" name="brand[]" value="<?= e($brand['slug']) ?>" <?= in_array($brand['slug'], $selectedBrands, true) ? 'checked' : '' ?>>
-            <span class="flex-grow-1"><?= e($brand['name']) ?></span>
+            <span class="flex-grow-1"><?= e((string) ($brand['name'] ?? $brand['slug'] ?? '')) ?></span>
             <span class="count"><?= (int) $brand['total'] ?></span>
           </label>
         <?php endforeach; ?>

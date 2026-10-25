@@ -14,7 +14,7 @@ declare(strict_types=1);
  */
 
 define('SMM_START', microtime(true));
-define('SMM_VERSION', '1.0.0');
+define('SMM_VERSION', '1.0.1');
 define('ROOT_PATH', str_replace('\\', '/', dirname(__DIR__)));
 define('INCLUDES_PATH', ROOT_PATH . '/includes');
 define('STORAGE_PATH', ROOT_PATH . '/storage');
@@ -98,6 +98,46 @@ unset($config, $envMap, $env, $path, $value, $segments);
 date_default_timezone_set((string) Config::get('app.timezone', 'Asia/Colombo'));
 setlocale(LC_MONETARY, 'en_LK.UTF-8', 'en_US.UTF-8', 'C');
 
+/**
+ * app.key signs password-reset links and guest order-tracking links, so a
+ * placeholder or a too-short key is a real vulnerability. Rather than dying
+ * with an opaque 500 (which is impossible to diagnose on free hosting), show
+ * exactly which line of config/config.php to fix.
+ */
+$appKey = (string) Config::get('app.key', '');
+$keyBroken = strlen($appKey) < 32 || stripos($appKey, 'CHANGE-ME') !== false;
+$runningInstaller = str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install');
+if ($keyBroken && !IS_CLI && !$runningInstaller) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>SoftMyMarket configuration needs attention</title>'
+        . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
+        . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:680px">'
+        . '<div class="card shadow-sm"><div class="card-body p-4">'
+        . '<h1 class="h4 fw-bold mb-3">One setting is missing: <code>app.key</code></h1>'
+        . '<p class="text-secondary mb-2">SoftMyMarket is installed and reachable, but '
+        . '<code>config/config.php</code> still has a placeholder secret. It signs password-reset '
+        . 'and order-tracking links, so it has to be random and private.</p>'
+        . '<ol class="small text-secondary">'
+        . '<li>Generate a key:<br><code>php -r "echo bin2hex(random_bytes(32));"</code></li>'
+        . '<li>Paste the 64-character result into <code>config/config.php</code> at '
+        . '<code>\'key\' =&gt; \'...\'</code>.</li>'
+        . '<li>Save the file and reload this page.</li>'
+        . '</ol>'
+        . '<p class="small text-secondary mb-0">Everything else — the database, the catalogue and '
+        . 'the dashboard — is already working.</p>'
+        . '</div></div></div></body></html>';
+    exit;
+}
+if (!$keyBroken && !preg_match('/^[0-9a-f]{64}$/i', $appKey)) {
+    // Works, but is not the documented format: warn instead of breaking the site.
+    error_log('[smm] app.key should be 64 hex characters (bin2hex(random_bytes(32))); the configured key is ' . strlen($appKey) . ' characters.');
+}
+unset($appKey, $keyBroken, $runningInstaller);
+
 /** ------------------------------------------------------- error + exception */
 error_reporting(E_ALL);
 ini_set('display_errors', Config::get('app.debug') ? '1' : '0');
@@ -105,47 +145,118 @@ ini_set('log_errors', '1');
 ini_set('error_log', STORAGE_PATH . '/logs/php-error.log');
 ini_set('expose_php', '0');
 
+/**
+ * Error handling policy.
+ *
+ * Notices, warnings and deprecations are logged, never fatal — on shared
+ * hosting a single PHP deprecation (or an undefined array key in a template)
+ * must not take the whole storefront down. With app.debug on they are thrown so
+ * development mistakes are impossible to miss.
+ *
+ * Recoverable and user errors always throw: those mean the code is wrong.
+ */
 set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
     if (!(error_reporting() & $severity)) {
-        return false;
+        return false; // silenced with @, or excluded by error_reporting()
     }
-    throw new ErrorException($message, 0, $severity, $file, $line);
-});
 
-set_exception_handler(static function (Throwable $e): void {
+    // E_STRICT is intentionally absent: the constant itself is deprecated in
+    // PHP 8.4 and referencing it here would raise a deprecation on every call.
+    $soft = [
+        E_WARNING, E_NOTICE, E_DEPRECATED,
+        E_USER_WARNING, E_USER_NOTICE, E_USER_DEPRECATED,
+    ];
+    if (!in_array($severity, $soft, true) || Config::get('app.debug')) {
+        throw new ErrorException($message, 0, $severity, $file, $line);
+    }
+
     error_log(sprintf(
-        "[%s] %s: %s in %s:%d\n%s",
+        '[%s] %s: %s in %s:%d',
         date('c'),
-        get_class($e),
-        $e->getMessage(),
-        $e->getFile(),
-        $e->getLine(),
-        $e->getTraceAsString()
+        match ($severity) {
+            E_WARNING, E_USER_WARNING => 'Warning',
+            E_NOTICE, E_USER_NOTICE => 'Notice',
+            E_DEPRECATED, E_USER_DEPRECATED => 'Deprecated',
+            default => 'PHP',
+        },
+        $message,
+        $file,
+        $line
     ));
-
-    if (IS_CLI) {
-        fwrite(STDERR, 'ERROR: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL);
-        exit(1);
-    }
-
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: text/html; charset=utf-8');
-    }
-    $debug = (bool) Config::get('app.debug');
-    $safeMessage = $debug ? htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') : 'Something went wrong on our side.';
-    $safeTrace = $debug ? '<pre class="small text-start overflow-auto">' . htmlspecialchars($e->getTraceAsString(), ENT_QUOTES, 'UTF-8') . '</pre>' : '';
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
-    echo '<title>Server error — ' . htmlspecialchars((string) Config::get('app.name', 'SoftMyMarket'), ENT_QUOTES, 'UTF-8') . '</title>';
-    echo '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
-    echo '<body class="bg-light d-flex align-items-center justify-content-center min-vh-100"><div class="text-center p-4">';
-    echo '<div class="display-5 mb-3">⚠️</div><h1 class="h3 fw-bold">We hit a snag</h1>';
-    echo '<p class="text-secondary">' . $safeMessage . '</p>';
-    echo '<a class="btn btn-success mt-2" href="/">Back to the store</a>';
-    echo '<p class="text-secondary small mt-3 mb-0">Reference: ' . htmlspecialchars(date('Ymd-His'), ENT_QUOTES, 'UTF-8') . '</p>';
-    echo $safeTrace;
-    echo '</div></body></html>';
+    return true;
 });
+
+/**
+ * Last-resort page for an uncaught exception.
+ *
+ * Kept as a named function (rather than a closure) so tests and
+ * tools/deploy-check.php can exercise it directly. Whatever breaks, the visitor
+ * must get a readable page carrying a reference id that also exists in
+ * storage/logs/, so support can find the exact stack trace.
+ */
+if (!function_exists('smm_render_fatal')) {
+    function smm_render_fatal(Throwable $e): void
+    {
+        $reference = 'SMM-' . date('Ymd-His') . '-' . strtoupper(bin2hex(random_bytes(3)));
+        $entry = sprintf(
+            "[%s] %s %s: %s in %s:%d\n%s\n",
+            date('c'),
+            $reference,
+            get_class($e),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            $e->getTraceAsString()
+        );
+        error_log($entry);
+        // error_log() can be swallowed by the host (many free hosts point it at a
+        // file we cannot read), so always append to our own dated log as well.
+        // Logging must never mask the original error.
+        try {
+            $logDir = STORAGE_PATH . '/logs';
+            if (is_dir($logDir) || @mkdir($logDir, 0775, true)) {
+                @file_put_contents($logDir . '/error-' . date('Y-m-d') . '.log', $entry, FILE_APPEND | LOCK_EX);
+            }
+        } catch (Throwable $ignored) {
+            // ignore
+        }
+
+        if (IS_CLI) {
+            fwrite(STDERR, 'ERROR: ' . $e->getMessage() . PHP_EOL . $e->getTraceAsString() . PHP_EOL);
+            exit(1);
+        }
+
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+            header('Cache-Control: no-store');
+        }
+
+        $debug = (bool) Config::get('app.debug');
+        $safeMessage = $debug
+            ? htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')
+            : 'Something went wrong on our side.';
+        $safeTrace = $debug
+            ? '<pre class="small text-start overflow-auto">' . htmlspecialchars($e->getTraceAsString(), ENT_QUOTES, 'UTF-8') . '</pre>'
+            : '';
+        $safeRef = htmlspecialchars($reference, ENT_QUOTES, 'UTF-8');
+
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8">';
+        echo '<meta name="viewport" content="width=device-width,initial-scale=1">';
+        echo '<title>Server error — ' . htmlspecialchars((string) Config::get('app.name', 'SoftMyMarket'), ENT_QUOTES, 'UTF-8') . '</title>';
+        echo '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
+        echo '<body class="bg-light d-flex align-items-center justify-content-center min-vh-100"><div class="text-center p-4">';
+        echo '<div class="display-5 mb-3">⚠️</div><h1 class="h3 fw-bold">We hit a snag</h1>';
+        echo '<p class="text-secondary">' . $safeMessage . '</p>';
+        echo '<a class="btn btn-success mt-2" href="/">Back to the store</a>';
+        echo '<p class="text-secondary small mt-3 mb-0">Reference: <code>' . $safeRef . '</code><br>';
+        echo 'Quote this reference to support — the matching entry is in <code>storage/logs/</code>.</p>';
+        echo $safeTrace;
+        echo '</div></body></html>';
+    }
+}
+
+set_exception_handler('smm_render_fatal');
 
 register_shutdown_function(static function (): void {
     $error = error_get_last();

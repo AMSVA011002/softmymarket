@@ -91,6 +91,20 @@ counts, PHP extensions, writable folders and MySQL version.
    (no SSH): 120 products / 50 customers per run, repeat a few times, or upload
    the SQL import of a locally generated dump.
 
+### 3a. If something does go wrong
+
+Three things are guaranteed so a problem never turns into a mystery:
+
+| What you see | What it means | What to do |
+| --- | --- | --- |
+| **"One setting is missing: app.key"** page | `config/config.php` still has the placeholder secret. Password-reset and tracking links are signed with it, so it must be random. | Run `php -r "echo bin2hex(random_bytes(32));"` (or any 64-character hex generator) and paste it into `'key' => '...'`. |
+| **"We hit a snag"** page with a reference like `SMM-20261025-090435-FB513D` | A bug we have not caught yet. The page never leaks a stack trace to visitors. | Open `storage/logs/error-YYYY-MM-DD.log` — the first line for that reference holds the exception, the file, the line and the trace. Send that line with the reference. |
+| **`storage/logs/php-error.log`** | Raw PHP warnings — notices, deprecations, failed uploads. | Check it after deploying; the storefront keeps running through deprecations and warnings on purpose. |
+
+Notices, warnings and deprecations are logged and swallowed (never converted into
+fatal errors), because free hosts frequently ship a newer PHP than the code was
+written for. Only real failures reach the error page.
+
 ---
 
 ## 4. Care and feeding on a free plan

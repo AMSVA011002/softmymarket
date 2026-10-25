@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 require __DIR__ . '/includes/bootstrap.php';
 
-$freeShip = (float) Settings::get('free_shipping_threshold', 15000);
-$flat = (float) Settings::get('default_shipping_fee', 450);
-$freeShip = (float) Settings::get('free_shipping_threshold', 15000);
-$codFee = (float) Settings::get('cod_fee', 0);
+$freeShip = Settings::float('free_shipping_threshold', 15000);
+$flat = Settings::float('default_shipping_fee', 450);
+$codFee = Settings::float('cod_fee', 0);
 $pageTitle = 'Shipping & delivery';
 $pageDescription = 'Delivery rates, timelines and courier partners.';
 $heroTitle = 'Shipping & delivery';
