@@ -410,7 +410,11 @@ switch ($action) {
         }
         try {
             if ($targetId > 0) {
-                $fields = ['name' => $name, 'email' => $email, 'role' => $role, 'status' => 'active'];
+                // Editing must not quietly un-suspend someone: the status only
+                // changes through the explicit suspend/reactivate buttons.
+                $existing = Users::find($targetId);
+                $status = $existing !== null && $existing['status'] === 'suspended' ? 'suspended' : 'active';
+                $fields = ['name' => $name, 'email' => $email, 'role' => $role, 'status' => $status];
                 if ($password !== '') {
                     $errors = Auth::passwordErrors($password);
                     if ($errors !== []) {
@@ -435,18 +439,61 @@ switch ($action) {
         Audit::log('team.saved', 'user', $targetId);
         $done('success', 'Team member saved.');
 
+    case 'team_suspend':
+        admin_require('users.manage');
+        $targetId = post_int('user_id');
+        if ($targetId === (int) Auth::id()) {
+            $done('danger', 'You cannot suspend your own account.');
+        }
+        $target = Users::find($targetId);
+        if ($target === null || !in_array((string) $target['role'], ['admin', 'staff'], true)) {
+            $done('danger', 'That team member no longer exists.');
+        }
+        if ($target['status'] === 'suspended') {
+            $done('info', 'That account is already suspended.');
+        }
+        if (Users::isLastAdmin($targetId)) {
+            $done('danger', 'Keep at least one active administrator account.');
+        }
+        Users::setStatus($targetId, 'suspended');
+        Audit::log('team.suspended', 'user', $targetId, ['email' => $target['email']]);
+        $done('success', $target['name'] . ' can no longer sign in. Reactivate the account whenever you need it back.');
+
+    case 'team_reactivate':
+        admin_require('users.manage');
+        $targetId = post_int('user_id');
+        $target = Users::find($targetId);
+        if ($target === null || !in_array((string) $target['role'], ['admin', 'staff'], true)) {
+            $done('danger', 'That team member no longer exists.');
+        }
+        Users::setStatus($targetId, 'active');
+        Audit::log('team.reactivated', 'user', $targetId, ['email' => $target['email']]);
+        $done('success', $target['name'] . ' is active again and can sign in.');
+
     case 'team_delete':
         admin_require('users.manage');
         $targetId = post_int('user_id');
         if ($targetId === (int) Auth::id()) {
-            $done('danger', 'You cannot remove your own account.');
+            $done('danger', 'You cannot delete your own account.');
+        }
+        $target = Users::find($targetId);
+        if ($target === null || !in_array((string) $target['role'], ['admin', 'staff'], true)) {
+            $done('danger', 'That team member no longer exists.');
+        }
+        // Deleting is permanent, so it must arrive from the button that says so.
+        // Older forms (and anything that still posts plain team_delete) fall back
+        // to the safe action instead of silently destroying the account.
+        if ((string) post('confirm_delete', '') !== '1') {
+            Users::setStatus($targetId, 'suspended');
+            Audit::log('team.suspended', 'user', $targetId, ['email' => $target['email']]);
+            $done('success', 'Team account suspended. Use Delete to remove it permanently.');
         }
         if (Users::isLastAdmin($targetId)) {
             $done('danger', 'Keep at least one administrator account.');
         }
-        Users::setStatus($targetId, 'suspended');
-        Audit::log('team.suspended', 'user', $targetId);
-        $done('success', 'Team account suspended.');
+        Users::purge($targetId);
+        Audit::log('team.deleted', 'user', $targetId, ['email' => $target['email'], 'name' => $target['name']]);
+        $done('success', $target['name'] . ' was deleted. Orders and audit history are unaffected.');
 
     /* ------------------------------------------------------------ settings */
     case 'settings_save':
@@ -469,6 +516,11 @@ switch ($action) {
             $values[$key] = is_array($raw) ? (string) json_encode($raw, JSON_UNESCAPED_UNICODE) : trim((string) $raw);
             if ($meta['type'] === 'number' && !is_numeric($values[$key])) {
                 $values[$key] = (string) $meta['default'];
+            }
+            if ($meta['type'] === 'image') {
+                // Store one canonical shape: Drive share links become
+                // file/d/ID/view, plain https URLs are kept, junk is dropped.
+                $values[$key] = (string) (normalize_image_url($values[$key]) ?? '');
             }
         }
         Settings::setMany($values);

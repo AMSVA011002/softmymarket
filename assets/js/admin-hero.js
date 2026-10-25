@@ -25,54 +25,12 @@
 
   /* ------------------------------------------------------------- normalise */
 
-  var DRIVE_PATTERNS = [
-    /drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{10,})/,
-    /drive\.google\.com\/(?:open|thumbnail|uc)\?[^\s#]*?id=([A-Za-z0-9_-]{10,})/,
-    /drive\.usercontent\.google\.com\/\w+\?[^\s#]*?id=([A-Za-z0-9_-]{10,})/,
-    /docs\.google\.com\/[\w-]+\/d\/([A-Za-z0-9_-]{10,})/,
-    /lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]{10,})/
-  ];
-
-  function driveId(value) {
-    for (var i = 0; i < DRIVE_PATTERNS.length; i++) {
-      var match = value.match(DRIVE_PATTERNS[i]);
-      if (match) return match[1];
-    }
-    if (/^[A-Za-z0-9_-]{25,}$/.test(value) && value.indexOf("/") === -1 && value.indexOf(".") === -1) {
-      return value;
-    }
-    return null;
+  // Shared with the product gallery and the logo/favicon fields.
+  var media = window.SMMMedia;
+  if (!media) {
+    return; // media-url.js did not load — the editor still works as plain inputs
   }
-
-  /** @returns {{ok:boolean, url:string, kind:string, reason:string}} */
-  function normalize(value) {
-    var raw = (value || "").trim().replace(/^[\s"'<>]+|[\s"'<>]+$/g, "");
-    if (!raw) return { ok: false, url: "", kind: "empty", reason: "No image — the slide will be text only." };
-    if (/^\s*(javascript|data|vbscript|file):/i.test(raw)) {
-      return { ok: false, url: "", kind: "bad", reason: "That link cannot be used for an image." };
-    }
-    var id = driveId(raw);
-    if (id) {
-      return { ok: true, url: "https://drive.google.com/file/d/" + id + "/view", kind: "drive", reason: "Google Drive file detected." };
-    }
-    if (raw.indexOf("//") === 0) raw = "https:" + raw;
-    if (!/^https?:\/\//i.test(raw)) {
-      if (/^[\w.-]+\.[a-z]{2,}(\/|\?)/i.test(raw)) {
-        raw = "https://" + raw;
-      } else {
-        return { ok: false, url: "", kind: "bad", reason: "Paste a Drive share link or a full https link." };
-      }
-    }
-    try {
-      var parsed = new URL(raw);
-      if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname) {
-        return { ok: false, url: "", kind: "bad", reason: "Only http(s) links are supported." };
-      }
-      return { ok: true, url: parsed.href, kind: "web", reason: "Web image link." };
-    } catch (error) {
-      return { ok: false, url: "", kind: "bad", reason: "That does not look like a valid link." };
-    }
-  }
+  var normalize = media.normalize;
 
   /* --------------------------------------------------------------- preview */
 
@@ -97,7 +55,7 @@
     var img = document.createElement("img");
     img.alt = "";
     img.loading = "lazy";
-    img.src = "/image.php?src=" + encodeURIComponent(result.url) + "&w=320";
+    img.src = media.previewSrc(result.url, 320);
     img.addEventListener("error", function () {
       preview.classList.add("is-bad");
       if (status) {

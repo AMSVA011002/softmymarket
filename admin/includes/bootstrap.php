@@ -107,7 +107,18 @@ function admin_setting_groups(): array
         'general' => [
             'store_name' => ['label' => 'Store name', 'type' => 'text', 'default' => 'SoftMyMarket'],
             'store_tagline' => ['label' => 'Tagline', 'type' => 'text', 'default' => 'Sri Lanka\'s everyday marketplace'],
-            'logo_url' => ['label' => 'Logo URL', 'type' => 'text', 'default' => '', 'help' => 'Public image or Google Drive share link. Leave blank to use the initials mark.'],
+            'logo_url' => [
+                'label' => 'Store logo',
+                'type' => 'image',
+                'default' => '',
+                'help' => 'Google Drive share link or any https image URL. Transparent PNG or SVG works best; leave blank to use the initials mark.',
+            ],
+            'favicon_url' => [
+                'label' => 'Favicon',
+                'type' => 'image',
+                'default' => '',
+                'help' => 'Square image, 512×512 recommended. Same link rules as the logo; leave blank to use the bundled icon.',
+            ],
             'brand_color' => ['label' => 'Brand colour', 'type' => 'color', 'default' => '#0c800f'],
             'brand_color_dark' => ['label' => 'Brand colour (dark)', 'type' => 'color', 'default' => '#0a6510'],
             'accent_color' => ['label' => 'Accent colour', 'type' => 'color', 'default' => '#0a57a0'],
@@ -137,7 +148,12 @@ function admin_setting_groups(): array
             'order_prefix' => ['label' => 'Order number prefix', 'type' => 'text', 'default' => 'SMM'],
             'allow_guest_checkout' => ['label' => 'Allow guest checkout', 'type' => 'bool', 'default' => 1],
             'allow_reviews' => ['label' => 'Allow product reviews', 'type' => 'bool', 'default' => 1],
-            'maintenance_mode' => ['label' => 'Maintenance mode', 'type' => 'bool', 'default' => 0, 'help' => 'Storefront shows a holding page; the dashboard stays available.'],
+            'maintenance_mode' => [
+                'label' => 'Maintenance mode',
+                'type' => 'bool',
+                'default' => 0,
+                'help' => 'Closes the storefront with a holding page (HTTP 503). Signed-in staff and the dashboard keep working, and payment callbacks still arrive.',
+            ],
             'live_tracking_refresh' => ['label' => 'Live tracking refresh (seconds)', 'type' => 'number', 'default' => 15],
             'gift_wrap_fee' => ['label' => 'Gift wrap fee', 'type' => 'number', 'default' => 0],
         ],

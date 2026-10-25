@@ -209,6 +209,22 @@ final class Users
         );
     }
 
+    /**
+     * Permanently remove a dashboard account.
+     *
+     * Team members are hard-deleted: they own no financial records of their own.
+     * Everything that referenced them either cascades (cart, wishlist,
+     * addresses, notifications) or is set to NULL (orders keep the customer's
+     * name and email on the row, audit entries keep their action).
+     */
+    public static function purge(int $id): void
+    {
+        if ($id <= 0) {
+            throw new InvalidArgumentException('Unknown team member.');
+        }
+        Database::run('DELETE FROM users WHERE id = :id', ['id' => $id]);
+    }
+
     public static function delete(int $id): void
     {
         // Customers are soft-anonymised: orders must keep their financial record.

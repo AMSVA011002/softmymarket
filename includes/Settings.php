@@ -141,6 +141,7 @@ final class Settings
             'initials'    => initials(self::get('store_name', (string) Config::get('app.name', 'SoftMyMarket'))),
             'tagline'     => self::get('store_tagline'),
             'logo'        => self::get('logo_url'),
+            'favicon'     => self::get('favicon_url'),
             'color'       => self::get('brand_color', '#0c800f'),
             'color_dark'  => self::get('brand_color_dark', '#0a6510'),
             'accent'      => self::get('accent_color', '#0a57a0'),

@@ -40,9 +40,16 @@ $smmPath = current_path();
   <meta property="og:title" content="<?= e($smmTitle) ?>">
   <meta property="og:description" content="<?= e(limit_text($smmDescription, 200, '')) ?>">
   <meta property="og:url" content="<?= e($smmCanonical) ?>">
-  <?php if (!empty($brand['logo'])): ?><meta property="og:image" content="<?= e($brand['logo']) ?>"><?php endif; ?>
+  <?php if (!empty($brand['logo'])): ?><meta property="og:image" content="<?= e(url(img_url($brand['logo'], $brand['name'], 1200))) ?>"><?php endif; ?>
   <meta name="csrf-token" content="<?= e(Csrf::token()) ?>">
-  <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
+  <?php
+  // Favicon is an editable setting with the same Drive/URL rules as the logo;
+  // fall back to the bundled SVG when nothing is configured.
+  $smmFavicon = trim(Settings::get('favicon_url'));
+  $smmFaviconSrc = $smmFavicon !== '' ? img_url($smmFavicon, $brand['name'], 128) : asset('assets/img/favicon.svg');
+  ?>
+  <link rel="icon" href="<?= e($smmFaviconSrc) ?>">
+  <link rel="apple-touch-icon" href="<?= e($smmFaviconSrc) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap-icons/bootstrap-icons.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
@@ -71,7 +78,7 @@ $smmPath = current_path();
 
       <a class="logo" href="/" aria-label="<?= e($brand['name']) ?> home">
         <?php if (!empty($brand['logo'])): ?>
-          <img src="<?= e($brand['logo']) ?>" alt="<?= e($brand['name']) ?>" height="38">
+          <img src="<?= e(img_url($brand['logo'], $brand['name'], 320)) ?>" alt="<?= e($brand['name']) ?>" height="38">
         <?php else: ?>
           <span class="logo-mark"><?= e($brand['initials']) ?></span>
           <span class="logo-text"><?= e($brand['name']) ?></span>

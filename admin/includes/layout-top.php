@@ -17,7 +17,7 @@ $adminFl = flashes();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title><?= e($adminTitle) ?> · <?= e($adminBrand['name']) ?> admin</title>
-  <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
+  <link rel="icon" href="<?= e(trim($adminBrand['favicon']) !== '' ? img_url($adminBrand['favicon'], $adminBrand['name'], 128) : asset('assets/img/favicon.svg')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap-icons/bootstrap-icons.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
@@ -28,7 +28,11 @@ $adminFl = flashes();
 <div class="admin-shell">
   <aside class="admin-sidebar" data-admin-sidebar>
     <a class="brand" href="/admin/index.php">
-      <span class="logo-mark"><?= e($adminBrand['initials']) ?></span>
+      <?php if (!empty($adminBrand['logo'])): ?>
+        <img src="<?= e(img_url($adminBrand['logo'], $adminBrand['name'], 320)) ?>" alt="<?= e($adminBrand['name']) ?>" height="30" style="object-fit:contain;max-width:150px">
+      <?php else: ?>
+        <span class="logo-mark"><?= e($adminBrand['initials']) ?></span>
+      <?php endif; ?>
       <span><strong><?= e($adminBrand['name']) ?></strong><small>Dashboard</small></span>
     </a>
     <?php foreach (admin_nav_groups() as $groupLabel => $items): ?>

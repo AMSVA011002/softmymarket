@@ -291,6 +291,36 @@ if (!IS_CLI) {
 }
 
 /**
+ * Maintenance mode gate.
+ *
+ * Settings → Commerce → Maintenance mode swaps the storefront for a holding
+ * page. Runs after the session and Auth boot so the team keeps full access to
+ * the dashboard (and can preview the storefront while it is hidden).
+ *
+ * Exempt: the dashboard, login/logout, assets, the image proxy, payment
+ * callbacks, the installer, the deploy check and the holding page itself.
+ */
+if (!IS_CLI && !defined('SMM_MAINTENANCE_PAGE')) {
+    try {
+        $maintenanceOn = Settings::bool('maintenance_mode');
+    } catch (Throwable $e) {
+        $maintenanceOn = false; // never hide the store because a setting failed to load
+    }
+    if ($maintenanceOn) {
+        require_once INCLUDES_PATH . '/maintenance.php';
+        $path = current_path();
+        if (!smm_maintenance_exempt($path) && !Auth::isTeam()) {
+            // JSON callers (cart, wishlist, live search) get a usable answer
+            // instead of an HTML holding page.
+            if (wants_json()) {
+                json_response(['error' => 'The store is briefly closed for maintenance. Please try again shortly.'], 503);
+            }
+            smm_maintenance_page();
+        }
+    }
+}
+
+/**
  * Payment credentials edited in the dashboard override config/config.php.
  * Stored as one JSON document so a save is a single atomic row write.
  */

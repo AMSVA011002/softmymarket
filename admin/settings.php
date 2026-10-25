@@ -21,6 +21,28 @@ $renderField = static function (string $key, array $meta): string {
     $label = '<label class="form-label small mb-1" for="' . e($id) . '">' . e($meta['label']) . '</label>';
     $help = !empty($meta['help']) ? '<div class="form-text">' . e($meta['help']) . '</div>' : '';
     $name = 'settings[' . $key . ']';
+    // Image fields get a live preview and the same Drive/URL rules as product
+    // images (assets/js/media-url.js does the browser side, this is the fallback
+    // markup when JS is off — the value is normalised again on save).
+    if ($meta['type'] === 'image') {
+        $normalised = normalize_image_url((string) $value);
+        $preview = $normalised !== null
+            ? '<img src="' . e(img_url($normalised, $meta['label'], 160)) . '" alt="">'
+            : '<i class="bi bi-image"></i>';
+        $statusText = $normalised !== null
+            ? (is_drive_url($normalised) ? 'Google Drive — proxied and cached.' : 'Image link — proxied and cached.')
+            : 'No image selected.';
+        $control = '<div class="d-flex gap-2 align-items-start" data-media-row data-media-width="160">'
+            . '<span class="image-slot-preview is-wide' . ($normalised !== null ? ' has-image' : '') . '" data-media-preview aria-hidden="true">'
+            . $preview . '</span>'
+            . '<div class="flex-grow-1 min-w-0">'
+            . '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" value="' . e((string) $value) . '"'
+            . ' placeholder="https://drive.google.com/file/d/FILE_ID/view" data-media-input autocomplete="off">'
+            . '<div class="form-text" data-media-status>' . e($statusText) . '</div>'
+            . '</div></div>';
+        return $label . $control . $help;
+    }
+
     $control = match ($meta['type']) {
         'textarea' => '<textarea class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" rows="3">' . e($value) . '</textarea>',
         'bool' => '<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="' . e($id) . '" name="' . e($name) . '" value="1"' . ((int) $value === 1 ? ' checked' : '') . '><label class="form-check-label small" for="' . e($id) . '">Enabled</label></div>',
@@ -325,10 +347,19 @@ require __DIR__ . '/includes/layout-top.php';
     <input type="hidden" name="action" value="settings_save">
     <input type="hidden" name="group" value="<?= e($tab) ?>">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <?php if ($tab === 'commerce' && Settings::bool('maintenance_mode')): ?>
+      <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status">
+        <i class="bi bi-cone-striped"></i>
+        <span class="flex-grow-1"><strong>Maintenance mode is ON.</strong> Visitors see a holding page (503) instead of the shop. You stay signed in, so this dashboard works normally.</span>
+        <a class="btn btn-sm btn-soft" href="/maintenance.php" target="_blank" rel="noopener">
+          <i class="bi bi-eye me-1"></i> Preview the holding page
+        </a>
+      </div>
+    <?php endif; ?>
     <div class="card-soft p-3">
       <div class="row g-3">
         <?php foreach ($group as $key => $meta): ?>
-          <div class="<?= in_array($meta['type'], ['textarea'], true) ? 'col-12' : 'col-md-6' ?>">
+          <div class="<?= in_array($meta['type'], ['textarea', 'image'], true) ? 'col-12' : 'col-md-6' ?>">
             <?= $renderField($key, $meta) ?>
           </div>
         <?php endforeach; ?>

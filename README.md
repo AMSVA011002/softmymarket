@@ -39,7 +39,13 @@ HTML/CSS/JS/PHP/MySQL stack.
 * Payments ledger with bank-slip verification
 * Reports (sales, categories, gateways, coupons, top products/customers) + CSV
 * Settings (general, commerce, content, payments, hero slides), audit log
-  — hero slides take a Google Drive link or any image URL, and can be added or removed
+  — hero slides, the store logo and the favicon all take a Google Drive share link
+  or any image URL, and hero slides can be added or removed
+* Team accounts: add, edit, suspend, reactivate and delete — a suspended member
+  keeps their history and can be switched back on, deleting is confirmed and audited
+* Maintenance mode: one switch closes the storefront behind a branded holding page
+  (HTTP 503 + `Retry-After`); the dashboard stays reachable, signed-in staff can
+  preview the store, and JSON endpoints answer with a 503 payload instead of HTML
 * Role-based access: **Admin**, **User** (store staff), **Customer**
 
 ---
