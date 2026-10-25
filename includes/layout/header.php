@@ -194,7 +194,7 @@ $smmStructuredData = [
       </form>
 
       <div class="header-actions">
-        <a class="action-link d-none d-md-flex" href="/track.php">
+        <a class="action-link d-none d-xl-flex" href="/track.php">
           <i class="bi bi-truck"></i><span>Track order</span>
         </a>
         <a class="action-link d-none d-md-flex" href="/account/wishlist.php">

@@ -205,6 +205,7 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
       <a class="btn btn-soft btn-sm text-start" href="/shop.php"><i class="bi bi-shop me-2"></i>All products</a>
       <a class="btn btn-soft btn-sm text-start" href="/deals.php"><i class="bi bi-lightning-charge me-2"></i>Today's deals</a>
       <a class="btn btn-soft btn-sm text-start" href="/track.php"><i class="bi bi-truck me-2"></i>Track an order</a>
+      <a class="btn btn-soft btn-sm text-start" href="/account/wishlist.php"><i class="bi bi-heart me-2"></i>Wishlist<span class="badge badge-feature ms-auto <?= $smmWishCount === 0 ? 'd-none' : '' ?>" data-wishlist-count><?= (int) $smmWishCount ?></span></a>
       <a class="btn btn-soft btn-sm text-start" href="/account/index.php"><i class="bi bi-person me-2"></i><?= Auth::check() ? 'My account' : 'Sign in' ?></a>
     </div>
     <h2 class="footer-title h6">Departments</h2>

@@ -192,12 +192,17 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   transition: box-shadow .2s ease;
 }
 .site-header.is-stuck { box-shadow: 0 8px 24px -18px rgba(15, 23, 42, .45); }
+/* One row on tablets and up: logo · search · actions.
+   The search is the flexible middle column, so it stays centred in the space
+   between the logo and the action group instead of hugging the logo. */
 .header-main {
   display: flex;
   align-items: center;
   gap: .75rem;
   padding-block: .6rem;
+  min-height: 64px;
 }
+@media (min-width: 992px) { .header-main { gap: 1.15rem; } }
 .logo {
   display: inline-flex;
   align-items: center;
@@ -217,13 +222,25 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   box-shadow: var(--shadow-brand);
   flex-shrink: 0;
 }
-.logo-text { line-height: 1.05; }
+.logo-text {
+  line-height: 1.05;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
 .logo-text strong { display: block; font-size: 1.02rem; letter-spacing: -.02em; }
 .logo-text span { display: block; font-size: .62rem; color: var(--ink-500); letter-spacing: .14em; text-transform: uppercase; }
 
 .search-shell {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 46rem;
+  /* Auto margins only bite once the shell hits its max-width, which is what
+     keeps it visually centred on very wide screens. */
+  margin-inline: auto;
   background: var(--ink-50);
   border: 1px solid var(--ink-200);
   border-radius: var(--radius-pill);
@@ -241,7 +258,7 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .search-shell input::placeholder { color: var(--ink-400); }
 .search-shell .btn { border-radius: var(--radius-pill); padding: .45rem 1.1rem; font-size: .85rem; }
 
-.header-actions { display: flex; align-items: center; gap: .35rem; }
+.header-actions { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
 .action-link {
   display: inline-flex; align-items: center; gap: .45rem;
   padding: .45rem .55rem; border-radius: .65rem;
@@ -265,6 +282,8 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .cat-nav {
   border-top: 1px solid var(--ink-100);
   background: #fff;
+  align-items: center;
+  gap: .15rem;
 }
 .cat-nav .container-page { display: flex; align-items: center; gap: .25rem; min-height: 44px; overflow-x: auto; scrollbar-width: none; }
 .cat-nav .container-page::-webkit-scrollbar { display: none; }
@@ -860,10 +879,32 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .steps .step.active { color: var(--brand-800); }
 .steps .sep { flex: 1; height: 1px; background: var(--ink-200); }
 
+@media (max-width: 991.98px) {
+  /* Two rows: menu · logo · wishlist/cart/account, then a full-width search. */
+  .header-main { flex-wrap: wrap; row-gap: .4rem; gap: .5rem; }
+  .header-actions { margin-left: auto; }
+  .search-shell {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
+    margin-inline: 0;
+    margin-top: .1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  /* Narrow phones: a slightly smaller mark and tighter gaps keep logo + actions
+     on one line once the avatar replaces the "Sign in" label. */
+  .header-main { gap: .4rem; }
+  .logo-mark { width: 36px; height: 36px; border-radius: 10px; font-size: .9rem; }
+  .logo-text { font-size: .95rem; }
+}
+/* 320px screens: keep the mark, drop the wordmark so the row never overflows. */
+@media (max-width: 359.98px) { .logo-text { display: none; } }
 @media (max-width: 575.98px) {
-  .header-main { flex-wrap: wrap; }
-  .search-shell { order: 3; flex-basis: 100%; margin-top: .4rem; }
   .action-link span.label { display: none; }
+  /* Phones: tighter tap targets so four items fit on one 360px row. */
+  .action-link { padding-inline: .4rem; }
   .section-head { flex-direction: column; align-items: flex-start; }
   .table-responsive-sm { font-size: .78rem; }
 }

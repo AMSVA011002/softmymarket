@@ -492,6 +492,31 @@ T::case('home: hero css stays fluid and overlap-free', function (): void {
     T::contains('prefers-reduced-motion: reduce', $css, 'reduced motion');
 });
 
+T::case('header: logo left, search centre, actions right', function (): void {
+    $header = (string) file_get_contents(dirname(__DIR__) . '/includes/layout/header.php');
+    $menu = strpos($header, 'data-bs-target="#navDrawer"');
+    $logo = strpos($header, '<a class="logo"');
+    $search = strpos($header, '<form class="search-shell"');
+    $actions = strpos($header, '<div class="header-actions">');
+    T::true($menu !== false && $logo !== false && $search !== false && $actions !== false, 'header blocks missing');
+    T::true($menu < $logo && $logo < $search && $search < $actions, 'header order must be menu, logo, search, actions');
+
+    $group = substr($header, $actions);
+    T::contains('/account/wishlist.php', $group, 'wishlist belongs to the right-hand action group');
+    T::contains('data-open-cart', $group, 'cart belongs to the right-hand action group');
+    T::contains('bi bi-person', $group, 'sign in belongs to the right-hand action group');
+    T::contains('data-wishlist-count', $group, 'wishlist badge');
+});
+
+T::case('header: css keeps the search flexible and centred', function (): void {
+    $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/app.css');
+    T::contains('flex: 1 1 auto;', $css, 'the search must grow into the middle');
+    T::contains('max-width: 46rem;', $css, 'the search must stay scannable');
+    T::contains('margin-inline: auto;', $css, 'the search must centre once capped');
+    T::contains('flex: 0 0 auto;', $css, 'the action group must not shrink');
+    T::contains('.header-main { flex-wrap: wrap; row-gap: .4rem; }', $css, 'small screens stack the search');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {
