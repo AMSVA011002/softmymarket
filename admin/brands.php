@@ -18,12 +18,20 @@ require __DIR__ . '/includes/layout-top.php';
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card-soft p-0">
-      <div class="table-responsive">
+      <div class="px-3 pt-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
+        <h2 class="h6 fw-bold mb-0">Brands</h2>
+        <input class="form-control form-control-sm ms-auto" style="max-width:240px" type="search"
+               placeholder="Filter brands" data-live-client="#brands-table"
+               data-live-empty="#brands-empty" data-live-count="#brands-count"
+               aria-label="Filter brands" autocomplete="off">
+        <span class="live-search-note" id="brands-count"></span>
+      </div>
+      <div class="table-responsive" id="brands-table">
         <table class="table table-admin mb-0">
           <thead><tr><th>Brand</th><th class="text-center">Products</th><th class="text-end">Actions</th></tr></thead>
           <tbody>
             <?php foreach ($brands as $brand): ?>
-              <tr>
+              <tr data-filter-row>
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <?php if (!empty($brand['logo_url'])): ?>
@@ -52,6 +60,7 @@ require __DIR__ . '/includes/layout-top.php';
               </tr>
             <?php endforeach; ?>
             <?php if ($brands === []): ?><tr><td colspan="3" class="text-center small text-ink-500 py-4">No brands yet.</td></tr><?php endif; ?>
+            <tr id="brands-empty" class="d-none"><td colspan="3" class="text-center small text-ink-500 py-4">No brand matches that search.</td></tr>
           </tbody>
         </table>
       </div>

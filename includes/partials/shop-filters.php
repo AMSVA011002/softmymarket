@@ -37,7 +37,8 @@ $renderTree = static function (array $nodes, int $level) use (&$renderTree, $byP
     }
 };
 ?>
-<form class="card-soft p-3 filter-panel" method="get" action="<?= e($baseAction) ?>" data-filters-form>
+<form class="card-soft p-3 filter-panel" method="get" action="<?= e($baseAction) ?>" data-filters-form
+      data-live-filter data-live-target="#shop-results">
   <?php foreach ($hiddenParams as $name => $value): ?>
     <input type="hidden" name="<?= e((string) $name) ?>" value="<?= e((string) $value) ?>">
   <?php endforeach; ?>
@@ -47,9 +48,13 @@ $renderTree = static function (array $nodes, int $level) use (&$renderTree, $byP
     <a class="small text-decoration-none" href="<?= e($baseAction . ($hiddenParams !== [] ? '?' . http_build_query($hiddenParams) : '')) ?>">Reset</a>
   </div>
 
-  <?php if (!empty($filters['q'])): ?>
-    <input type="hidden" name="q" value="<?= e($filters['q']) ?>">
-  <?php endif; ?>
+  <div class="filter-group">
+    <label class="filter-title" for="filter-q">Search</label>
+    <input class="form-control form-control-sm" id="filter-q" name="q" type="search"
+           value="<?= e((string) ($filters['q'] ?? '')) ?>" placeholder="Type to filter results"
+           data-live-input autocomplete="off">
+    <div class="live-search-note">Results update as you type.</div>
+  </div>
 
   <?php if ($categories !== []): ?>
     <div class="filter-group">

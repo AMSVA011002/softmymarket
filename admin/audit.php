@@ -8,18 +8,40 @@ require __DIR__ . '/includes/bootstrap.php';
 admin_require('settings.manage');
 
 $page = query_int('page', 1);
-$total = Database::int('SELECT COUNT(*) FROM audit_log');
+$search = trim((string) query('q', ''));
+$where = ['1 = 1'];
+$params = [];
+if ($search !== '') {
+    $like = '%' . $search . '%';
+    $where[] = '(a.action LIKE :aq1 OR a.entity LIKE :aq2 OR a.entity_id LIKE :aq3 OR u.name LIKE :aq4 OR u.email LIKE :aq5 OR a.ip_address LIKE :aq6)';
+    $params = ['aq1' => $like, 'aq2' => $like, 'aq3' => $like, 'aq4' => $like, 'aq5' => $like, 'aq6' => $like];
+}
+$whereSql = implode(' AND ', $where);
+$total = Database::int(
+    "SELECT COUNT(*) FROM audit_log a LEFT JOIN users u ON u.id = a.user_id WHERE {$whereSql}",
+    $params
+);
 $pager = paginate($total, $page, 50);
 $rows = Database::all(
-    'SELECT a.*, u.name AS user_name, u.email AS user_email
+    "SELECT a.*, u.name AS user_name, u.email AS user_email
        FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
-   ORDER BY a.id DESC LIMIT ' . $pager['limit'] . ' OFFSET ' . $pager['offset']
+      WHERE {$whereSql}
+   ORDER BY a.id DESC LIMIT {$pager['limit']} OFFSET {$pager['offset']}",
+    $params
 );
 
 $adminTitle = 'Audit log';
 $adminSubtitle = number_format($total) . ' security-relevant events';
 require __DIR__ . '/includes/layout-top.php';
 ?>
+<form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get"
+      action="<?= e(admin_url('audit.php')) ?>" data-live-filter>
+  <input class="form-control form-control-sm" style="max-width:320px" name="q" type="search"
+         value="<?= e($search) ?>" placeholder="Search action, entity, user or IP" data-live-input autocomplete="off">
+  <span class="live-search-note">Filters as you type.</span>
+</form>
+
+<div data-live-results>
 <div class="card-soft p-0">
   <div class="table-responsive">
     <table class="table table-admin mb-0">
@@ -47,6 +69,7 @@ require __DIR__ . '/includes/layout-top.php';
     </table>
   </div>
 </div>
-<div class="mt-3"><?= pagination_links($pager) ?></div>
+<div class="mt-3"><?= pagination_links($pager, ['q' => $search]) ?></div>
+</div><!-- /data-live-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

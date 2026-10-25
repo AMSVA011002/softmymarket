@@ -13,6 +13,14 @@ declare(strict_types=1);
  *   3. error + exception handling              6. CSRF token bootstrap
  */
 
+// Guard against a second include (a page that pulls bootstrap twice, or a
+// partial that bootstraps on its own). Without this PHP fatals on the
+// constant redefinition — cheaper to make the file idempotent.
+if (defined('SMM_BOOTSTRAPPED')) {
+    return;
+}
+define('SMM_BOOTSTRAPPED', true);
+
 define('SMM_START', microtime(true));
 define('SMM_VERSION', '1.0.1');
 define('ROOT_PATH', str_replace('\\', '/', dirname(__DIR__)));

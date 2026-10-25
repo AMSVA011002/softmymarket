@@ -59,24 +59,38 @@ $maxBytes = (int) Config::get('images.max_bytes', 5242880);
 $cacheTtl = (int) Config::get('images.cache_ttl', 604800);
 $cacheDir = ROOT_PATH . '/' . ltrim((string) Config::get('images.cache_dir', 'storage/cache/images'), '/');
 
-/** Turn any Google Drive link into a direct download URL. */
-function resolve_source(string $url): string
+/** Resolve any supported Google Drive link to an endpoint that returns image bytes. */
+function resolve_drive_source(string $url): ?string
 {
-    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
-    if (in_array($host, ['drive.google.com', 'docs.google.com'], true)) {
-        $id = drive_file_id($url);
-        if ($id !== null) {
-            return 'https://drive.google.com/uc?export=download&id=' . rawurlencode($id);
-        }
+    $id = drive_file_id($url);
+    if ($id === null) {
+        return null;
     }
-    if ($host === 'lh3.googleusercontent.com') {
-        return $url;
+    // lh3 serves the raw image for any file shared "anyone with the link".
+    return 'https://lh3.googleusercontent.com/d/' . rawurlencode($id) . '=w1600';
+}
+
+/**
+ * Candidate URLs for a stored image, most likely to work first.
+ *
+ * @return list<string>
+ */
+function resolve_sources(string $url): array
+{
+    $drive = resolve_drive_source($url);
+    if ($drive !== null) {
+        $id = (string) drive_file_id($url);
+        return [
+            $drive,
+            'https://drive.google.com/thumbnail?id=' . rawurlencode($id) . '&sz=w1600',
+            'https://drive.google.com/uc?export=download&id=' . rawurlencode($id),
+        ];
     }
-    return $url;
+    return [$url];
 }
 
 /** Reject hosts that are not allow-listed or resolve to private ranges. */
-function assert_allowed(string $url, array $allowedHosts): void
+function assert_allowed(string $url, array $allowedHosts, bool $allowPublic): void
 {
     $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
     $host = strtolower((string) parse_url($url, PHP_URL_HOST));
@@ -90,8 +104,19 @@ function assert_allowed(string $url, array $allowedHosts): void
             break;
         }
     }
-    if (!$allowed) {
+    // Shop owners paste images from manufacturer and brand sites, so any public
+    // host is accepted. The private/reserved-IP check below still runs for every
+    // host, which is what actually protects against SSRF.
+    if (!$allowed && !$allowPublic) {
         throw new RuntimeException('That image host is not allowed.');
+    }
+    if (in_array($host, ['localhost', 'localhost.localdomain', 'ip6-localhost'], true)
+        || preg_match('/^\d{1,3}(\.\d{1,3}){3}$/', $host)) {
+        // A literal IP is only allowed when it is public.
+        if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new RuntimeException('That image host is not reachable.');
+        }
+        return;
     }
 
     $ips = gethostbynamel($host);
@@ -104,17 +129,21 @@ function assert_allowed(string $url, array $allowedHosts): void
     }
 }
 
-$source = resolve_source($src);
-try {
-    assert_allowed($source, $allowedHosts);
-} catch (Throwable $e) {
-    abort(400, $e->getMessage());
+$sources = resolve_sources($src);
+$allowPublic = (bool) Config::get('images.allow_public_hosts', true);
+foreach ($sources as $candidate) {
+    try {
+        assert_allowed($candidate, $allowedHosts, $allowPublic);
+    } catch (Throwable $e) {
+        abort(400, $e->getMessage());
+    }
 }
+$source = $sources[0];
 
 if (!is_dir($cacheDir)) {
     @mkdir($cacheDir, 0775, true);
 }
-$cacheKey = hash('sha256', $source);
+$cacheKey = hash('sha256', implode('|', $sources));
 $cacheFile = $cacheDir . '/' . $cacheKey . '.bin';
 $metaFile = $cacheDir . '/' . $cacheKey . '.json';
 
@@ -142,7 +171,7 @@ if (is_file($cacheFile) && is_file($metaFile) && (time() - filemtime($cacheFile)
 $allowedMimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'image/avif' => 'avif'];
 
 /** Fetch with a hard size cap and redirect validation. */
-function fetch_image(string $url, array $allowedHosts, int $maxBytes): array
+function fetch_image(string $url, array $allowedHosts, bool $allowPublic, int $maxBytes): array
 {
     $attempts = 0;
     while ($attempts < 4) {
@@ -150,13 +179,21 @@ function fetch_image(string $url, array $allowedHosts, int $maxBytes): array
         if (function_exists('curl_init')) {
             $buffer = '';
             $headers = [];
+            // Manufacturer CDNs often reject requests without a same-site
+            // referer; sending one is what makes "official product page" images
+            // work through the proxy.
+            $origin = strtolower((string) parse_url($url, PHP_URL_SCHEME)) . '://' . (string) parse_url($url, PHP_URL_HOST) . '/';
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => false,
                 CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_TIMEOUT => 15,
                 CURLOPT_CONNECTTIMEOUT => 8,
-                CURLOPT_USERAGENT => 'SoftMyMarket/1.0 (+image proxy)',
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; SoftMyMarket/1.0; +image proxy)',
+                CURLOPT_HTTPHEADER => [
+                    'Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Referer: ' . $origin,
+                ],
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 CURLOPT_HEADERFUNCTION => static function ($handle, string $line) use (&$headers): int {
@@ -183,7 +220,7 @@ function fetch_image(string $url, array $allowedHosts, int $maxBytes): array
 
             if (in_array($status, [301, 302, 303, 307, 308], true) && !empty($headers['location'])) {
                 $url = make_absolute((string) $headers['location'], $url);
-                assert_allowed($url, $allowedHosts);
+                assert_allowed($url, $allowedHosts, $allowPublic);
                 continue;
             }
             if ($status !== 200) {
@@ -193,8 +230,14 @@ function fetch_image(string $url, array $allowedHosts, int $maxBytes): array
         }
 
         // Fallback: streams (no curl extension).
+        $origin = strtolower((string) parse_url($url, PHP_URL_SCHEME)) . '://' . (string) parse_url($url, PHP_URL_HOST) . '/';
         $context = stream_context_create([
-            'http' => ['timeout' => 15, 'follow_location' => 0, 'user_agent' => 'SoftMyMarket/1.0'],
+            'http' => [
+                'timeout' => 15,
+                'follow_location' => 0,
+                'user_agent' => 'Mozilla/5.0 (compatible; SoftMyMarket/1.0; +image proxy)',
+                'header' => "Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8\r\nReferer: " . $origin . "\r\n",
+            ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
         $data = @file_get_contents($url, false, $context, 0, $maxBytes);
@@ -230,10 +273,22 @@ function make_absolute(string $location, string $base): string
     return $scheme . '://' . $host . $dir . '/' . $location;
 }
 
-try {
-    [$bytes, $mime] = fetch_image($source, $allowedHosts, $maxBytes);
-} catch (Throwable $e) {
-    error_log('Image proxy failed for ' . $source . ': ' . $e->getMessage());
+$bytes = null;
+$mime = '';
+$lastError = null;
+foreach ($sources as $candidate) {
+    try {
+        [$bytes, $mime] = fetch_image($candidate, $allowedHosts, $allowPublic, $maxBytes);
+        $source = $candidate;
+        $lastError = null;
+        break;
+    } catch (Throwable $e) {
+        $lastError = $e;
+    }
+}
+if ($bytes === null) {
+    $e = $lastError ?? new RuntimeException('No image source.');
+    error_log('Image proxy failed for ' . $src . ': ' . $e->getMessage());
     header('Content-Type: image/svg+xml; charset=utf-8');
     header('Cache-Control: no-store');
     echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#f1f5f9"/>'

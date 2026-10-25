@@ -12,8 +12,17 @@ $to = (string) query('to', date('Y-m-d'));
 $gateway = (string) query('gateway', '');
 $status = strtolower((string) query('status', ''));
 
+$search = trim((string) query('q', ''));
 $where = ['pay.created_at BETWEEN :from AND :to'];
 $params = ['from' => $from . ' 00:00:00', 'to' => $to . ' 23:59:59'];
+if ($search !== '') {
+    $like = '%' . $search . '%';
+    $where[] = '(o.order_number LIKE :pq1 OR o.customer_name LIKE :pq2 OR pay.gateway_reference LIKE :pq3 OR pay.gateway LIKE :pq4)';
+    $params['pq1'] = $like;
+    $params['pq2'] = $like;
+    $params['pq3'] = $like;
+    $params['pq4'] = $like;
+}
 if ($gateway !== '') {
     $where[] = 'pay.gateway = :gateway';
     $params['gateway'] = $gateway;
@@ -93,8 +102,13 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 <?php endif; ?>
 
-<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('payments.php')) ?>">
+<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('payments.php')) ?>" data-live-filter>
   <div class="row g-2 align-items-end">
+    <div class="col-12">
+      <label class="form-label small mb-1" for="pay-q">Search</label>
+      <input class="form-control form-control-sm" id="pay-q" name="q" type="search" value="<?= e($search) ?>"
+             placeholder="Order number, customer, gateway reference…" data-live-input autocomplete="off">
+    </div>
     <div class="col-6 col-md-2">
       <label class="form-label small mb-1" for="pay-from">From</label>
       <input class="form-control form-control-sm" id="pay-from" type="date" name="from" value="<?= e($from) ?>">
@@ -125,6 +139,7 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </form>
 
+<div data-live-results>
 <div class="card-soft p-0">
   <div class="table-responsive">
     <table class="table table-admin mb-0">
@@ -162,6 +177,7 @@ require __DIR__ . '/includes/layout-top.php';
     </table>
   </div>
 </div>
-<div class="mt-3"><?= pagination_links($pager, ['from' => $from, 'to' => $to, 'gateway' => $gateway, 'status' => $status]) ?></div>
+<div class="mt-3"><?= pagination_links($pager, ['from' => $from, 'to' => $to, 'gateway' => $gateway, 'status' => $status, 'q' => $search]) ?></div>
+</div><!-- /data-live-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

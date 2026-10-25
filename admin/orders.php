@@ -54,11 +54,13 @@ require __DIR__ . '/includes/layout-top.php';
   <?php endforeach; ?>
 </div>
 
-<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('orders.php')) ?>">
+<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('orders.php')) ?>" data-live-filter>
   <div class="row g-2 align-items-end">
     <div class="col-12 col-md-4">
       <label class="form-label small mb-1" for="f-q">Search</label>
-      <input class="form-control form-control-sm" id="f-q" name="q" value="<?= e($filters['q']) ?>" placeholder="Order number, name, email or phone">
+      <input class="form-control form-control-sm" id="f-q" name="q" type="search" value="<?= e($filters['q']) ?>"
+             placeholder="Order number, name, email or phone" data-live-input autocomplete="off">
+      <div class="live-search-note">Filters as you type.</div>
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label small mb-1" for="f-payment">Payment method</label>
@@ -103,6 +105,7 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </form>
 
+<div data-live-results>
 <div class="card-soft p-0">
   <div class="table-responsive">
     <table class="table table-admin align-middle mb-0">
@@ -148,5 +151,6 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </div>
 <div class="mt-3"><?= pagination_links($result['pager'], $queryBase) ?></div>
+</div><!-- /data-live-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

@@ -18,12 +18,20 @@ require __DIR__ . '/includes/layout-top.php';
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card-soft p-0">
-      <div class="table-responsive">
+      <div class="px-3 pt-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
+        <h2 class="h6 fw-bold mb-0">People</h2>
+        <input class="form-control form-control-sm ms-auto" style="max-width:240px" type="search"
+               placeholder="Filter by name or email" data-live-client="#team-table"
+               data-live-empty="#team-empty" data-live-count="#team-count"
+               aria-label="Filter team" autocomplete="off">
+        <span class="live-search-note" id="team-count"></span>
+      </div>
+      <div class="table-responsive" id="team-table">
         <table class="table table-admin mb-0">
           <thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
           <tbody>
             <?php foreach ($team as $member): ?>
-              <tr>
+              <tr data-filter-row>
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <span class="logo-mark" style="width:32px;height:32px;font-size:.65rem"><?= e(initials((string) $member['name'], 2)) ?></span>

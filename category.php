@@ -90,6 +90,7 @@ require INCLUDES_PATH . '/layout/header.php';
         <?php $baseAction = '/category.php'; $hiddenParams = ['slug' => $slug]; require INCLUDES_PATH . '/partials/shop-filters.php'; ?>
       </aside>
       <div class="col-lg-9">
+        <div id="shop-results" data-live-results>
         <?php if ($products === []): ?>
           <?= View::emptyState('bi-box-seam', 'Nothing here yet', 'This category has no products matching your filters. Try another department or clear the filters.', 'Clear filters', '/category.php?slug=' . rawurlencode($slug)) ?>
         <?php else: ?>
@@ -102,6 +103,7 @@ require INCLUDES_PATH . '/layout/header.php';
               'on_sale' => $filters['on_sale'] ? 1 : null, 'sort' => $filters['sort'],
           ], static fn ($value) => $value !== null && $value !== '' && $value !== 0)) ?></div>
         <?php endif; ?>
+        </div><!-- /#shop-results -->
       </div>
     </div>
   </div>

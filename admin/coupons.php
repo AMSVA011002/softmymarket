@@ -8,7 +8,8 @@ require __DIR__ . '/includes/bootstrap.php';
 admin_require('coupons.view');
 
 $status = (string) query('status', '');
-$list = Coupons::adminList(['status' => $status, 'page' => query_int('page', 1)]);
+$search = trim((string) query('q', ''));
+$list = Coupons::adminList(['status' => $status, 'q' => $search, 'page' => query_int('page', 1)]);
 $rows = $list['rows'] ?? [];
 $pager = $list['pager'] ?? paginate(0, 1, 25);
 $editing = query_int('edit') > 0 ? Coupons::find(query_int('edit')) : null;
@@ -22,11 +23,18 @@ require __DIR__ . '/includes/layout-top.php';
 ?>
 <div class="row g-3">
   <div class="col-lg-7">
-    <div class="d-flex gap-2 mb-3">
-      <?php foreach (['' => 'All', 'active' => 'Active', 'expired' => 'Expired'] as $value => $label): ?>
-        <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('coupons.php', ['status' => $value])) ?>"><?= e($label) ?></a>
-      <?php endforeach; ?>
-    </div>
+    <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get"
+          action="<?= e(admin_url('coupons.php')) ?>" data-live-filter>
+      <div class="btn-group btn-group-sm">
+        <?php foreach (['' => 'All', 'active' => 'Active', 'expired' => 'Expired'] as $value => $label): ?>
+          <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('coupons.php', ['status' => $value])) ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+      </div>
+      <input type="hidden" name="status" value="<?= e($status) ?>">
+      <input class="form-control form-control-sm ms-auto" style="max-width:260px" name="q" type="search"
+             value="<?= e($search) ?>" placeholder="Search code or description" data-live-input autocomplete="off">
+    </form>
+    <div data-live-results>
     <div class="card-soft p-0">
       <div class="table-responsive">
         <table class="table table-admin mb-0">
@@ -81,7 +89,8 @@ require __DIR__ . '/includes/layout-top.php';
         </table>
       </div>
     </div>
-    <div class="mt-3"><?= pagination_links($pager, ['status' => $status]) ?></div>
+    <div class="mt-3"><?= pagination_links($pager, ['status' => $status, 'q' => $search]) ?></div>
+    </div><!-- /data-live-results -->
   </div>
 
   <div class="col-lg-5">
