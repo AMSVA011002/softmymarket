@@ -25,7 +25,30 @@ final class Session
             $secure = false; // allow plain-HTTP staging without breaking logins
         }
 
-        session_name((string) Config::get('session.name', 'smm_session'));
+        $name = (string) Config::get('session.name', 'smm_session');
+        $options = [
+            'name'            => $name,
+            'cookie_lifetime' => 0,
+            'cookie_path'     => '/',
+            'cookie_domain'   => (string) Config::get('session.domain', ''),
+            'cookie_secure'   => $secure,
+            'cookie_httponly' => true,
+            'cookie_samesite' => (string) Config::get('session.samesite', 'Lax'),
+        ];
+
+        // PHP refuses to change the session name (and cannot send cookies) once
+        // headers are on their way. That happens on shared hosting when the host
+        // prints a warning or a stray byte before us — previously an uncaught
+        // ErrorException that took the whole page down with a generic 500.
+        // Degrading to a guest request keeps the storefront usable instead.
+        if (headers_sent()) {
+            error_log('[smm] output already started; continuing without a PHP session');
+            self::$started = true;
+            Csrf::boot();
+            return;
+        }
+
+        session_name($name);
         session_set_cookie_params([
             'lifetime' => 0,
             'path'     => '/',
@@ -37,10 +60,21 @@ final class Session
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.cookie_httponly', '1');
-        ini_set('session.sid_length', '48');
-        ini_set('session.sid_bits_per_character', '6');
+        // PHP 8.4 deprecated these two in favour of session.sid_length defaults;
+        // setting them there raises E_DEPRECATED on every request.
+        if (PHP_VERSION_ID < 80400) {
+            ini_set('session.sid_length', '48');
+            ini_set('session.sid_bits_per_character', '6');
+        }
 
-        session_start();
+        if (!@session_start($options)) {
+            // Session storage unwritable (a very common free-hosting problem).
+            // Carry on as a guest rather than 500-ing every page.
+            error_log('[smm] session_start() failed; continuing without a session');
+            self::$started = true;
+            Csrf::boot();
+            return;
+        }
         self::$started = true;
 
         $now = time();
