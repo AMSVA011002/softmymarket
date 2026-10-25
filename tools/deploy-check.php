@@ -181,6 +181,31 @@ check('storage is outside the web root or protected', (bool) preg_match('#/stora
     'Move storage/ above public_html, or keep storage/.htaccess in place.');
 check('storage/.htaccess present', is_file(STORAGE_PATH . '/.htaccess'), 'Restore the deny-all .htaccess in storage/.');
 
+/* --------------------------------------------------------------- SQL safety */
+echo "\nSQL safety\n";
+$databaseSource = is_file(ROOT_PATH . '/includes/Database.php')
+    ? (string) file_get_contents(ROOT_PATH . '/includes/Database.php')
+    : '';
+check('Database.php quotes identifiers', str_contains($databaseSource, 'function quote(')
+    && str_contains($databaseSource, 'function quoteTable('),
+    'includes/Database.php is out of date — upload the current release (an unquoted '
+    . 'reserved word such as `condition` breaks product saves with error 1064).');
+
+if (is_file(ROOT_PATH . '/tools/sql-audit.php')) {
+    require_once ROOT_PATH . '/tools/sql-audit.php';
+    $sqlFindings = smm_sql_reserved_audit(ROOT_PATH);
+    $detail = $sqlFindings === [] ? 'clean' : count($sqlFindings) . ' finding(s)';
+    check('hand-written SQL quotes reserved words', $sqlFindings === [],
+        'Run php tools/sql-audit.php for the list — MySQL/MariaDB reserved words '
+        . '(condition, rank, system …) must be wrapped in backticks.', false, $detail);
+    foreach (array_slice($sqlFindings, 0, 5) as $finding) {
+        echo '    ' . $finding['file'] . ':' . $finding['line'] . ' → ' . $finding['word'] . "\n";
+    }
+} else {
+    check('tools/sql-audit.php present', false,
+        'Upload tools/sql-audit.php so reserved-word mistakes can be caught before going live.', false);
+}
+
 /* ------------------------------------------------------------------ release */
 echo "\nRelease files\n";
 check('PHP 8.1 or newer', PHP_VERSION_ID >= 80100,

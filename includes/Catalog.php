@@ -574,7 +574,8 @@ final class Catalog
             $where[] = 'p.is_featured = 1';
         }
         if (($filters['condition'] ?? '') !== '') {
-            $where[] = 'p.condition = :wcondition';
+            // `condition` is a reserved word in MySQL/MariaDB — always quote it.
+            $where[] = 'p.`condition` = :wcondition';
             $params['wcondition'] = $filters['condition'];
         }
 

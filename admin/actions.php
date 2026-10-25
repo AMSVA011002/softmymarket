@@ -153,8 +153,15 @@ switch ($action) {
         try {
             $savedId = Catalog::saveProduct($data, $id > 0 ? $id : null);
         } catch (Throwable $e) {
+            // Keep the input so nothing is lost, and make the failure findable in
+            // the log (storage/logs/error-YYYYMMDD.log) without shouting SQL at staff.
+            error_log('[smm] product_save failed (id ' . $id . '): ' . $e->getMessage());
             remember_input($_POST);
-            $done('danger', $e->getMessage());
+            $detail = $e instanceof PDOException && Config::get('app.debug')
+                ? ' ' . $e->getMessage()
+                : '';
+            $done('danger', 'The product could not be saved.' . $detail
+                . ' Your entries were kept — check storage/logs for details.');
         }
         $done('success', $id > 0 ? 'Product updated.' : 'Product created.');
 

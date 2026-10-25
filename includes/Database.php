@@ -132,9 +132,12 @@ final class Database
         if ($data === []) {
             throw new InvalidArgumentException('Cannot insert an empty row.');
         }
-        $columns = array_map([self::class, 'identifier'], array_keys($data));
-        $placeholders = array_map(static fn (string $c) => ':' . $c, $columns);
-        $sql = 'INSERT INTO ' . self::table($table) . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+        // Column names are quoted: `condition`, `key`, `interval` and friends are
+        // reserved words in MySQL/MariaDB and a bare name is a 1064 syntax error.
+        $rawColumns = array_map([self::class, 'rawIdentifier'], array_keys($data));
+        $columns = array_map([self::class, 'quote'], $rawColumns);
+        $placeholders = array_map(static fn (string $c) => ':' . $c, $rawColumns);
+        $sql = 'INSERT INTO ' . self::quoteTable($table) . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
         self::run($sql, $data);
         return (int) self::pdo()->lastInsertId();
     }
@@ -148,11 +151,11 @@ final class Database
         $sets = [];
         $params = [];
         foreach ($data as $column => $value) {
-            $identifier = self::identifier($column);
-            $sets[] = $identifier . ' = :set_' . $identifier;
+            $identifier = self::rawIdentifier($column);
+            $sets[] = self::quote($identifier) . ' = :set_' . $identifier;
             $params['set_' . $identifier] = $value;
         }
-        $sql = 'UPDATE ' . self::table($table) . ' SET ' . implode(', ', $sets) . ' WHERE ' . $where;
+        $sql = 'UPDATE ' . self::quoteTable($table) . ' SET ' . implode(', ', $sets) . ' WHERE ' . $where;
         $stmt = self::run($sql, array_merge($params, $whereParams));
         return $stmt->rowCount();
     }
@@ -164,32 +167,65 @@ final class Database
             return 0;
         }
         $count = 0;
-        $columns = array_map([self::class, 'identifier'], array_keys($rows[0]));
+        $rawColumns = array_map([self::class, 'rawIdentifier'], array_keys($rows[0]));
+        $columns = array_map([self::class, 'quote'], $rawColumns);
         foreach (array_chunk($rows, $chunk) as $batch) {
             $values = [];
             $params = [];
             foreach (array_values($batch) as $i => $row) {
                 $holder = [];
-                foreach ($columns as $column) {
+                foreach ($rawColumns as $column) {
                     $key = 'v' . $i . '_' . $column;
                     $holder[] = ':' . $key;
                     $params[$key] = $row[$column] ?? null;
                 }
                 $values[] = '(' . implode(', ', $holder) . ')';
             }
-            $sql = 'INSERT INTO ' . self::table($table) . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
+            $sql = 'INSERT INTO ' . self::quoteTable($table) . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
             $count += self::run($sql, $params)->rowCount();
         }
         return $count;
     }
 
-    /** Reject anything that is not a plain snake_case identifier. */
-    public static function identifier(string $name): string
+    /**
+     * Validate a table/column name.
+     *
+     * Only plain snake_case names pass, so nothing user-supplied can ever be
+     * interpolated into SQL. The result is the bare name — use quote() when it
+     * has to survive in a statement.
+     */
+    public static function rawIdentifier(string $name): string
     {
         if (!preg_match('/^[a-z][a-z0-9_]{0,62}$/', $name)) {
             throw new InvalidArgumentException('Invalid SQL identifier: ' . $name);
         }
         return $name;
+    }
+
+    /**
+     * Backtick-quote an identifier.
+     *
+     * MySQL/MariaDB reserved words (condition, key, interval, rank, system …)
+     * and names containing no special characters still need quoting: an
+     * unquoted `condition` is a 1064 syntax error. Backticks are understood by
+     * MySQL, MariaDB and SQLite; Postgres only needs them stripped, which the
+     * test harness does.
+     */
+    public static function quote(string $name): string
+    {
+        return '`' . self::rawIdentifier($name) . '`';
+    }
+
+    /** quote() plus the configured table prefix. */
+    public static function quoteTable(string $table): string
+    {
+        return self::quote(self::table($table));
+    }
+
+    /** Backwards-compatible alias: returns the quoted identifier. */
+    public static function identifier(string $name): string
+    {
+        return self::quote($name);
     }
 
     /** Run a callback inside a transaction, rolling back on any exception. */

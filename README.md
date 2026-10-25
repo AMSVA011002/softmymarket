@@ -175,7 +175,8 @@ in the `settings` table and merged over the file at boot).
 
 ## Security
 
-Prepared statements everywhere, bcrypt cost 12, a global CSRF guard on every POST,
+Prepared statements everywhere (with backtick-quoted identifiers, because MariaDB
+treats words such as `condition` as reserved), bcrypt cost 12, a global CSRF guard on every POST,
 database-backed rate limiting, strict nonce-based CSP, HttpOnly/SameSite session
 cookies with rotation, role → permission checks on every dashboard page,
 audit logging, validated uploads and HMAC-verified payment callbacks. Full detail
@@ -183,6 +184,12 @@ and the launch checklist: [docs/SECURITY.md](docs/SECURITY.md).
 
 Do not commit `config/config.php`, and rotate the seeded demo passwords before
 going live.
+
+Two checks protect the SQL layer: `php tools/deploy-check.php` (verifies the
+uploaded files and runs the reserved-word audit) and `php tools/sql-audit.php`
+(prints any hand-written statement that leaves a MySQL/MariaDB reserved word
+unquoted — the cause of the `SQLSTATE[42000] … 1064` error that used to block
+product saves).
 
 ---
 

@@ -443,6 +443,35 @@ T::case('assets: every demo product image exists', function (): void {
     }
 });
 
+T::case('sql: identifiers are backtick-quoted (MySQL reserved words)', function (): void {
+    // `condition` is a reserved word in MySQL/MariaDB: an unquoted
+    // "SET condition = ?" is error 1064, which used to break every product save.
+    $bt = chr(96);
+    T::same($bt . 'condition' . $bt, Database::quote('condition'), 'quote() must backtick the name');
+    T::same($bt . 'products' . $bt, Database::quoteTable('products'), 'quoteTable() must backtick the name');
+    T::same($bt . 'condition' . $bt, Database::identifier('condition'), 'identifier() is the quoted alias');
+
+    foreach (['condition; users', 'bad name', '`x`', '1abc', 'a-b', ''] as $bad) {
+        $rejected = false;
+        try {
+            Database::quote($bad);
+        } catch (InvalidArgumentException) {
+            $rejected = true;
+        }
+        T::true($rejected, 'unsafe identifier accepted: ' . $bad);
+    }
+});
+
+T::case('sql: no hand-written query uses an unquoted reserved word', function (): void {
+    require_once dirname(__DIR__) . '/tools/sql-audit.php';
+    $findings = smm_sql_reserved_audit(dirname(__DIR__));
+    $messages = array_map(
+        static fn (array $f): string => $f['file'] . ':' . $f['line'] . ' → ' . $f['word'] . ' in: ' . $f['sql'],
+        $findings
+    );
+    T::same([], $messages, 'MySQL/MariaDB reserved words must be wrapped in backticks');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {
