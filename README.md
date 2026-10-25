@@ -39,6 +39,7 @@ HTML/CSS/JS/PHP/MySQL stack.
 * Payments ledger with bank-slip verification
 * Reports (sales, categories, gateways, coupons, top products/customers) + CSV
 * Settings (general, commerce, content, payments, hero slides), audit log
+  — hero slides take a Google Drive link or any image URL, and can be added or removed
 * Role-based access: **Admin**, **User** (store staff), **Customer**
 
 ---

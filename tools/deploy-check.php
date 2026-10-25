@@ -18,7 +18,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Run this from the command line: php tools/deploy-check.php');
 }
 
-require dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 $blocking = 0;
 $warnings = 0;

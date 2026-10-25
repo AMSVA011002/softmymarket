@@ -21,7 +21,7 @@ if (PHP_SAPI !== 'cli' && !defined('SMM_SEED_ALLOW_WEB')) {
 }
 
 if (!function_exists('uuid')) {
-    require dirname(__DIR__) . '/includes/bootstrap.php';
+    require_once dirname(__DIR__) . '/includes/bootstrap.php';
 }
 
 mt_srand(20261024);

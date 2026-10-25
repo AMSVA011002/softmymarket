@@ -18,7 +18,7 @@ if (PHP_SAPI !== 'cli') {
     exit('The test runner can only be used from the command line.');
 }
 
-require dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 /* ------------------------------------------------------------------ harness */
 

@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 admin_require('settings.manage');
 
 $tab = (string) query('tab', 'general');
@@ -116,63 +116,206 @@ require __DIR__ . '/includes/layout-top.php';
   </form>
 
 <?php elseif ($tab === 'hero'): ?>
-  <form method="post" action="/admin/actions.php">
+  <?php
+  /*
+   * Homepage hero carousel editor.
+   *
+   * Every slide shows an image (a Google Drive share link or any https image
+   * URL — the same rules as product images) instead of the old decorative icon.
+   * Slides can be added (JS clones the template below; without JS the
+   * "Add slide" link re-renders this tab with one more empty card) and removed
+   * (tick the checkbox — the slide is skipped when the form is saved).
+   */
+  $heroLimit = View::HERO_SLIDE_LIMIT;
+  $requestedCards = max(0, min($heroLimit, (int) (query('slides', '0') ?? '0')));
+  $heroCards = array_slice($slides, 0, $heroLimit);
+  while (count($heroCards) < $requestedCards) {
+      $heroCards[] = [
+          'eyebrow' => '', 'title' => '', 'highlight' => '', 'description' => '',
+          'cta_label' => '', 'cta_url' => '', 'secondary_label' => '', 'secondary_url' => '',
+          'theme' => 'green', 'image' => '',
+      ];
+  }
+  $canAdd = count($heroCards) < $heroLimit;
+  $addUrl = admin_url('settings.php', ['tab' => 'hero', 'slides' => count($heroCards) + 1]);
+  ?>
+
+  <div class="card-soft p-3 mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-start justify-content-between">
+      <div>
+        <h2 class="h6 fw-bold mb-1"><i class="bi bi-images me-1"></i> Hero carousel slides</h2>
+        <p class="small text-ink-500 mb-0">
+          Each slide takes an <strong>image</strong> — paste a Google Drive share link
+          (<code>drive.google.com/file/d/…/view</code>) or any <code>https</code> image URL.
+          Leave the image empty for a text-only slide. Up to <?= (int) $heroLimit ?> slides.
+        </p>
+      </div>
+      <span class="badge text-bg-light" data-hero-count><?= count($heroCards) ?> / <?= (int) $heroLimit ?> slides</span>
+    </div>
+  </div>
+
+  <form method="post" action="/admin/actions.php" data-hero-slides>
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="hero_slides_save">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
-    <p class="small text-ink-500">Up to three slides on the home page carousel. Leave everything blank to use the built-in slides.</p>
-    <?php foreach ($slides as $index => $slide): $slideNumber = $index + 1; ?>
-      <div class="card-soft p-3 mb-3">
-        <h2 class="h6 fw-bold mb-2">Slide <?= $slideNumber ?></h2>
+
+    <div data-hero-slide-list>
+      <?php foreach ($heroCards as $index => $slide): $n = $index + 1; ?>
+        <div class="card-soft p-3 mb-3 hero-slide-card" data-hero-slide>
+          <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+            <h3 class="h6 fw-bold mb-0">Slide <span data-hero-number><?= $n ?></span></h3>
+            <div class="form-check m-0">
+              <input class="form-check-input" type="checkbox" name="slide_delete[]" value="<?= $index ?>"
+                     id="s<?= $n ?>-delete" data-hero-delete>
+              <label class="form-check-label small text-danger" for="s<?= $n ?>-delete">
+                <i class="bi bi-trash3 me-1"></i>Remove this slide
+              </label>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small" for="s<?= $n ?>-image">Slide image</label>
+              <div class="d-flex gap-2 align-items-start" data-image-row>
+                <span class="image-slot-preview is-wide" data-image-preview aria-hidden="true"><i class="bi bi-image"></i></span>
+                <div class="flex-grow-1 min-w-0">
+                  <input class="form-control form-control-sm" id="s<?= $n ?>-image" name="slide_image[]"
+                         value="<?= e((string) ($slide['image'] ?? '')) ?>" data-image-input
+                         placeholder="https://drive.google.com/file/d/FILE_ID/view">
+                  <div class="form-text" data-image-status>Google Drive link or any https image URL.</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-eyebrow">Eyebrow</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-eyebrow" name="slide_eyebrow[]" value="<?= e((string) ($slide['eyebrow'] ?? '')) ?>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-title">Headline <span class="text-danger">*</span></label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-title" name="slide_title[]" value="<?= e((string) ($slide['title'] ?? '')) ?>" data-hero-title>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-highlight">Highlighted line</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-highlight" name="slide_highlight[]" value="<?= e((string) ($slide['highlight'] ?? '')) ?>">
+            </div>
+            <div class="col-12">
+              <label class="form-label small" for="s<?= $n ?>-description">Description</label>
+              <textarea class="form-control form-control-sm" id="s<?= $n ?>-description" name="slide_description[]" rows="2"><?= e((string) ($slide['description'] ?? '')) ?></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-ctalabel">Button label</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-ctalabel" name="slide_cta_label[]" value="<?= e((string) ($slide['cta_label'] ?? '')) ?>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-ctaurl">Button link</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-ctaurl" name="slide_cta_url[]" value="<?= e((string) ($slide['cta_url'] ?? '')) ?>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-theme">Theme</label>
+              <select class="form-select form-select-sm" id="s<?= $n ?>-theme" name="slide_theme[]">
+                <?php foreach (['green' => 'Brand green', 'blue' => 'Ocean blue', 'light' => 'Light'] as $value => $label): ?>
+                  <option value="<?= e($value) ?>" <?= ($slide['theme'] ?? 'green') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-secondarylabel">Second button label</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-secondarylabel" name="slide_secondary_label[]" value="<?= e((string) ($slide['secondary_label'] ?? '')) ?>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small" for="s<?= $n ?>-secondaryurl">Second button link</label>
+              <input class="form-control form-control-sm" id="s<?= $n ?>-secondaryurl" name="slide_secondary_url[]" value="<?= e((string) ($slide['secondary_url'] ?? '')) ?>">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <span class="form-text mb-1">Image shows on the right of the slide.</span>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
+    <template id="hero-slide-template">
+      <div class="card-soft p-3 mb-3 hero-slide-card" data-hero-slide>
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+          <h3 class="h6 fw-bold mb-0">Slide <span data-hero-number>__NUMBER__</span></h3>
+          <div class="form-check m-0">
+            <input class="form-check-input" type="checkbox" name="slide_delete[]" value="__INDEX__"
+                   id="s__INDEX__-delete" data-hero-delete>
+            <label class="form-check-label small text-danger" for="s__INDEX__-delete">
+              <i class="bi bi-trash3 me-1"></i>Remove this slide
+            </label>
+          </div>
+        </div>
         <div class="row g-2">
-          <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-eyebrow">Eyebrow</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-eyebrow" name="slide_eyebrow[]" value="<?= e((string) ($slide['eyebrow'] ?? '')) ?>">
+          <div class="col-12">
+            <label class="form-label small" for="s__INDEX__-image">Slide image</label>
+            <div class="d-flex gap-2 align-items-start" data-image-row>
+              <span class="image-slot-preview is-wide" data-image-preview aria-hidden="true"><i class="bi bi-image"></i></span>
+              <div class="flex-grow-1 min-w-0">
+                <input class="form-control form-control-sm" id="s__INDEX__-image" name="slide_image[]" value=""
+                       data-image-input placeholder="https://drive.google.com/file/d/FILE_ID/view">
+                <div class="form-text" data-image-status>Google Drive link or any https image URL.</div>
+              </div>
+            </div>
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-title">Headline</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-title" name="slide_title[]" value="<?= e((string) ($slide['title'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-eyebrow">Eyebrow</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-eyebrow" name="slide_eyebrow[]" value="">
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-highlight">Highlighted line</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-highlight" name="slide_highlight[]" value="<?= e((string) ($slide['highlight'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-title">Headline <span class="text-danger">*</span></label>
+            <input class="form-control form-control-sm" id="s__INDEX__-title" name="slide_title[]" value="" data-hero-title>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small" for="s__INDEX__-highlight">Highlighted line</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-highlight" name="slide_highlight[]" value="">
           </div>
           <div class="col-12">
-            <label class="form-label small" for="s<?= $slideNumber ?>-description">Description</label>
-            <textarea class="form-control form-control-sm" id="s<?= $slideNumber ?>-description" name="slide_description[]" rows="2"><?= e((string) ($slide['description'] ?? '')) ?></textarea>
+            <label class="form-label small" for="s__INDEX__-description">Description</label>
+            <textarea class="form-control form-control-sm" id="s__INDEX__-description" name="slide_description[]" rows="2"></textarea>
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-ctalabel">Button label</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-ctalabel" name="slide_cta_label[]" value="<?= e((string) ($slide['cta_label'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-ctalabel">Button label</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-ctalabel" name="slide_cta_label[]" value="">
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-ctaurl">Button link</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-ctaurl" name="slide_cta_url[]" value="<?= e((string) ($slide['cta_url'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-ctaurl">Button link</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-ctaurl" name="slide_cta_url[]" value="">
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-theme">Theme</label>
-            <select class="form-select form-select-sm" id="s<?= $slideNumber ?>-theme" name="slide_theme[]">
-              <?php foreach (['green' => 'Brand green', 'blue' => 'Ocean blue', 'light' => 'Light'] as $value => $label): ?>
-                <option value="<?= e($value) ?>" <?= ($slide['theme'] ?? 'green') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
-              <?php endforeach; ?>
+            <label class="form-label small" for="s__INDEX__-theme">Theme</label>
+            <select class="form-select form-select-sm" id="s__INDEX__-theme" name="slide_theme[]">
+              <option value="green">Brand green</option>
+              <option value="blue">Ocean blue</option>
+              <option value="light">Light</option>
             </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-secondarylabel">Second button label</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-secondarylabel" name="slide_secondary_label[]" value="<?= e((string) ($slide['secondary_label'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-secondarylabel">Second button label</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-secondarylabel" name="slide_secondary_label[]" value="">
           </div>
           <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-secondaryurl">Second button link</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-secondaryurl" name="slide_secondary_url[]" value="<?= e((string) ($slide['secondary_url'] ?? '')) ?>">
+            <label class="form-label small" for="s__INDEX__-secondaryurl">Second button link</label>
+            <input class="form-control form-control-sm" id="s__INDEX__-secondaryurl" name="slide_secondary_url[]" value="">
           </div>
-          <div class="col-md-4">
-            <label class="form-label small" for="s<?= $slideNumber ?>-icon">Decorative icon</label>
-            <input class="form-control form-control-sm" id="s<?= $slideNumber ?>-icon" name="slide_icon[]" value="<?= e((string) ($slide['icon'] ?? 'bi-bag-heart')) ?>">
+          <div class="col-md-4 d-flex align-items-end">
+            <span class="form-text mb-1">Image shows on the right of the slide.</span>
           </div>
         </div>
       </div>
-    <?php endforeach; ?>
-    <button class="btn btn-brand" type="submit"><i class="bi bi-check2 me-1"></i> Save hero slides</button>
+    </template>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button class="btn btn-brand" type="submit"><i class="bi bi-check2 me-1"></i> Save hero slides</button>
+      <?php if ($canAdd): ?>
+        <a class="btn btn-soft" href="<?= e($addUrl) ?>" data-hero-add data-hero-limit="<?= (int) $heroLimit ?>">
+          <i class="bi bi-plus-lg me-1"></i> Add slide
+        </a>
+      <?php else: ?>
+        <span class="small text-ink-500">Slide limit reached (<?= (int) $heroLimit ?>). Remove one to add another.</span>
+      <?php endif; ?>
+      <a class="btn btn-soft" href="<?= e(admin_url('settings.php', ['tab' => 'hero'])) ?>">Reset</a>
+      <span class="small text-ink-400 ms-auto">Ticked slides are deleted when you save.</span>
+    </div>
   </form>
 
 <?php else: ?>

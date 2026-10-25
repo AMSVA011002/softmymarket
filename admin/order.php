@@ -4,7 +4,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 admin_require('orders.view');
 
 $order = Orders::find(query_int('id'));

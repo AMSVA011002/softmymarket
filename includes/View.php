@@ -6,6 +6,9 @@ declare(strict_types=1);
  */
 final class View
 {
+    /** How many homepage hero slides the dashboard may store. */
+    public const HERO_SLIDE_LIMIT = 8;
+
     private static ?array $categoryTree = null;
     private static ?array $categoryMap = null;
 
@@ -223,7 +226,7 @@ function smm_hero_slides(): array
             'secondary_label' => 'Today\'s deals',
             'secondary_url' => '/deals.php',
             'theme' => 'green',
-            'icon' => 'bi-bag-heart',
+            'image' => '',
         ],
         [
             'eyebrow' => 'Pay your way',
@@ -235,7 +238,7 @@ function smm_hero_slides(): array
             'secondary_label' => 'Start shopping',
             'secondary_url' => '/shop.php',
             'theme' => 'blue',
-            'icon' => 'bi-credit-card-2-front',
+            'image' => '',
         ],
         [
             'eyebrow' => 'Free delivery',
@@ -247,7 +250,7 @@ function smm_hero_slides(): array
             'secondary_label' => 'Delivery details',
             'secondary_url' => '/shipping.php',
             'theme' => 'light',
-            'icon' => 'bi-truck',
+            'image' => '',
         ],
     ];
 
@@ -264,7 +267,16 @@ function smm_hero_slides(): array
         if (!is_array($slide) || empty($slide['title'])) {
             continue;
         }
-        $slides[] = array_merge($fallback[0], $slide);
+        $merged = array_merge($fallback[0], $slide);
+        // The slide artwork is an image now (Drive share link or any https
+        // URL). Normalise on read so a bad stored value can never reach the
+        // page, and drop the legacy decorative icon entirely.
+        $merged['image'] = normalize_image_url((string) ($slide['image'] ?? $slide['icon'] ?? '')) ?? '';
+        unset($merged['icon']);
+        $slides[] = $merged;
+        if (count($slides) >= View::HERO_SLIDE_LIMIT) {
+            break;
+        }
     }
     return $slides !== [] ? $slides : $fallback;
 }

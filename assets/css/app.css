@@ -323,17 +323,26 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .hero-stats dd { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff; }
 .hero-light .hero-stats dt { color: var(--ink-400); }
 .hero-light .hero-stats dd { color: var(--ink-900); }
+/* Slide artwork: a real image (Google Drive share link or any https URL) —
+   the old decorative icon is gone. */
 .hero-visual {
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, .12);
-  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: 0 18px 40px rgba(2, 24, 6, .22);
   aspect-ratio: 4 / 3;
-  display: grid; place-items: center;
-  color: rgba(255, 255, 255, .85);
-  font-size: clamp(3rem, 8vw, 6rem);
   overflow: hidden;
+  padding: .45rem;
 }
-.hero-light .hero-visual { background: rgba(12, 128, 15, .06); border-color: var(--brand-100); color: var(--brand-500); }
+.hero-light .hero-visual { background: rgba(12, 128, 15, .06); border-color: var(--brand-100); box-shadow: 0 18px 40px rgba(12, 128, 15, .12); }
+.hero-visual-img {
+  width: 100%; height: 100%; display: block;
+  object-fit: contain; background: #fff;
+  border-radius: calc(var(--radius-lg) - .35rem);
+}
+@media (max-width: 991.98px) {
+  .hero-visual { aspect-ratio: 16 / 10; max-height: 240px; }
+}
 .hero-carousel .carousel-indicators [data-bs-target] { width: 26px; height: 4px; border-radius: 4px; opacity: .5; }
 .hero-carousel .carousel-indicators .active { opacity: 1; }
 .hero-carousel .carousel-control-prev, .hero-carousel .carousel-control-next { width: 8%; opacity: .55; }
@@ -667,7 +676,7 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   .search-shell { order: 3; flex-basis: 100%; margin-top: .4rem; }
   .action-link span.label { display: none; }
   .section-head { flex-direction: column; align-items: flex-start; }
-  .hero-visual { display: none; }
+  .hero-visual { aspect-ratio: 16 / 9; max-height: 200px; }
   .table-responsive-sm { font-size: .78rem; }
 }
 
@@ -864,6 +873,10 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 }
 .image-slot-preview.has-image { background: #fff; box-shadow: inset 0 0 0 1px var(--ink-200, #e2e8f0); }
 .image-slot-preview.is-bad { box-shadow: inset 0 0 0 2px #dc3545; }
+.image-slot-preview.is-wide { width: 104px; height: 64px; flex-basis: 104px; border-radius: .6rem; }
+/* A slide the admin has ticked for removal: dimmed but still posted, so the
+   tick can be undone before saving. */
+.hero-slide-card.is-removed { opacity: .5; }
 .image-slot-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* ---------------------------------------------- live filtering feedback */

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 if (!is_post()) {
     // A GET to this URL should not sign anyone out (CSRF-proofing).

@@ -12,7 +12,7 @@
  */
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/bootstrap.php';
 
 $lockFile = STORAGE_PATH . '/installed.lock';
 $configFile = ROOT_PATH . '/config/config.php';
