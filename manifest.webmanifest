@@ -1,0 +1,27 @@
+{
+  "name": "SoftMyMarket",
+  "short_name": "SoftMyMarket",
+  "description": "Sri Lanka's trusted online marketplace — electronics, fashion, home and daily essentials with island-wide delivery.",
+  "start_url": "/?source=manifest",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0c800f",
+  "lang": "en-LK",
+  "dir": "ltr",
+  "categories": ["shopping"],
+  "icons": [
+    {
+      "src": "/assets/img/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

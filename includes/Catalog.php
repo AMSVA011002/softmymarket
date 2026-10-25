@@ -778,6 +778,52 @@ final class Catalog
         return Database::int($sql, $params);
     }
 
+    /**
+     * Recent approved reviews with product context — powers the "what shoppers
+     * say" strip on the storefront. Never throws: a store with no reviews (or a
+     * missing table during setup) simply renders nothing.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function recentReviews(int $limit = 3, int $minRating = 4): array
+    {
+        $limit = max(1, min(12, $limit));
+        $minRating = max(1, min(5, $minRating));
+        try {
+            return Database::all(
+                "SELECT r.rating, r.title, r.body, r.author_name, r.created_at,
+                        p.title AS product_title, p.slug AS product_slug
+                   FROM reviews r
+                   JOIN products p ON p.id = r.product_id
+                  WHERE r.status = 'approved' AND r.rating >= :min AND r.body <> ''
+               ORDER BY r.created_at DESC
+                  LIMIT " . $limit,
+                ['min' => $minRating]
+            );
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Store-wide trust figures: how many approved reviews and the average score.
+     * (Catalog::reviewSummary() is the per-product breakdown used on product pages.)
+     *
+     * @return array{total:int,average:float}
+     */
+    public static function storeReviewSummary(): array
+    {
+        try {
+            $row = Database::one("SELECT COUNT(*) AS total, COALESCE(AVG(rating), 0) AS average FROM reviews WHERE status = 'approved'");
+        } catch (Throwable $e) {
+            return ['total' => 0, 'average' => 0.0];
+        }
+        return [
+            'total'   => (int) ($row['total'] ?? 0),
+            'average' => round((float) ($row['average'] ?? 0), 1),
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public static function lowStock(int $limit = 20): array
     {

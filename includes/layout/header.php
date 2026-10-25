@@ -21,9 +21,98 @@ $smmTitle = isset($pageTitle) && $pageTitle !== null
 $smmDescription = isset($pageDescription) && $pageDescription !== ''
     ? $pageDescription
     : Settings::get('default_meta_description');
-$smmCanonical = (isset($pageCanonical) && $pageCanonical !== '') ? $pageCanonical : url($_SERVER['REQUEST_URI'] ?? '/');
+if (isset($pageCanonical) && $pageCanonical !== '') {
+    $smmCanonical = $pageCanonical;
+} else {
+    // One canonical URL per page: fold /index.php into /, and drop the host's
+    // ?i=1 challenge marker plus the usual campaign noise so search engines do
+    // not index the same page several times.
+    $smmCanonicalPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+    $smmCanonicalPath = preg_replace('#/index\.php$#', '/', $smmCanonicalPath) ?: '/';
+    $smmCanonicalQuery = [];
+    parse_str((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY), $smmCanonicalQuery);
+    foreach (['i', 'fbclid', 'gclid', 'msclkid', 'source',
+              'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as $smmNoise) {
+        unset($smmCanonicalQuery[$smmNoise]);
+    }
+    $smmCanonical = url($smmCanonicalPath, $smmCanonicalQuery);
+}
 $smmNoindex = !empty($noindex);
 $smmPath = current_path();
+
+/* ------------------------------------------------------------ share metadata
+ * One place decides the icon, the social preview and the structured data, so
+ * every page ships the same complete <head>. Icons follow the Favicon setting
+ * (Drive link or URL) and fall back to the bundled PNG/ICO set; the share image
+ * falls back to a designed cover so a link never previews empty.
+ */
+$smmFavicon = trim(Settings::get('favicon_url'));
+$smmIconSrc = $smmFavicon !== ''
+    ? img_url($smmFavicon, $brand['name'], 180)
+    : asset('assets/img/favicon-32.png');
+$smmTouchIcon = $smmFavicon !== ''
+    ? img_url($smmFavicon, $brand['name'], 180)
+    : asset('assets/img/apple-touch-icon.png');
+$smmShareImage = !empty($brand['logo'])
+    ? url(img_url((string) $brand['logo'], $brand['name'], 1200))
+    : url(asset('assets/img/og-cover.png'));
+$smmTwitterUrl = trim(Settings::get('twitter_url'));
+$smmTwitterHandle = '';
+if ($smmTwitterUrl !== '') {
+    $smmTwitterPath = (string) parse_url($smmTwitterUrl, PHP_URL_PATH);
+    $smmTwitterHandle = $smmTwitterPath !== '' ? '@' . ltrim(basename($smmTwitterPath), '@') : '';
+}
+$smmSameAs = [];
+foreach (['facebook_url', 'instagram_url', 'tiktok_url', 'youtube_url', 'twitter_url'] as $smmSocialKey) {
+    $smmSocialValue = trim(Settings::get($smmSocialKey));
+    if ($smmSocialValue !== '') {
+        $smmSameAs[] = $smmSocialValue;
+    }
+}
+$smmStoreId = url('/') . '#store';
+$smmWebsiteId = url('/') . '#website';
+$smmStructuredData = [
+    '@context' => 'https://schema.org',
+    '@graph'   => [
+        [
+            '@type'        => 'OnlineStore',
+            '@id'          => $smmStoreId,
+            'name'         => $brand['name'],
+            'url'          => url('/'),
+            'description'  => limit_text(Settings::get('store_description'), 300, ''),
+            'image'        => $smmShareImage,
+            'logo'         => url($smmTouchIcon),
+            'telephone'    => Settings::get('support_phone'),
+            'email'        => Settings::get('support_email'),
+            'priceRange'   => 'Rs',
+            'currenciesAccepted' => Settings::get('currency', 'LKR'),
+            'paymentAccepted'    => 'Cash on delivery, Card, Bank transfer, KOKO, Payzy, Mintpay',
+            'address'      => [
+                '@type'           => 'PostalAddress',
+                'streetAddress'   => Settings::get('address'),
+                'addressLocality' => 'Colombo',
+                'addressCountry'  => 'LK',
+            ],
+            'sameAs'       => $smmSameAs,
+        ],
+        [
+            '@type'       => 'WebSite',
+            '@id'         => $smmWebsiteId,
+            'url'         => url('/'),
+            'name'        => $brand['name'],
+            'inLanguage'  => 'en-LK',
+            'publisher'   => ['@id' => $smmStoreId],
+            'potentialAction' => [
+                '@type'       => 'SearchAction',
+                'target'      => [
+                    '@type'       => 'EntryPoint',
+                    'urlTemplate' => url('/shop.php') . '?q={search_term_string}',
+                ],
+                'query-input' => 'required name=search_term_string',
+            ],
+        ],
+    ],
+];
 ?>
 <!doctype html>
 <html lang="en-LK" data-currency-symbol="<?= e(Settings::get('currency_symbol', 'Rs')) ?>">
@@ -33,43 +122,53 @@ $smmPath = current_path();
   <title><?= e($smmTitle) ?></title>
   <meta name="description" content="<?= e(limit_text($smmDescription, 158, '')) ?>">
   <link rel="canonical" href="<?= e($smmCanonical) ?>">
-  <?php if ($smmNoindex): ?><meta name="robots" content="noindex, nofollow"><?php endif; ?>
+  <meta name="robots" content="<?= $smmNoindex
+      ? 'noindex, follow'
+      : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' ?>">
   <meta name="theme-color" content="<?= e($brand['color']) ?>">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="<?= e($pageOgType ?? 'website') ?>">
   <meta property="og:site_name" content="<?= e($brand['name']) ?>">
+  <meta property="og:locale" content="en_LK">
   <meta property="og:title" content="<?= e($smmTitle) ?>">
   <meta property="og:description" content="<?= e(limit_text($smmDescription, 200, '')) ?>">
   <meta property="og:url" content="<?= e($smmCanonical) ?>">
-  <?php if (!empty($brand['logo'])): ?><meta property="og:image" content="<?= e(url(img_url($brand['logo'], $brand['name'], 1200))) ?>"><?php endif; ?>
+  <meta property="og:image" content="<?= e($smmShareImage) ?>">
+  <meta property="og:image:alt" content="<?= e($brand['name'] . ' — ' . Settings::get('store_tagline')) ?>">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= e($smmTitle) ?>">
+  <meta name="twitter:description" content="<?= e(limit_text($smmDescription, 190, '')) ?>">
+  <meta name="twitter:image" content="<?= e($smmShareImage) ?>">
+  <meta name="twitter:image:alt" content="<?= e($brand['name']) ?>">
+  <?php if ($smmTwitterHandle !== ''): ?><meta name="twitter:site" content="<?= e($smmTwitterHandle) ?>"><?php endif; ?>
   <meta name="csrf-token" content="<?= e(Csrf::token()) ?>">
-  <?php
-  // Favicon is an editable setting with the same Drive/URL rules as the logo;
-  // fall back to the bundled SVG when nothing is configured.
-  $smmFavicon = trim(Settings::get('favicon_url'));
-  $smmFaviconSrc = $smmFavicon !== '' ? img_url($smmFavicon, $brand['name'], 128) : asset('assets/img/favicon.svg');
-  ?>
-  <link rel="icon" href="<?= e($smmFaviconSrc) ?>">
-  <link rel="apple-touch-icon" href="<?= e($smmFaviconSrc) ?>">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
+  <link rel="icon" type="image/png" sizes="32x32" href="<?= e($smmIconSrc) ?>">
+  <link rel="apple-touch-icon" sizes="180x180" href="<?= e($smmTouchIcon) ?>">
+  <link rel="manifest" href="<?= e(asset('manifest.webmanifest')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap-icons/bootstrap-icons.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+  <?php if (!$smmNoindex): ?>
+    <script type="application/ld+json" nonce="<?= e(Security::nonce()) ?>"><?= json_encode($smmStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+  <?php endif; ?>
   <?php if (!empty($brand['color'])): ?>
     <style>:root{--brand: <?= e($brand['color']) ?>; --brand-600: <?= e($brand['color_dark']) ?>;}</style>
   <?php endif; ?>
 </head>
 <body class="<?= e($pageClass ?? '') ?>">
-<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-brand btn-sm" href="#main">Skip to content</a>
-
-<?php if ($smmAnnouncement !== ''): ?>
-  <div class="topbar">
-    <div class="container-page d-flex align-items-center justify-content-center gap-2">
-      <i class="bi bi-truck"></i>
-      <span class="text-center"><?= e($smmAnnouncement) ?></span>
-    </div>
-  </div>
-<?php endif; ?>
-
 <header class="site-header">
+  <a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-brand btn-sm" href="#main">Skip to content</a>
+  <?php if ($smmAnnouncement !== ''): ?>
+    <div class="topbar">
+      <div class="container-page d-flex align-items-center justify-content-center gap-2">
+        <i class="bi bi-truck" aria-hidden="true"></i>
+        <span class="text-center"><?= e($smmAnnouncement) ?></span>
+      </div>
+    </div>
+  <?php endif; ?>
   <div class="container-page">
     <div class="header-main">
       <button class="btn btn-icon d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#navDrawer" aria-label="Open menu" aria-controls="navDrawer">
@@ -124,7 +223,7 @@ $smmPath = current_path();
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm">
             <?php if ($smmUser !== null): ?>
-              <li><h6 class="dropdown-header text-truncate"><?= e($smmUser['name']) ?></h6></li>
+              <li><div class="dropdown-header text-truncate"><?= e($smmUser['name']) ?></div></li>
               <li><a class="dropdown-item" href="/account/index.php"><i class="bi bi-speedometer2 me-2"></i>My account</a></li>
               <li><a class="dropdown-item" href="/account/orders.php"><i class="bi bi-box-seam me-2"></i>My orders</a></li>
               <li><a class="dropdown-item" href="/account/wishlist.php"><i class="bi bi-heart me-2"></i>Wishlist</a></li>

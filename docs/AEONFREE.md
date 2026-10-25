@@ -169,3 +169,37 @@ Free plans rarely include automated backups.
 5. Keep the domain: point `softmymarket.hstn.me` → your own domain in
    `app.url` and in the gateway callback URLs
    (`/payment/notify.php?gateway=…`, `/payment/return.php?gateway=…`).
+
+---
+
+## Third-party scanners, `?i=1` and "We hit a snag"
+
+Two things on a free aeonfree account can make an automated audit look worse
+than the site really is:
+
+**1. The `?i=1` browser check.** Free hosting answers the first request from a
+new visitor with a small JavaScript challenge and then redirects to
+`https://softmymarket.hstn.me/?i=1`. A real browser runs the script and sees the
+store. Scanners that only download HTML (the static part of most "website health
+check" tools) see the challenge page instead — which has no `<title>`, no
+viewport tag, no navigation and no footer, so they report exactly those items as
+missing while their Lighthouse run (which executes JavaScript) scores the real
+page at 99/100.
+
+If a report shows *title / meta description / viewport / navigation / footer*
+missing, open the URL it scanned in a private window: if it lands on `/?i=1`
+first, the scanner never reached the app. Re-check with a tool that follows the
+challenge, or after the host disables the check (some accounts can turn the
+security system off once a custom domain or SSL is added).
+
+**2. "We hit a snag" (HTTP 500).** That is this app's own error page, not the
+host's. It always prints a reference id, e.g. `SMM-20261025-084322-1a2b3c`:
+
+* the matching stack trace is in `storage/logs/error-YYYY-MM-DD.log`
+* `php tools/deploy-check.php` prints the newest lines and flags missing files
+* the usual causes on this host are a partial upload (a new file such as
+  `includes/maintenance.php` not being copied, or a file uploaded with 0 bytes)
+  and a stale `storage/` folder that is not writable (chmod `755`, or `775` if
+  the host runs PHP under a different user)
+
+Uploads are safest as a **zip extracted on the server** so no file is skipped.

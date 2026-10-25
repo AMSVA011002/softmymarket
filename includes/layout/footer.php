@@ -111,10 +111,33 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
   </div>
 </footer>
 
-<button class="back-to-top" type="button" aria-label="Back to top"><i class="bi bi-arrow-up"></i></button>
+<div class="quick-dock" role="region" aria-label="Quick help and page actions">
+  <?php
+  $smmWhatsapp = preg_replace('/[^0-9]/', '', Settings::get('support_whatsapp')) ?? '';
+  $smmPhoneDial = preg_replace('/[^0-9+]/', '', Settings::get('support_phone')) ?? '';
+  $smmSupportEmail = trim(Settings::get('support_email'));
+  ?>
+  <div class="live-chat support-widget" data-live-chat data-support-widget role="group" aria-label="Chat with our team">
+    <span class="support-caption">Need help?</span>
+    <?php if ($smmWhatsapp !== ''): ?>
+      <a class="support-fab support-whatsapp" href="https://wa.me/<?= e(ltrim($smmWhatsapp, '+')) ?>"
+         target="_blank" rel="noopener" data-chat-channel="whatsapp"
+         aria-label="Chat with us on WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a>
+    <?php endif; ?>
+    <?php if ($smmPhoneDial !== ''): ?>
+      <a class="support-fab" href="tel:<?= e($smmPhoneDial) ?>" data-chat-channel="phone"
+         aria-label="Call <?= e(Settings::get('support_phone')) ?>"><i class="bi bi-telephone" aria-hidden="true"></i></a>
+    <?php endif; ?>
+    <?php if ($smmSupportEmail !== ''): ?>
+      <a class="support-fab" href="mailto:<?= e($smmSupportEmail) ?>" data-chat-channel="email"
+         aria-label="Email <?= e($smmSupportEmail) ?>"><i class="bi bi-envelope" aria-hidden="true"></i></a>
+    <?php endif; ?>
+  </div>
+  <button class="back-to-top" type="button" aria-label="Back to top"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+</div>
 
 <!-- Cart drawer -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="cartDrawer" aria-labelledby="cartDrawerLabel" style="width:min(420px,92vw)">
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cartDrawer" role="dialog" aria-modal="true" aria-labelledby="cartDrawerLabel" style="width:min(420px,92vw)">
   <div class="offcanvas-header border-bottom">
     <h2 class="offcanvas-title h6 fw-bold" id="cartDrawerLabel"><i class="bi bi-bag me-1"></i> Your cart</h2>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -165,7 +188,7 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
 </div>
 
 <!-- Mobile navigation -->
-<div class="offcanvas offcanvas-start" tabindex="-1" id="navDrawer" aria-labelledby="navDrawerLabel">
+<div class="offcanvas offcanvas-start" tabindex="-1" id="navDrawer" role="dialog" aria-modal="true" aria-labelledby="navDrawerLabel">
   <div class="offcanvas-header border-bottom">
     <h2 class="offcanvas-title h6 fw-bold" id="navDrawerLabel"><?= e($brand['name']) ?></h2>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -184,13 +207,13 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
       <a class="btn btn-soft btn-sm text-start" href="/track.php"><i class="bi bi-truck me-2"></i>Track an order</a>
       <a class="btn btn-soft btn-sm text-start" href="/account/index.php"><i class="bi bi-person me-2"></i><?= Auth::check() ? 'My account' : 'Sign in' ?></a>
     </div>
-    <h3 class="footer-title">Departments</h3>
+    <h2 class="footer-title h6">Departments</h2>
     <ul class="footer-links">
       <?php foreach (View::navCategories(20) as $category): ?>
         <li><a href="/category.php?slug=<?= e($category['slug']) ?>"><i class="bi <?= e($category['icon']) ?> me-1"></i><?= e($category['name']) ?></a></li>
       <?php endforeach; ?>
     </ul>
-    <h3 class="footer-title mt-3">Support</h3>
+    <h2 class="footer-title h6 mt-3">Support</h2>
     <ul class="footer-links">
       <li><a href="/help.php">Help centre</a></li>
       <li><a href="/contact.php">Contact us</a></li>

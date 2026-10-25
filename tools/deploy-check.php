@@ -181,6 +181,85 @@ check('storage is outside the web root or protected', (bool) preg_match('#/stora
     'Move storage/ above public_html, or keep storage/.htaccess in place.');
 check('storage/.htaccess present', is_file(STORAGE_PATH . '/.htaccess'), 'Restore the deny-all .htaccess in storage/.');
 
+/* ------------------------------------------------------------------ release */
+echo "\nRelease files\n";
+check('PHP 8.1 or newer', PHP_VERSION_ID >= 80100,
+    'Switch the PHP version in the hosting control panel — the app uses 8.1 language features.');
+
+foreach ([
+    'favicon.ico'                     => 'Health-check tools and browsers ask for /favicon.ico directly.',
+    'manifest.webmanifest'            => 'Adds the installable-app metadata and the home-screen icon.',
+    'maintenance.php'                 => 'Public holding page (also used by the preview link in settings).',
+    'includes/maintenance.php'        => 'Renderer behind Settings → Commerce → Maintenance mode.',
+    'assets/js/media-url.js'          => 'Shared Drive/URL normaliser for every image field.',
+    'assets/img/og-cover.png'         => 'Fallback social share image (1200×630).',
+    'assets/img/apple-touch-icon.png' => 'iOS home-screen icon.',
+    'assets/img/favicon-32.png'       => 'PNG favicon used when no custom favicon is set.',
+] as $file => $why) {
+    check("file: {$file}", is_file(ROOT_PATH . '/' . $file), "Upload {$file} — {$why}");
+}
+
+$headerFile = ROOT_PATH . '/includes/layout/header.php';
+$headerSource = is_file($headerFile) ? (string) file_get_contents($headerFile) : '';
+echo "\nStorefront metadata (the health-check items)\n";
+foreach ([
+    'viewport meta'        => 'name="viewport"',
+    'canonical link'       => 'rel="canonical"',
+    'meta description'     => 'name="description"',
+    'Open Graph tags'      => 'property="og:image"',
+    'Twitter card tags'    => 'name="twitter:card"',
+    'JSON-LD structured data' => 'application/ld+json',
+    'favicon links'        => 'rel="icon"',
+    'apple touch icon'     => 'rel="apple-touch-icon"',
+    'web manifest link'    => 'rel="manifest"',
+] as $label => $needle) {
+    check("header ships: {$label}", str_contains($headerSource, $needle),
+        'includes/layout/header.php looks out of date — upload the current release.');
+}
+
+$footerSource = is_file(ROOT_PATH . '/includes/layout/footer.php')
+    ? (string) file_get_contents(ROOT_PATH . '/includes/layout/footer.php')
+    : '';
+foreach ([
+    'navigation links'   => '/shop.php',
+    'privacy policy'     => '/privacy.php',
+    'terms of service'   => '/terms.php',
+    'copyright notice'   => 'date(\'Y\')',
+    'contact details'    => 'support_phone',
+    'social links'       => 'social-link',
+    'support / chat dock'=> 'data-live-chat',
+    'enquiry form'       => 'newsletter-form',
+] as $label => $needle) {
+    check("footer ships: {$label}", str_contains($footerSource, $needle),
+        'includes/layout/footer.php looks out of date — upload the current release.');
+}
+
+$homeSource = is_file(ROOT_PATH . '/index.php') ? (string) file_get_contents(ROOT_PATH . '/index.php') : '';
+check('home page ships a contact form', str_contains($homeSource, 'data-contact-form'),
+    'index.php is out of date — upload the current release.');
+check('home page ships social proof', str_contains($homeSource, 'trust-strip'),
+    'index.php is out of date — upload the current release.');
+
+/* --------------------------------------------------------------------- logs */
+echo "\nRecent errors\n";
+$logFiles = glob(STORAGE_PATH . '/logs/error-*.log') ?: [];
+if ($logFiles === []) {
+    check('no error log yet', true, '', true, 'clean');
+} else {
+    sort($logFiles);
+    $latest = (string) end($logFiles);
+    $lines = array_slice(array_filter(explode("\n", (string) file_get_contents($latest))), -6);
+    check('error log is empty today', $lines === [],
+        'See ' . basename($latest) . " — the newest entries are printed above.", false,
+        count($lines) . ' line(s)');
+    if ($lines !== []) {
+        echo "  --- " . basename($latest) . " ---\n";
+        foreach ($lines as $line) {
+            echo '  ' . substr($line, 0, 160) . "\n";
+        }
+    }
+}
+
 echo "\n" . str_repeat('-', 70) . "\n";
 if ($blocking === 0) {
     printf("\033[32mReady.\033[0m %d warning(s).\n", $warnings);

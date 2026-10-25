@@ -252,6 +252,7 @@ if (!function_exists('smm_render_fatal')) {
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8">';
         echo '<meta name="viewport" content="width=device-width,initial-scale=1">';
         echo '<title>Server error — ' . htmlspecialchars((string) Config::get('app.name', 'SoftMyMarket'), ENT_QUOTES, 'UTF-8') . '</title>';
+        echo '<meta name="robots" content="noindex, nofollow">';
         echo '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
         echo '<body class="bg-light d-flex align-items-center justify-content-center min-vh-100"><div class="text-center p-4">';
         echo '<div class="display-5 mb-3">⚠️</div><h1 class="h3 fw-bold">We hit a snag</h1>';
@@ -307,9 +308,13 @@ if (!IS_CLI && !defined('SMM_MAINTENANCE_PAGE')) {
         $maintenanceOn = false; // never hide the store because a setting failed to load
     }
     if ($maintenanceOn) {
-        require_once INCLUDES_PATH . '/maintenance.php';
+        // Guarded: a partially uploaded release must not take the store down.
+        if (is_file(INCLUDES_PATH . '/maintenance.php')) {
+            require_once INCLUDES_PATH . '/maintenance.php';
+        }
         $path = current_path();
-        if (!smm_maintenance_exempt($path) && !Auth::isTeam()) {
+        if (is_file(INCLUDES_PATH . '/maintenance.php') && function_exists('smm_maintenance_page')
+            && !smm_maintenance_exempt($path) && !Auth::isTeam()) {
             // JSON callers (cart, wishlist, live search) get a usable answer
             // instead of an HTML holding page.
             if (wants_json()) {

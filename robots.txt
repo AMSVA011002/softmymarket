@@ -13,4 +13,4 @@ Disallow: /cart.php
 Disallow: /track.php
 Disallow: /order-success.php
 
-Sitemap: /sitemap.php
+Sitemap: https://softmymarket.hstn.me/sitemap.php

@@ -50,6 +50,31 @@ HTML/CSS/JS/PHP/MySQL stack.
 
 ---
 
+## SEO, sharing and accessibility
+
+Every storefront page ships the full set a health-check or search crawler looks
+for, generated from one place (`includes/layout/header.php`):
+
+* unique `<title>` + description, canonical URL, `robots` directives
+* Open Graph (`og:type/site_name/title/description/url/image`, 1200×630 with
+  `og:image:width/height/alt`) and Twitter `summary_large_image` cards
+* JSON-LD: `OnlineStore` (name, address, phone, social profiles) and `WebSite`
+  with a `SearchAction`, so Google can show the sitelinks search box
+* icons: `/favicon.ico`, SVG, 32×32 PNG, 180×180 `apple-touch-icon` and a
+  `manifest.webmanifest` for add-to-home-screen
+* exactly one `<h1>` per page, landmark regions (`header`/`nav`/`main`/`footer`
+  plus a labelled quick-help dock), labelled forms, and contrast-tuned greys
+
+The share image falls back to `assets/img/og-cover.png`; the icon falls back to
+the bundled mark. Both are replaced automatically once a logo/favicon is saved
+in **Admin → Settings → General**.
+
+Run `php tools/deploy-check.php` after uploading: it now also verifies that the
+current release's metadata files and head/footer markup are present, and prints
+the newest lines of `storage/logs/error-*.log`.
+
+---
+
 ## Requirements
 
 | | |

@@ -13,6 +13,12 @@ $bestSellers = Catalog::bestSellers(4);
 $newArrivals = Catalog::newArrivals(8);
 $coupons = Coupons::active(3);
 $heroSlides = View::heroSlides();
+$homeReviews = Catalog::recentReviews(3);
+$homeReviewStats = Catalog::storeReviewSummary();
+$homeStats = [
+    'products' => Catalog::productCount('active'),
+    'brands'   => Database::int('SELECT COUNT(*) FROM brands'),
+];
 
 // Recently viewed rail (ids are stored in a first-party cookie by product.php).
 $recentIds = array_values(array_filter(array_map('intval', explode(',', (string) ($_COOKIE['smm_recent'] ?? '')))));
@@ -47,10 +53,15 @@ require INCLUDES_PATH . '/layout/header.php';
                 ?>
                 <div class="col-lg-<?= $heroImage !== '' ? '7' : '9' ?> <?= $slide['theme'] === 'light' ? 'text-ink-900' : 'text-white' ?>">
                   <span class="eyebrow"><?= e($slide['eyebrow']) ?></span>
-                  <h1 class="display-5 fw-bold mt-3 mb-2">
+                  <?php
+                  // One <h1> per page: the first slide owns it, later slides
+                  // keep the same visual weight with an <h2>.
+                  $slideTag = $index === 0 ? 'h1' : 'h2';
+                  ?>
+                  <<?= $slideTag ?> class="display-5 fw-bold mt-3 mb-2">
                     <?= e($slide['title']) ?><br>
                     <span class="<?= $slide['theme'] === 'light' ? 'text-brand' : 'text-white' ?>"><?= e($slide['highlight']) ?></span>
-                  </h1>
+                  </<?= $slideTag ?>>
                   <p class="mb-3 <?= $slide['theme'] === 'light' ? 'text-ink-600' : 'text-white-50' ?>" style="max-width:52ch"><?= e($slide['description']) ?></p>
                   <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-lg <?= $slide['theme'] === 'light' ? 'btn-brand' : 'btn-light' ?>" href="<?= e($slide['cta_url']) ?>"><?= e($slide['cta_label']) ?> <i class="bi bi-arrow-right ms-1"></i></a>
@@ -95,8 +106,8 @@ require INCLUDES_PATH . '/layout/header.php';
       foreach ($props as [$icon, $title, $text]): ?>
         <div class="col-6 col-lg-3">
           <div class="value-prop">
-            <span class="icon"><i class="bi <?= e($icon) ?>"></i></span>
-            <div><h3><?= e($title) ?></h3><p><?= e($text) ?></p></div>
+            <span class="icon"><i class="bi <?= e($icon) ?>" aria-hidden="true"></i></span>
+            <div><p class="value-prop-title"><?= e($title) ?></p><p><?= e($text) ?></p></div>
           </div>
         </div>
       <?php endforeach; ?>
@@ -285,6 +296,100 @@ require INCLUDES_PATH . '/layout/header.php';
           <a class="btn btn-brand" href="/contact.php"><i class="bi bi-chat-dots me-1"></i> Contact us</a>
           <a class="btn btn-soft" href="/faq.php"><i class="bi bi-question-circle me-1"></i> FAQ</a>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section pt-0" id="trust">
+  <div class="container-page">
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card-soft p-3 p-lg-4 h-100">
+          <p class="eyebrow">Social proof</p>
+          <h2 class="fw-bold mb-1">Shoppers across Sri Lanka trust us</h2>
+          <p class="small text-ink-600 mb-3">Real customers, real orders, real reviews.</p>
+
+          <div class="trust-strip mb-3">
+            <?php if ($homeReviewStats['total'] > 0): ?>
+              <div class="trust-stat">
+                <strong><?= e(number_format((float) $homeReviewStats['average'], 1)) ?>/5</strong>
+                <span>Average rating</span>
+              </div>
+              <div class="trust-stat">
+                <strong><?= (int) $homeReviewStats['total'] ?></strong>
+                <span>Verified reviews</span>
+              </div>
+            <?php else: ?>
+              <div class="trust-stat">
+                <strong>7 days</strong>
+                <span>Easy returns</span>
+              </div>
+              <div class="trust-stat">
+                <strong>COD</strong>
+                <span>Pay on delivery</span>
+              </div>
+            <?php endif; ?>
+            <div class="trust-stat">
+              <strong><?= e(compact_number($homeStats['products'])) ?>+</strong>
+              <span>Products in stock</span>
+            </div>
+            <div class="trust-stat">
+              <strong><?= (int) $homeStats['brands'] ?></strong>
+              <span>Brands stocked</span>
+            </div>
+          </div>
+
+          <?php if ($homeReviews !== []): ?>
+            <div class="row g-2">
+              <?php foreach ($homeReviews as $review): ?>
+                <div class="col-md-4">
+                  <figure class="review-card mb-0">
+                    <div class="review-stars"><?= View::stars((float) $review['rating']) ?></div>
+                    <blockquote class="review-quote"><?= e(limit_text((string) $review['body'], 140)) ?></blockquote>
+                    <figcaption class="review-author">
+                      <strong><?= e((string) $review['author_name']) ?></strong>
+                      <a href="/product.php?slug=<?= e((string) $review['product_slug']) ?>"><?= e(limit_text((string) $review['product_title'], 42)) ?></a>
+                    </figcaption>
+                  </figure>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php else: ?>
+            <div class="review-card review-card-empty">
+              <i class="bi bi-patch-check-fill text-brand"></i>
+              <div>
+                <strong>Every order is covered</strong>
+                <p class="small text-ink-600 mb-0">Genuine products with local warranty, 7-day returns and island-wide delivery — pay cash on delivery if you prefer.</p>
+              </div>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <form class="card-soft p-3 p-lg-4 h-100 contact-form" id="ask" method="post" action="/actions/contact.php" data-contact-form>
+          <?= Csrf::field() ?>
+          <input type="hidden" name="topic" value="home">
+          <input type="hidden" name="subject" value="Home page enquiry">
+          <p class="eyebrow">Talk to a human</p>
+          <h2 class="h4 fw-bold mb-1">Ask us anything</h2>
+          <p class="small text-ink-600 mb-3">A real person replies within one business day — English, Sinhala or Tamil.</p>
+          <div class="mb-2">
+            <label class="form-label small" for="ask-name">Your name</label>
+            <input class="form-control" id="ask-name" type="text" name="name" maxlength="120" autocomplete="name" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="ask-email">Email address</label>
+            <input class="form-control" id="ask-email" type="email" name="email" maxlength="160" autocomplete="email" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small" for="ask-message">How can we help?</label>
+            <textarea class="form-control" id="ask-message" name="message" rows="3" maxlength="4000" required></textarea>
+          </div>
+          <button class="btn btn-brand w-100" type="submit"><i class="bi bi-send me-1"></i> Send message</button>
+          <p class="small text-ink-500 mt-2 mb-0">Prefer to talk? Call <a href="tel:<?= e(preg_replace('/[^0-9+]/', '', Settings::get('support_phone'))) ?>"><?= e(Settings::get('support_phone')) ?></a>.</p>
+        </form>
       </div>
     </div>
   </div>

@@ -65,7 +65,7 @@ require INCLUDES_PATH . '/layout/header.php';
   </div>
 </section>
 
-<div class="offcanvas offcanvas-start" tabindex="-1" id="filterDrawer" aria-labelledby="filterDrawerLabel" style="width:min(360px,90vw)">
+<div role="dialog" aria-modal="true" class="offcanvas offcanvas-start" tabindex="-1" id="filterDrawer" aria-labelledby="filterDrawerLabel" style="width:min(360px,90vw)">
   <div class="offcanvas-header border-bottom">
     <h2 class="offcanvas-title h6 fw-bold" id="filterDrawerLabel">Filters</h2>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>

@@ -79,6 +79,7 @@ $maxQty = max(1, min((int) Config::get('security.max_order_qty', 10), (int) $pro
 $pageTitle = $product['meta_title'] ?: $product['title'];
 $pageDescription = $product['meta_description'] ?: limit_text((string) ($product['short_description'] ?: strip_tags((string) $product['description'])), 155, '');
 $pageCanonical = url('/product.php?slug=' . rawurlencode((string) $product['slug']));
+$pageOgType = 'product';
 require INCLUDES_PATH . '/layout/header.php';
 ?>
 <div class="breadcrumb-wrap"><div class="container-page"><?= View::breadcrumbs($crumbs) ?></div></div>

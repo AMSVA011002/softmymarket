@@ -7,6 +7,13 @@
 
 DirectoryIndex index.php index.html
 
+# Correct types for the icons and the web manifest (some hosts default
+# .webmanifest to text/plain, which browsers then refuse to install).
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+    AddType image/x-icon .ico
+</IfModule>
+
 # -Indexes stops directory listings. If the host rejects the Options directive
 # it will show a 500 error on every page — in that case comment out the two
 # lines below (the app itself never needs them).
