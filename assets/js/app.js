@@ -819,6 +819,14 @@
     el.addEventListener("change", () => el.form && el.form.submit());
   });
 
+  /* ------------------------------------------------------- hero carousel */
+  // Respect the visitor's motion preference: no autoplay, no sliding.
+  const heroCarousel = $("#heroCarousel");
+  if (heroCarousel && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    heroCarousel.removeAttribute("data-bs-ride");
+    heroCarousel.removeAttribute("data-bs-interval");
+  }
+
   /* --------------------------------------------- bootstrap tooltips */
   if (window.bootstrap) {
     $$('[data-bs-toggle="tooltip"]').forEach((el) => new window.bootstrap.Tooltip(el));

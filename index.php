@@ -30,55 +30,58 @@ $pageDescription = Settings::get('default_meta_description');
 require INCLUDES_PATH . '/layout/header.php';
 ?>
 
-<section class="hero">
-  <div id="heroCarousel" class="carousel slide hero-carousel" data-bs-ride="carousel" data-bs-interval="6500">
-    <div class="carousel-indicators position-absolute" style="bottom:.9rem">
-      <?php foreach ($heroSlides as $index => $slide): ?>
-        <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="<?= $index ?>" class="<?= $index === 0 ? 'active' : '' ?>" aria-current="<?= $index === 0 ? 'true' : 'false' ?>" aria-label="Slide <?= $index + 1 ?>"></button>
-      <?php endforeach; ?>
-    </div>
+<section class="hero" aria-label="Featured offers">
+  <div id="heroCarousel" class="carousel slide hero-carousel" data-bs-ride="carousel"
+       data-bs-interval="6500" data-bs-touch="true" aria-roledescription="carousel">
     <div class="carousel-inner">
       <?php foreach ($heroSlides as $index => $slide): ?>
-        <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
+        <?php
+        $heroImage = trim((string) ($slide['image'] ?? ''));
+        $heroSrc = $heroImage !== '' ? img_url($heroImage, $slide['title'], 900) : '';
+        // Proxied images accept a target width; ask for a crisp hero size.
+        if (str_starts_with($heroSrc, '/image.php?')) {
+            $heroSrc .= '&w=900';
+        }
+        $heroIsLight = $slide['theme'] === 'light';
+        ?>
+        <div class="carousel-item<?= $index === 0 ? ' active' : '' ?>"
+             role="group" aria-roledescription="slide"
+             aria-label="Slide <?= $index + 1 ?> of <?= count($heroSlides) ?>">
           <div class="hero-slide hero-<?= e($slide['theme']) ?>">
             <div class="container-page">
-              <div class="row align-items-center g-4">
-                <?php
-                $heroImage = trim((string) ($slide['image'] ?? ''));
-                $heroSrc = $heroImage !== '' ? img_url($heroImage, $slide['title'], 900) : '';
-                // Proxied images accept a target width; ask for a crisp hero size.
-                if (str_starts_with($heroSrc, '/image.php?')) {
-                    $heroSrc .= '&w=900';
-                }
-                ?>
-                <div class="col-lg-<?= $heroImage !== '' ? '7' : '9' ?> <?= $slide['theme'] === 'light' ? 'text-ink-900' : 'text-white' ?>">
+              <div class="row align-items-center g-3 g-lg-4">
+                <div class="col-lg-<?= $heroImage !== '' ? '7' : '12' ?> hero-body <?= $heroIsLight ? 'text-ink-900' : 'text-white' ?>">
                   <span class="eyebrow"><?= e($slide['eyebrow']) ?></span>
                   <?php
                   // One <h1> per page: the first slide owns it, later slides
                   // keep the same visual weight with an <h2>.
                   $slideTag = $index === 0 ? 'h1' : 'h2';
                   ?>
-                  <<?= $slideTag ?> class="display-5 fw-bold mt-3 mb-2">
+                  <<?= $slideTag ?> class="hero-title">
                     <?= e($slide['title']) ?><br>
-                    <span class="<?= $slide['theme'] === 'light' ? 'text-brand' : 'text-white' ?>"><?= e($slide['highlight']) ?></span>
+                    <span class="<?= $heroIsLight ? 'text-brand' : 'text-white' ?>"><?= e($slide['highlight']) ?></span>
                   </<?= $slideTag ?>>
-                  <p class="mb-3 <?= $slide['theme'] === 'light' ? 'text-ink-600' : 'text-white-50' ?>" style="max-width:52ch"><?= e($slide['description']) ?></p>
-                  <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-lg <?= $slide['theme'] === 'light' ? 'btn-brand' : 'btn-light' ?>" href="<?= e($slide['cta_url']) ?>"><?= e($slide['cta_label']) ?> <i class="bi bi-arrow-right ms-1"></i></a>
-                    <a class="btn btn-lg <?= $slide['theme'] === 'light' ? 'btn-outline-brand' : 'btn-outline-light' ?>" href="<?= e($slide['secondary_url']) ?>"><?= e($slide['secondary_label']) ?></a>
+                  <p class="hero-copy <?= $heroIsLight ? 'text-ink-600' : 'text-white-50' ?>"><?= e($slide['description']) ?></p>
+                  <div class="hero-cta">
+                    <a class="btn btn-lg <?= $heroIsLight ? 'btn-brand' : 'btn-light' ?>" href="<?= e($slide['cta_url']) ?>">
+                      <?= e($slide['cta_label']) ?> <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </a>
+                    <a class="btn btn-lg <?= $heroIsLight ? 'btn-outline-brand' : 'btn-outline-light' ?>" href="<?= e($slide['secondary_url']) ?>"><?= e($slide['secondary_label']) ?></a>
                   </div>
-                  <dl class="hero-stats d-flex gap-4 mt-4 mb-0">
+                  <dl class="hero-stats">
                     <div><dt>Products</dt><dd><?= e(compact_number(Catalog::productCount('active'))) ?>+</dd></div>
                     <div><dt>Delivery</dt><dd>1–4 days</dd></div>
                     <div><dt>Returns</dt><dd>7 days</dd></div>
                   </dl>
                 </div>
                 <?php if ($heroImage !== ''): ?>
-                  <div class="col-lg-5">
+                  <div class="col-lg-5 hero-media">
                     <div class="hero-visual">
                       <img class="hero-visual-img" src="<?= e($heroSrc) ?>"
                            alt="<?= e(trim($slide['title'] . ' ' . $slide['highlight'])) ?>"
-                           width="900" height="675" loading="lazy" decoding="async">
+                           width="900" height="675"
+                           loading="<?= $index === 0 ? 'eager' : 'lazy' ?>"<?= $index === 0 ? ' fetchpriority="high"' : '' ?>
+                           decoding="async">
                     </div>
                   </div>
                 <?php endif; ?>
@@ -88,8 +91,26 @@ require INCLUDES_PATH . '/layout/header.php';
         </div>
       <?php endforeach; ?>
     </div>
-    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span><span class="visually-hidden">Previous</span></button>
-    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span><span class="visually-hidden">Next</span></button>
+    <?php if (count($heroSlides) > 1): ?>
+    <div class="hero-controls">
+      <div class="container-page hero-controls-inner">
+        <div class="carousel-indicators">
+          <?php foreach ($heroSlides as $index => $slide): ?>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="<?= $index ?>"
+                    class="<?= $index === 0 ? 'active' : '' ?>"
+                    aria-current="<?= $index === 0 ? 'true' : 'false' ?>"
+                    aria-label="Go to slide <?= $index + 1 ?>"></button>
+          <?php endforeach; ?>
+        </div>
+        <div class="hero-arrows">
+          <button class="hero-arrow" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev"
+                  aria-label="Previous slide"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+          <button class="hero-arrow" type="button" data-bs-target="#heroCarousel" data-bs-slide="next"
+                  aria-label="Next slide"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
   </div>
 </section>
 

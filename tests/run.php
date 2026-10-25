@@ -472,6 +472,26 @@ T::case('sql: no hand-written query uses an unquoted reserved word', function ()
     T::same([], $messages, 'MySQL/MariaDB reserved words must be wrapped in backticks');
 });
 
+T::case('home: hero controls sit in a bar, never over the copy', function (): void {
+    $index = (string) file_get_contents(dirname(__DIR__) . '/index.php');
+    T::contains('hero-controls-inner', $index, 'control bar');
+    T::false(str_contains($index, 'carousel-control-prev'), 'full-height side controls overlap the copy on tablets');
+    T::false(str_contains($index, 'carousel-control-next'), 'full-height side controls overlap the copy on tablets');
+    T::contains('class="hero-stats"', $index, 'stats list');
+    T::false(str_contains($index, 'hero-stats d-flex'), 'stats must be a grid so the values cannot collide');
+    T::false(str_contains($index, 'position-absolute" style="bottom'), 'indicators get their position from the stylesheet');
+});
+
+T::case('home: hero css stays fluid and overlap-free', function (): void {
+    $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/app.css');
+    T::contains('.hero-carousel .hero-stats {', $css, 'scoped stats rules');
+    T::contains('grid-template-columns: repeat(3, minmax(0, 1fr))', $css, 'stats grid');
+    T::contains('.hero-carousel .hero-slide {', $css, 'scoped slide rules');
+    T::false(str_contains($css, "\n.hero-slide {"), 'unscoped slide rules leak into the promo tiles');
+    T::contains('safe-area-inset-bottom', $css, 'control bar clears the home indicator');
+    T::contains('prefers-reduced-motion: reduce', $css, 'reduced motion');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {

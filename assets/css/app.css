@@ -306,13 +306,42 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .offcanvas .category-list ul { list-style: none; padding-left: .9rem; }
 
 /* -------------------------------------------------------------------- hero */
-.hero { position: relative; overflow: hidden; }
-.hero-slide { padding-block: 2rem; }
-@media (min-width: 992px) { .hero-slide { padding-block: 3.5rem; } }
-.hero-green { background: linear-gradient(135deg, var(--brand-800), var(--brand-600) 55%, var(--brand-500)); }
-.hero-blue { background: linear-gradient(135deg, var(--ocean-900), var(--ocean-600)); }
-.hero-light { background: linear-gradient(135deg, var(--ink-50), #fff 45%, var(--brand-50)); }
-.hero h1 { letter-spacing: -.03em; }
+/* Responsive from 320px phones to ultra-wide desktops: fluid type, a stats
+   grid that can never overlap, and carousel controls parked in a bar under the
+   content instead of floating over the copy. */
+.hero { position: relative; overflow: hidden; isolation: isolate; }
+
+/* Scoped to the carousel: the same class names are reused by the promo tiles
+   further down the page, which keep their own compact layout. */
+.hero-carousel .hero-slide {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* The last gap is reserved for the control bar, so arrows never sit on top
+     of the copy — on any viewport. */
+  padding-block: clamp(1.5rem, 1.1rem + 2.4vw, 3.25rem) clamp(4rem, 3.4rem + 2vw, 5.25rem);
+}
+.hero-carousel .hero-slide > .container-page { width: 100%; }
+.hero-carousel .carousel-item > .hero-slide { height: 100%; }
+/* Gradients stay dark where the copy sits (top-left) and glow in the far
+   corner, so white text keeps a 4.5:1+ contrast on every slide. */
+.hero-green {
+  background:
+    radial-gradient(110% 120% at 100% 100%, rgba(52, 201, 95, .55), transparent 62%),
+    linear-gradient(135deg, var(--brand-900), var(--brand-800) 55%, var(--brand-600));
+}
+.hero-blue {
+  background:
+    radial-gradient(110% 120% at 100% 100%, rgba(96, 165, 250, .45), transparent 62%),
+    linear-gradient(135deg, var(--ocean-900), var(--ocean-800) 55%, var(--ocean-600));
+}
+.hero-light {
+  background:
+    radial-gradient(110% 120% at 100% 100%, rgba(12, 128, 15, .12), transparent 62%),
+    linear-gradient(135deg, var(--ink-50), #fff 52%, var(--brand-50));
+}
+
+.hero-carousel .hero-body { display: flex; flex-direction: column; align-items: flex-start; }
 .hero .eyebrow {
   display: inline-flex; align-items: center; gap: .4rem;
   background: rgba(255, 255, 255, .16);
@@ -321,20 +350,72 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   text-transform: uppercase; letter-spacing: .12em;
 }
 .hero-light .eyebrow { background: rgba(12, 128, 15, .1); color: var(--brand-700); }
-.hero-stats dt { font-size: .66rem; text-transform: uppercase; letter-spacing: .12em; color: rgba(255, 255, 255, .92); font-weight: 700; }
-.hero-stats dd { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff; }
-.hero-light .hero-stats dt { color: var(--ink-600); }
-.hero-light .hero-stats dd { color: var(--ink-900); }
-/* Slide artwork: a real image (Google Drive share link or any https URL) —
-   the old decorative icon is gone. */
+
+.hero-carousel .hero-title {
+  font-size: clamp(1.7rem, 1.25rem + 2.6vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -.03em;
+  margin: .8rem 0 .55rem;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+@media (min-width: 1920px) { .hero-carousel .hero-title { font-size: 4rem; } }
+.hero-carousel .hero-copy {
+  font-size: clamp(.94rem, .9rem + .22vw, 1.08rem);
+  line-height: 1.55;
+  max-width: 48ch;
+  margin-bottom: 1.15rem;
+  overflow-wrap: break-word;
+}
+
+.hero-carousel .hero-cta { display: grid; gap: .55rem; width: 100%; }
+@media (min-width: 576px) { .hero-carousel .hero-cta { display: flex; flex-wrap: wrap; gap: .6rem; width: auto; } }
+.hero-carousel .hero-cta .btn {
+  min-height: 3rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  padding-inline: 1.15rem;
+}
+
+/* Stats: three equal columns that wrap their own text, so "1–4 days" can never
+   run into "7 days" the way the old flex row did. */
+.hero-carousel .hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .55rem clamp(.8rem, 2.5vw, 1.35rem);
+  width: 100%;
+  max-width: 32rem;
+  margin: 1.35rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, .22);
+}
+.hero-carousel .hero-stats > div { min-width: 0; }
+.hero-carousel .hero-stats dt {
+  font-size: clamp(.58rem, .54rem + .16vw, .7rem);
+  text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 700; color: rgba(255, 255, 255, .92);
+  margin-bottom: .15rem;
+}
+.hero-carousel .hero-stats dd {
+  margin: 0;
+  font-size: clamp(.92rem, .87rem + .3vw, 1.15rem);
+  line-height: 1.2; font-weight: 800; color: #fff;
+}
+.hero-carousel .hero-light .hero-stats { border-top-color: rgba(15, 23, 42, .14); }
+.hero-carousel .hero-light .hero-stats dt { color: var(--ink-500); }
+.hero-carousel .hero-light .hero-stats dd { color: var(--ink-900); }
+
+/* Slide artwork: a real image (Google Drive share link or any https URL) — the
+   old decorative icon is gone. */
+.hero-media { width: 100%; }
 .hero-visual {
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .14);
   border: 1px solid rgba(255, 255, 255, .22);
   box-shadow: 0 18px 40px rgba(2, 24, 6, .22);
   aspect-ratio: 4 / 3;
   overflow: hidden;
   padding: .45rem;
+  width: 100%;
 }
 .hero-light .hero-visual { background: rgba(12, 128, 15, .06); border-color: var(--brand-100); box-shadow: 0 18px 40px rgba(12, 128, 15, .12); }
 .hero-visual-img {
@@ -343,11 +424,110 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   border-radius: calc(var(--radius-lg) - .35rem);
 }
 @media (max-width: 991.98px) {
-  .hero-visual { aspect-ratio: 16 / 10; max-height: 240px; }
+  /* Stacked under the copy: keep it wide and shallow on phones, taller on
+     tablets, but never tall enough to push the next section off-screen. */
+  .hero-visual { aspect-ratio: 16 / 9; max-height: min(42vh, 320px); }
 }
-.hero-carousel .carousel-indicators [data-bs-target] { width: 26px; height: 4px; border-radius: 4px; opacity: .5; }
-.hero-carousel .carousel-indicators .active { opacity: 1; }
-.hero-carousel .carousel-control-prev, .hero-carousel .carousel-control-next { width: 8%; opacity: .55; }
+
+/* Control bar: indicators on the left, arrows on the right — inside the slide's
+   reserved bottom padding, never over the copy. */
+.hero-controls {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 3;
+  padding-bottom: calc(.6rem + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.hero-controls-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.hero-controls-inner > * { pointer-events: auto; }
+.hero-controls .carousel-indicators {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: .15rem;
+  margin: 0;
+  padding: .2rem .5rem;
+  /* A store with a dozen slides must not push the arrows off-screen. */
+  max-width: min(62%, 22rem);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: var(--radius-pill);
+  background: rgba(4, 30, 10, .34);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.hero-controls .carousel-indicators::-webkit-scrollbar { display: none; }
+.hero-controls .carousel-indicators [data-bs-target] {
+  width: 20px; height: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: #fff;
+  background-clip: padding-box;
+  flex: 0 0 auto;
+  opacity: .5;
+  transition: width .22s ease, opacity .22s ease;
+}
+.hero-controls .carousel-indicators .active { width: 32px; opacity: 1; }
+.hero-arrows { display: flex; gap: .45rem; }
+.hero-arrow {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .94);
+  color: var(--ink-800);
+  font-size: 1.15rem; line-height: 1;
+  box-shadow: 0 6px 18px rgba(2, 24, 6, .22);
+  transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+.hero-arrow:hover { background: #fff; color: var(--brand-700); transform: translateY(-1px); }
+.hero-arrow:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@media (max-width: 400px) {
+  .hero-arrow { width: 40px; height: 40px; font-size: 1.05rem; }
+}
+
+/* Keep the whole slide the same height while it cycles: every title is two
+   lines and every description three, so nothing jumps between slides. */
+@media (max-width: 991.98px) {
+  .hero-carousel .hero-title { min-height: 2.16em; }
+  .hero-carousel .hero-copy {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: calc(3 * 1.55em);
+  }
+}
+/* From the two-column breakpoint the tallest slide defines the height, so the
+   carousel never resizes mid-rotation. Guarded by `scripting` so the no-JS
+   fallback still shows a single slide. */
+@media (min-width: 992px) and (scripting: enabled) {
+  .hero-carousel .carousel-inner { display: grid; }
+  .hero-carousel .carousel-item {
+    grid-area: 1 / 1;
+    float: none;
+    margin-right: 0;
+    display: block;
+    visibility: hidden;
+  }
+  .hero-carousel .carousel-item.active,
+  .hero-carousel .carousel-item-next,
+  .hero-carousel .carousel-item-prev { visibility: visible; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel .carousel-item,
+  .hero-arrow,
+  .hero-controls .carousel-indicators [data-bs-target] { transition: none; }
+}
 
 /* ------------------------------------------------------------------ product */
 .grid-products {
@@ -684,7 +864,6 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   .search-shell { order: 3; flex-basis: 100%; margin-top: .4rem; }
   .action-link span.label { display: none; }
   .section-head { flex-direction: column; align-items: flex-start; }
-  .hero-visual { aspect-ratio: 16 / 9; max-height: 200px; }
   .table-responsive-sm { font-size: .78rem; }
 }
 
