@@ -115,13 +115,31 @@ final class Catalog
         if ($id <= 0) {
             return [];
         }
-        $rows = Database::all(
-            'SELECT id FROM categories WHERE id = :id OR path LIKE :pathLike',
-            ['id' => $id, 'pathLike' => '%/' . $id . '/%']
-        );
-        $ids = array_map(static fn ($row) => (int) $row['id'], $rows);
-        $ids[] = $id;
-        return array_values(array_unique($ids));
+        // Walk the parent_id relationship instead of relying on the optional
+        // materialised path. Older/imported category rows may have stale paths;
+        // filtering by path then silently drops products from those subcategories.
+        $children = [];
+        foreach (self::categories(false) as $row) {
+            $parent = (int) ($row['parent_id'] ?? 0);
+            if ($parent > 0) {
+                $children[$parent][] = (int) $row['id'];
+            }
+        }
+        $ids = [];
+        $queue = [$id];
+        $seen = [];
+        while ($queue !== []) {
+            $current = (int) array_shift($queue);
+            if ($current <= 0 || isset($seen[$current])) {
+                continue;
+            }
+            $seen[$current] = true;
+            $ids[] = $current;
+            foreach ($children[$current] ?? [] as $childId) {
+                $queue[] = $childId;
+            }
+        }
+        return $ids;
     }
 
     /** Root → … → this category. @return list<array<string,mixed>> */
@@ -294,7 +312,12 @@ final class Catalog
         $rows = Database::all(
             'SELECT * FROM categories WHERE is_active = 1 AND is_featured = 1 ORDER BY position ASC, id ASC LIMIT ' . max(1, min(24, $limit))
         );
-        return array_map([self::class, 'mapCategory'], $rows);
+        $counts = self::categoryCounts(true);
+        return array_map(static function (array $row) use ($counts): array {
+            $category = self::mapCategory($row);
+            $category['product_count'] = (int) ($counts[(int) $category['id']]['total'] ?? 0);
+            return $category;
+        }, $rows);
     }
 
     /* =====================================================================
@@ -916,8 +939,14 @@ final class Catalog
             throw new InvalidArgumentException('Price cannot be negative.');
         }
         $categoryId = (int) ($data['category_id'] ?? 0);
-        if (self::categoryById($categoryId) === null) {
+        $category = self::categoryById($categoryId);
+        if ($category === null) {
             throw new InvalidArgumentException('Choose a valid category.');
+        }
+        $parentCategoryId = (int) ($data['parent_category_id'] ?? 0);
+        if ($parentCategoryId > 0 && $categoryId !== $parentCategoryId
+            && (int) ($category['parent_id'] ?? 0) !== $parentCategoryId) {
+            throw new InvalidArgumentException('Choose a subcategory belonging to the selected parent category.');
         }
         $sku = strtoupper(trim((string) ($data['sku'] ?? '')));
         if ($sku === '') {

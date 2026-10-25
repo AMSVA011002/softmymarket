@@ -6,6 +6,7 @@
 <script src="<?= e(asset('assets/js/app.js')) ?>"></script>
 <script src="<?= e(asset('assets/js/media-url.js')) ?>"></script>
 <script src="<?= e(asset('assets/js/admin-images.js')) ?>"></script>
+<script src="<?= e(asset('assets/js/admin-categories.js')) ?>"></script>
 <script src="<?= e(asset('assets/js/admin-hero.js')) ?>"></script>
 <script nonce="<?= e(Security::nonce()) ?>">
   (function () {
