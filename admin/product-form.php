@@ -46,8 +46,11 @@ $gallery = $product['gallery'] ?? [];
 if (!is_array($gallery)) {
     $gallery = [];
 }
-// The first slot mirrors the primary image; keep four editable slots.
-$slots = array_slice(array_values(array_unique(array_merge($gallery, ['', '', '', '']))), 0, 4);
+$gallery = array_values(array_filter(array_map('normalize_image_url', $gallery)));
+// Twelve editable gallery slots: the primary image plus up to eleven extras.
+// Both Google Drive share links and ordinary product-page image URLs are valid.
+$gallerySlots = 12;
+$slots = array_slice(array_values(array_unique(array_merge($gallery, array_fill(0, $gallerySlots, '')))), 0, $gallerySlots);
 $specs = $product['specs'] ?? [];
 if (!is_array($specs) || $specs === []) {
     $specs = ['' => ''];
@@ -159,24 +162,71 @@ require __DIR__ . '/includes/layout-top.php';
       </div>
 
       <div class="card-soft p-3 mb-3">
-        <h2 class="h6 fw-bold mb-3">Images</h2>
-        <p class="small text-ink-500">Use public Google Drive share links or any https image URL. They are proxied through <code>/image.php</code> so hotlinks and Drive quirks never break the page.</p>
-        <div class="row g-2">
-          <div class="col-12">
-            <label class="form-label small" for="image_url">Primary image URL</label>
-            <input class="form-control" id="image_url" name="image_url" value="<?= e($values['image_url']) ?>" placeholder="https://drive.google.com/file/d/FILE_ID/view">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h2 class="h6 fw-bold mb-0">Images</h2>
+          <span class="badge text-bg-light" data-gallery-count>0 / 12</span>
+        </div>
+        <p class="small text-ink-500">Paste up to <strong>12</strong> links. Both work:
+          a public <strong>Google Drive</strong> share link
+          (<code>drive.google.com/file/d/…/view</code>) and a normal
+          <strong>https image link</strong> from a manufacturer or product page.
+          They are served through <code>/image.php</code>, so Drive quirks and hotlink
+          protection never break the page.</p>
+
+        <label class="form-label small" for="image_url">Primary image</label>
+        <div class="d-flex gap-2 align-items-start mb-3" data-image-row>
+          <span class="image-slot-preview" data-image-preview>
+            <i class="bi bi-image"></i>
+          </span>
+          <div class="flex-grow-1">
+            <input class="form-control" id="image_url" name="image_url" value="<?= e($values['image_url']) ?>"
+                   placeholder="https://drive.google.com/file/d/FILE_ID/view" data-image-input data-image-primary>
+            <div class="form-text" data-image-status></div>
           </div>
+        </div>
+
+        <div class="row g-2" data-gallery-grid>
           <?php foreach ($slots as $index => $slot): ?>
-            <div class="col-md-6">
-              <label class="form-label small" for="gallery-<?= $index ?>">Gallery image <?= $index + 1 ?></label>
-              <input class="form-control" id="gallery-<?= $index ?>" name="gallery[]" value="<?= e((string) $slot) ?>" placeholder="https://…">
+            <div class="col-12 col-lg-6" data-image-row>
+              <div class="d-flex gap-2 align-items-start">
+                <span class="image-slot-preview" data-image-preview>
+                  <i class="bi bi-image"></i>
+                </span>
+                <div class="flex-grow-1">
+                  <label class="form-label small mb-1" for="gallery-<?= $index ?>">Gallery image <?= $index + 1 ?></label>
+                  <input class="form-control form-control-sm" id="gallery-<?= $index ?>" name="gallery[]"
+                         value="<?= e((string) $slot) ?>" placeholder="https://… or drive.google.com/file/d/…/view"
+                         data-image-input>
+                  <div class="form-text" data-image-status></div>
+                </div>
+              </div>
             </div>
           <?php endforeach; ?>
         </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+          <button class="btn btn-sm btn-soft" type="button" data-image-paste-toggle>
+            <i class="bi bi-clipboard me-1"></i> Paste a list of links
+          </button>
+          <button class="btn btn-sm btn-soft" type="button" data-image-clear>
+            <i class="bi bi-eraser me-1"></i> Clear all gallery slots
+          </button>
+        </div>
+        <div class="mt-2 d-none" data-image-paste>
+          <textarea class="form-control form-control-sm" rows="4" data-image-paste-box
+                    placeholder="One link per line — Drive share links and normal image URLs can be mixed."></textarea>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-brand" type="button" data-image-paste-apply>Fill slots</button>
+            <button class="btn btn-sm btn-soft" type="button" data-image-paste-cancel>Cancel</button>
+            <span class="small text-ink-500 align-self-center" data-image-paste-status></span>
+          </div>
+        </div>
+
         <?php if (!empty($product['images'])): ?>
           <div class="d-flex flex-wrap gap-2 mt-3">
-            <?php foreach (array_slice($product['images'], 0, 6) as $image): ?>
-              <img src="<?= e(img_url((string) $image, (string) $product['title'], 120)) ?>" alt="" width="60" height="60" style="border-radius:.5rem;object-fit:cover;background:var(--ink-100)">
+            <?php foreach (array_slice($product['images'], 0, 12) as $image): ?>
+              <img src="<?= e(img_url((string) $image, (string) $product['title'], 120)) ?>" alt="" width="54" height="54"
+                   style="border-radius:.5rem;object-fit:cover;background:var(--ink-100)">
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
@@ -244,18 +294,28 @@ require __DIR__ . '/includes/layout-top.php';
         <div class="card-soft p-3">
           <h2 class="h6 fw-bold mb-2">Danger zone</h2>
           <p class="small text-ink-500">Archiving hides the product but keeps every order and review intact.</p>
-          <form method="post" action="/admin/actions.php" data-confirm="Archive this product?">
-            <?= Csrf::field() ?>
-            <input type="hidden" name="action" value="product_delete">
-            <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-            <input type="hidden" name="return" value="<?= e(admin_url('products.php')) ?>">
-            <button class="btn btn-outline-danger btn-sm w-100" type="submit"><i class="bi bi-archive me-1"></i> Archive product</button>
-          </form>
+          <?php /* The button submits the standalone form below. A nested <form> is
+                   invalid HTML: the browser drops the inner tag, so its hidden
+                   fields used to be posted with "Save changes" too — PHP kept the
+                   last "action" value, which archived the product on every save. */ ?>
+          <button class="btn btn-outline-danger btn-sm w-100" type="submit" form="product-archive-form">
+            <i class="bi bi-archive me-1"></i> Archive product
+          </button>
         </div>
       <?php endif; ?>
     </div>
   </div>
 </form>
+
+<?php if ($product !== null): ?>
+  <form id="product-archive-form" method="post" action="/admin/actions.php" class="d-none"
+        data-confirm="Archive this product? It disappears from the shop, but orders and reviews are kept.">
+    <?= Csrf::field() ?>
+    <input type="hidden" name="action" value="product_delete">
+    <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+    <input type="hidden" name="return" value="<?= e(admin_url('products.php')) ?>">
+  </form>
+<?php endif; ?>
 
 <?php
 $adminInlineScript = <<<'JS'

@@ -223,19 +223,27 @@ function seed_product_words(): array
 
 function seed_defaults_for_category(string $name): array
 {
-    $words = seed_product_words();
-    foreach ($words as $key => $data) {
-        if (stripos($name, $key) !== false || stripos($key, $name) !== false) {
-            return $data;
-        }
-    }
     // Generic fallback that still reads like a real product.
-    return [
+    $fallback = [
         'prefix' => [seed_pick(['Essential', 'Premium', 'Everyday', 'Classic'])],
-        'noun' => [$name . ' Item'],
-        'price' => [1200, 45000],
-        'specs' => ['Brand' => 'Assorted', 'Warranty' => '6 months', 'Origin' => 'Imported'],
+        'noun'   => [$name . ' Item'],
+        'price'  => [1200, 45000],
+        'specs'  => ['Brand' => 'Assorted', 'Warranty' => '6 months', 'Origin' => 'Imported'],
     ];
+    foreach (seed_product_words() as $key => $data) {
+        if (stripos($name, $key) === false && stripos($key, $name) === false) {
+            continue;
+        }
+        // Each entry keeps its word lists in slot 0 next to price/specs, so
+        // flatten the two shapes into the one callers expect.
+        $entry = isset($data[0]) && is_array($data[0]) ? array_merge($data, $data[0]) : $data;
+        unset($entry[0]);
+        if (empty($entry['prefix']) || empty($entry['noun'])) {
+            continue;
+        }
+        return $entry + $fallback;
+    }
+    return $fallback;
 }
 
 /* ---------------------------------------------------------------- seeding */
@@ -586,7 +594,7 @@ function seed_orders(int $count): int
             'billing_address' => json_encode($address, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'placed_at' => $placed,
             'paid_at' => $paymentStatus === 'PAID' ? $placed : null,
-            'created_at' => $placed,
+            // orders has no created_at column — placed_at is the creation stamp.
             'updated_at' => $placed,
         ]);
         $orderId = (int) Database::pdo()->lastInsertId();

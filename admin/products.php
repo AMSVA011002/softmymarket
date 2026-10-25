@@ -29,11 +29,13 @@ $adminActions = '<a class="btn btn-sm btn-soft" href="' . e(admin_url('categorie
     . '<a class="btn btn-sm btn-brand" href="' . e(admin_url('product-form.php')) . '"><i class="bi bi-plus-lg me-1"></i> Add product</a>';
 require __DIR__ . '/includes/layout-top.php';
 ?>
-<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('products.php')) ?>">
+<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('products.php')) ?>" data-live-filter data-live-min="0">
   <div class="row g-2 align-items-end">
     <div class="col-12 col-md-4">
       <label class="form-label small mb-1" for="p-q">Search</label>
-      <input class="form-control form-control-sm" id="p-q" name="q" value="<?= e($filters['q']) ?>" placeholder="Title or SKU">
+      <input class="form-control form-control-sm" id="p-q" name="q" type="search" value="<?= e($filters['q']) ?>"
+             placeholder="Search title, SKU, brand…" data-live-input autocomplete="off">
+      <div class="live-search-note">Filters as you type.</div>
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label small mb-1" for="p-status">Status</label>
@@ -82,6 +84,7 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </form>
 
+<div data-live-results>
 <div class="card-soft p-0">
   <div class="table-responsive">
     <table class="table table-admin mb-0">
@@ -134,5 +137,6 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </div>
 <div class="mt-3"><?= pagination_links($result['pager'], array_filter($filters, static fn ($value) => $value !== '' && $value !== 0)) ?></div>
+</div><!-- /data-live-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

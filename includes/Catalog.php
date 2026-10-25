@@ -698,7 +698,7 @@ final class Catalog
     public static function productSuggestions(string $term, int $limit = 6): array
     {
         $term = trim($term);
-        if (mb_strlen($term) < 2) {
+        if (mb_strlen($term) < 3) {
             return [];
         }
         $like = '%' . $term . '%';
@@ -719,7 +719,7 @@ final class Catalog
     public static function categorySuggestions(string $term, int $limit = 4): array
     {
         $term = trim($term);
-        if (mb_strlen($term) < 2) {
+        if (mb_strlen($term) < 3) {
             return [];
         }
         $rows = Database::all(
@@ -727,6 +727,35 @@ final class Catalog
             ['c' => '%' . $term . '%']
         );
         return array_map([self::class, 'mapCategory'], $rows);
+    }
+
+    /** @return list<array<string,mixed>> brands whose name matches the term */
+    public static function brandSuggestions(string $term, int $limit = 3): array
+    {
+        $term = trim($term);
+        if (mb_strlen($term) < 3) {
+            return [];
+        }
+        return Database::all(
+            'SELECT id, name, slug, logo_url FROM brands WHERE name LIKE :b ORDER BY name ASC LIMIT ' . max(1, min(10, $limit)),
+            ['b' => '%' . $term . '%']
+        );
+    }
+
+    /** How many active products match a search term (for "see all N results"). */
+    public static function suggestionCount(string $term): int
+    {
+        $term = trim($term);
+        if (mb_strlen($term) < 3) {
+            return 0;
+        }
+        $like = '%' . $term . '%';
+        return Database::int(
+            "SELECT COUNT(*) FROM products p LEFT JOIN brands b ON b.id = p.brand_id
+              WHERE p.status = 'active' AND p.deleted_at IS NULL
+                AND (p.title LIKE :c1 OR p.sku LIKE :c2 OR p.tags LIKE :c3 OR b.name LIKE :c4)",
+            ['c1' => $like, 'c2' => $like, 'c3' => $like, 'c4' => $like]
+        );
     }
 
     public static function incrementView(int $productId): void
@@ -769,9 +798,12 @@ final class Catalog
         $params = [];
         if (!empty($filters['q'])) {
             $like = '%' . $filters['q'] . '%';
-            $where[] = '(p.title LIKE :aq1 OR p.sku LIKE :aq2)';
+            $where[] = '(p.title LIKE :aq1 OR p.sku LIKE :aq2 OR p.tags LIKE :aq3 OR b.name LIKE :aq4 OR c.name LIKE :aq5)';
             $params['aq1'] = $like;
             $params['aq2'] = $like;
+            $params['aq3'] = $like;
+            $params['aq4'] = $like;
+            $params['aq5'] = $like;
         }
         if (!empty($filters['status']) && in_array($filters['status'], ['active', 'draft', 'archived'], true)) {
             $where[] = 'p.status = :astatus';
@@ -792,7 +824,13 @@ final class Catalog
         }
 
         $whereSql = implode(' AND ', $where);
-        $total = Database::int("SELECT COUNT(*) FROM products p WHERE {$whereSql}", $params);
+        $total = Database::int(
+            "SELECT COUNT(*) FROM products p
+          LEFT JOIN categories c ON c.id = p.category_id
+          LEFT JOIN brands b ON b.id = p.brand_id
+              WHERE {$whereSql}",
+            $params
+        );
         $pager = paginate($total, (int) ($filters['page'] ?? 1), 25);
         $sort = match ($filters['sort'] ?? 'newest') {
             'title'      => 'p.title ASC',
@@ -846,7 +884,16 @@ final class Catalog
             throw new InvalidArgumentException('That SKU is already used by another product.');
         }
 
-        $gallery = array_values(array_filter(array_map('trim', (array) ($data['gallery'] ?? [])), static fn ($url) => $url !== ''));
+        // Accept Google Drive share links and ordinary product-page image URLs,
+        // normalise them into one stored shape and cap the gallery at 12.
+        $gallery = [];
+        foreach ((array) ($data['gallery'] ?? []) as $rawImage) {
+            $normalized = normalize_image_url(is_string($rawImage) ? $rawImage : null);
+            if ($normalized !== null && !in_array($normalized, $gallery, true)) {
+                $gallery[] = $normalized;
+            }
+        }
+        $gallery = array_slice($gallery, 0, 12);
         $specs = [];
         foreach ((array) ($data['specs'] ?? []) as $entry) {
             $name = trim((string) ($entry['name'] ?? ''));
@@ -880,7 +927,7 @@ final class Catalog
             'shipping_fee'      => round(max(0.0, (float) ($data['shipping_fee'] ?? 0)), 2),
             'warranty'          => isset($data['warranty']) && $data['warranty'] !== '' ? mb_substr((string) $data['warranty'], 0, 120) : null,
             'weight_grams'      => !empty($data['weight_grams']) ? (int) $data['weight_grams'] : null,
-            'image_url'         => isset($data['image_url']) && $data['image_url'] !== '' ? (string) $data['image_url'] : null,
+            'image_url'         => normalize_image_url((string) ($data['image_url'] ?? '')),
             'gallery'           => $gallery === [] ? null : json_encode($gallery, JSON_UNESCAPED_SLASHES),
             'tags'              => $tags === [] ? null : mb_substr(implode(',', $tags), 0, 500),
             'specs'             => $specs === [] ? null : json_encode($specs, JSON_UNESCAPED_UNICODE),
@@ -1086,7 +1133,10 @@ final class Catalog
         if (!empty($row['image_url'])) {
             array_unshift($images, (string) $row['image_url']);
         }
-        $row['images'] = array_values(array_unique($images));
+        // Normalise on read as well: rows saved before the 12-slot editor kept
+        // raw paste, and mixed Drive/web links must both keep working.
+        $images = array_values(array_unique(array_filter(array_map('normalize_image_url', $images))));
+        $row['images'] = array_slice($images, 0, 12);
         $row['image'] = $row['images'][0] ?? null;
 
         $specs = json_decode((string) ($row['specs'] ?? ''), true);

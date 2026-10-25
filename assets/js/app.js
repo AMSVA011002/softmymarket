@@ -13,6 +13,11 @@
     return input ? input.value : '';
   };
 
+  const escapeHtml = (value) =>
+    String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+    ));
+
   const money = (value) => {
     const n = Number(value || 0);
     const symbol = document.documentElement.dataset.currencySymbol || "Rs";
@@ -114,51 +119,359 @@
     });
   }
 
-  /* ----------------------------------------------------- search suggest */
-  const searchInput = $("[data-search-input]");
-  const suggestBox = $("[data-suggest-box]");
-  if (searchInput && suggestBox) {
+  /* -------------------------------------------------- live search dropdown */
+
+  const MIN_SEARCH = 3;
+
+  /**
+   * Live search for every search box on the page.
+   *
+   * Markup contract: a container holding an [data-search-input] and a
+   * [data-suggest-box]. Any number of them can coexist (header, mobile drawer,
+   * shop sidebar) — each keeps its own timer and request.
+   */
+  function initLiveSearch(root) {
+    const input = $("[data-search-input]", root);
+    const box = $("[data-suggest-box]", root);
+    if (!input || !box) return;
+
     let timer = null;
     let controller = null;
-    const hide = () => { suggestBox.classList.add("d-none"); suggestBox.innerHTML = ""; };
+    let items = [];
+    let active = -1;
+    let lastTerm = "";
 
-    searchInput.addEventListener("input", () => {
-      const term = searchInput.value.trim();
+    const setExpanded = (open) => {
+      input.setAttribute("aria-expanded", open ? "true" : "false");
+      box.classList.toggle("d-none", !open);
+    };
+
+    const hide = () => {
       clearTimeout(timer);
-      if (term.length < 2) { hide(); return; }
-      timer = setTimeout(async () => {
-        if (controller) controller.abort();
-        controller = new AbortController();
-        try {
-          const response = await fetch("/api/search-suggest.php?q=" + encodeURIComponent(term), {
-            headers: { Accept: "application/json" },
-            signal: controller.signal,
-          });
-          if (!response.ok) return;
-          const data = await response.json();
-          if (!data.products || data.products.length === 0) { hide(); return; }
-          suggestBox.innerHTML =
-            '<div class="p-2">' +
-            data.products.map((p) =>
-              '<a class="d-flex align-items-center gap-2 text-decoration-none text-reset p-2 rounded-3 suggest-item" href="' + p.url + '">' +
-              '<img src="' + p.image + '" alt="" width="38" height="38" style="object-fit:cover;border-radius:8px" loading="lazy">' +
-              '<span class="flex-grow-1 min-w-0"><span class="d-block small fw-semibold text-truncate">' + p.title + '</span>' +
-              '<span class="d-block small text-brand fw-bold">' + p.price + "</span></span></a>"
-            ).join("") +
-            '<a class="d-block text-center small fw-semibold py-2 text-decoration-none" href="/shop.php?q=' + encodeURIComponent(term) + '">See all results</a>' +
-            "</div>";
-          suggestBox.classList.remove("d-none");
-        } catch (error) {
-          /* aborted or offline — ignore */
+      if (controller) controller.abort();
+      active = -1;
+      items = [];
+      box.innerHTML = "";
+      setExpanded(false);
+    };
+
+    const hint = (message) => {
+      box.innerHTML = '<div class="p-3 small text-ink-500 text-center">' + message + "</div>";
+      setExpanded(true);
+    };
+
+    const loading = () => {
+      box.innerHTML =
+        '<div class="p-3 d-flex align-items-center gap-2 small text-ink-500">' +
+        '<span class="spinner-border spinner-border-sm text-success" role="status" aria-hidden="true"></span>' +
+        "Searching…</div>";
+      setExpanded(true);
+    };
+
+    const row = (href, imageHtml, titleStrong, metaHtml) =>
+      '<a class="d-flex align-items-center gap-2 text-decoration-none text-reset p-2 rounded-3 suggest-item" href="' +
+      href + '" role="option">' + imageHtml +
+      '<span class="flex-grow-1 min-w-0">' +
+      '<span class="d-block small fw-semibold text-truncate">' + titleStrong + "</span>" +
+      (metaHtml ? '<span class="d-block small text-ink-500 text-truncate">' + metaHtml + "</span>" : "") +
+      "</span></a>";
+
+    const render = (data, term) => {
+      const parts = [];
+      if (data.categories && data.categories.length) {
+        parts.push('<div class="suggest-group">Categories</div>');
+        data.categories.forEach((category) => {
+          parts.push(
+            row(category.url, '<span class="suggest-icon"><i class="bi bi-diagram-3"></i></span>',
+              escapeHtml(category.name), "")
+          );
+        });
+      }
+      if (data.brands && data.brands.length) {
+        parts.push('<div class="suggest-group">Brands</div>');
+        data.brands.forEach((brand) => {
+          parts.push(
+            row(brand.url, '<span class="suggest-icon"><i class="bi bi-award"></i></span>',
+              escapeHtml(brand.name), "")
+          );
+        });
+      }
+      if (data.products && data.products.length) {
+        parts.push('<div class="suggest-group">Products</div>');
+        data.products.forEach((product) => {
+          const meta = [product.category, product.stock <= 0 ? "Out of stock" : ""]
+            .filter(Boolean)
+            .map(escapeHtml)
+            .join(" · ");
+          const price =
+            '<span class="text-brand fw-bold">' + product.price + "</span>" +
+            (product.was ? ' <span class="text-ink-400 text-decoration-line-through small">' + product.was + "</span>" : "") +
+            (meta ? ' <span class="text-ink-400 small">· ' + meta + "</span>" : "");
+          parts.push(
+            row(product.url,
+              '<img src="' + product.image + '" alt="" width="40" height="40" loading="lazy" ' +
+              'style="object-fit:cover;border-radius:.5rem;background:var(--ink-100)">',
+              escapeHtml(product.title), price)
+          );
+        });
+      }
+
+      if (!parts.length) {
+        box.innerHTML =
+          '<div class="p-3 text-center small">' +
+          '<div class="text-ink-500 mb-1">No matches for “' + escapeHtml(term) + '”.</div>' +
+          '<a class="fw-semibold" href="/shop.php?q=' + encodeURIComponent(term) + '">Browse the full catalogue</a></div>';
+        setExpanded(true);
+        items = [];
+        return;
+      }
+
+      const total = Number(data.total || 0);
+      parts.push(
+        '<a class="d-block text-center small fw-semibold py-2 text-decoration-none suggest-more" href="' +
+        escapeHtml(data.shop_url || "/shop.php?q=" + encodeURIComponent(term)) + '">' +
+        (total > data.products.length
+          ? "See all " + total.toLocaleString() + " results for “" + escapeHtml(term) + "”"
+          : "Open results for “" + escapeHtml(term) + "”") +
+        "</a>"
+      );
+      box.innerHTML = '<div class="p-1">' + parts.join("") + "</div>";
+      items = Array.prototype.slice.call(box.querySelectorAll(".suggest-item"));
+      active = -1;
+      setExpanded(true);
+    };
+
+    const search = async (term) => {
+      if (controller) controller.abort();
+      controller = new AbortController();
+      loading();
+      try {
+        const response = await fetch("/api/search-suggest.php?q=" + encodeURIComponent(term), {
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          hint("Search is unavailable right now. Press Enter to search the shop.");
+          return;
         }
-      }, 220);
+        const data = await response.json();
+        if (input.value.trim() !== lastTerm) return; // a newer term won
+        render(data, term);
+      } catch (error) {
+        if (error && error.name === "AbortError") return;
+        hint("Search is unavailable right now. Press Enter to search the shop.");
+      }
+    };
+
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+    if (!box.id) box.id = "suggest-" + Math.random().toString(36).slice(2, 8);
+    input.setAttribute("aria-controls", box.id);
+    box.setAttribute("role", "listbox");
+
+    input.addEventListener("input", () => {
+      const term = input.value.trim();
+      lastTerm = term;
+      clearTimeout(timer);
+      if (term.length === 0) {
+        hide();
+        return;
+      }
+      if (term.length < MIN_SEARCH) {
+        hint("Keep typing — at least " + MIN_SEARCH + " letters for suggestions.");
+        return;
+      }
+      timer = setTimeout(() => search(term), 200);
     });
 
-    searchInput.addEventListener("blur", () => setTimeout(hide, 180));
+    input.addEventListener("focus", () => {
+      if (items.length) setExpanded(true);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hide();
+        return;
+      }
+      if (!items.length) return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        active = event.key === "ArrowDown"
+          ? (active + 1) % items.length
+          : (active - 1 + items.length) % items.length;
+        items.forEach((item, index) => item.classList.toggle("is-active", index === active));
+        items[active].scrollIntoView({ block: "nearest" });
+        return;
+      }
+      if (event.key === "Enter" && active >= 0) {
+        event.preventDefault();
+        window.location.href = items[active].getAttribute("href");
+      }
+    });
+
+    input.addEventListener("blur", () => setTimeout(hide, 160));
+
     document.addEventListener("click", (event) => {
-      if (!suggestBox.contains(event.target) && event.target !== searchInput) hide();
+      if (!box.contains(event.target) && event.target !== input) hide();
     });
   }
+
+  $$("[data-live-search]").forEach(initLiveSearch);
+
+  /* ---------------------------------------- live filtering for admin tables */
+
+  /**
+   * Type-to-filter for dashboard and catalogue lists.
+   *
+   * The form keeps working without JS (submit button + GET), but with JS every
+   * keystroke re-renders the results region from the server, so filtering stays
+   * accurate across pagination — the browser never filters just the visible rows.
+   *
+   * Markup:   <form data-live-filter> … fields … </form>
+   *           <div data-live-results> table + pagination </div>
+   */
+  function initLiveFilter(form) {
+    const target = $(form.getAttribute("data-live-target") || "[data-live-results]");
+    if (!target) return;
+
+    const minChars = Number(form.getAttribute("data-live-min") || 0);
+    const fields = $$("input, select, textarea", form);
+    const searchFields = fields.filter((field) => field.matches("[data-live-input]"));
+    let timer = null;
+    let controller = null;
+
+    const buildUrl = () => {
+      const params = new URLSearchParams();
+      new FormData(form).forEach((value, key) => {
+        const text = String(value).trim();
+        if (text === "") return;
+        if (key === "page") return; // any filter change restarts at page 1
+        params.append(key, text);
+      });
+      const query = params.toString();
+      // Use the form's own target: /shop.php, /category.php?slug=… , /deals.php
+      const action = (form.getAttribute("action") || location.pathname).split("?")[0];
+      return action + (query ? "?" + query : "");
+    };
+
+    const setBusy = (busy) => {
+      target.classList.toggle("is-loading", busy);
+      target.setAttribute("aria-busy", busy ? "true" : "false");
+    };
+
+    const apply = async () => {
+      const url = buildUrl();
+      if (controller) controller.abort();
+      controller = new AbortController();
+      setBusy(true);
+      try {
+        const response = await fetch(url, {
+          headers: { "X-Requested-With": "live-filter" },
+          signal: controller.signal,
+          credentials: "same-origin",
+        });
+        if (!response.ok) return;
+        const html = await response.text();
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        const fresh = parsed.querySelector(form.getAttribute("data-live-target") || "[data-live-results]");
+        if (!fresh) return;
+        target.innerHTML = fresh.innerHTML;
+        history.replaceState(null, "", url || location.pathname);
+        if (window.bootstrap && window.bootstrap.Tooltip) {
+          $$("[data-bs-toggle='tooltip']", target).forEach((el) => window.bootstrap.Tooltip.getOrCreateInstance(el));
+        }
+      } catch (error) {
+        if (error && error.name === "AbortError") return;
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    const schedule = (delay) => {
+      clearTimeout(timer);
+      timer = setTimeout(apply, delay);
+    };
+
+    searchFields.forEach((field) => {
+      field.addEventListener("input", () => {
+        if (minChars && field.value.trim() !== "" && field.value.trim().length < minChars) {
+          schedule(600);
+          return;
+        }
+        schedule(220);
+      });
+      // Enter should not reload the page in a live-filtered form.
+      field.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          clearTimeout(timer);
+          apply();
+        }
+      });
+    });
+
+    fields.filter((field) => field.matches("select")).forEach((field) => {
+      field.addEventListener("change", () => schedule(0));
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      clearTimeout(timer);
+      apply();
+    });
+  }
+
+  $$("form[data-live-filter]").forEach(initLiveFilter);
+
+  /* -------- client-side instant filter for short, fully rendered tables ----- */
+
+  $$("[data-live-client]").forEach((input) => {
+    const scope = $(input.getAttribute("data-live-client")) || document;
+    const rows = $$("[data-filter-row]", scope);
+    const empty = $(input.getAttribute("data-live-empty") || "[data-filter-empty]", scope);
+    const counter = $(input.getAttribute("data-live-count") || "[data-filter-count]", scope);
+    const text = (row) => (row.getAttribute("data-filter-text") || row.textContent || "").toLowerCase();
+
+    // Group nested rows (categories): a parent row owns the child rows below it,
+    // so a child match keeps its parent visible instead of orphaning the tree.
+    const groups = [];
+    let current = null;
+    rows.forEach((row) => {
+      if (row.hasAttribute("data-filter-parent") || !row.hasAttribute("data-filter-child")) {
+        current = { parent: row, children: [] };
+        groups.push(current);
+      } else if (current) {
+        current.children.push(row);
+      }
+    });
+
+    const apply = () => {
+      const term = input.value.trim().toLowerCase();
+      let shown = 0;
+      groups.forEach(({ parent, children }) => {
+        const parentMatch = term === "" || text(parent).indexOf(term) !== -1;
+        const childMatch = children.some((child) => term !== "" && text(child).indexOf(term) !== -1);
+        const groupVisible = parentMatch || childMatch;
+        parent.classList.toggle("d-none", !groupVisible);
+        if (groupVisible) shown++;
+        children.forEach((child) => {
+          const visible = groupVisible && (parentMatch || text(child).indexOf(term) !== -1);
+          child.classList.toggle("d-none", !visible);
+          if (visible) shown++;
+        });
+      });
+      if (empty) empty.classList.toggle("d-none", shown !== 0);
+      if (counter) counter.textContent = shown + " of " + rows.length;
+    };
+
+    input.addEventListener("input", apply);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") event.preventDefault();
+      if (event.key === "Escape") { input.value = ""; apply(); }
+    });
+    apply();
+  });
 
   /* --------------------------------------------------------- add to cart */
   let cartDrawerEl = null;

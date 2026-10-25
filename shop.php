@@ -116,6 +116,7 @@ require INCLUDES_PATH . '/layout/header.php';
         <?php $baseAction = '/shop.php'; $hiddenParams = []; require INCLUDES_PATH . '/partials/shop-filters.php'; ?>
       </aside>
       <div class="col-lg-9">
+        <div id="shop-results" data-live-results>
         <?php if ($products === []): ?>
           <?= View::emptyState('bi-search', 'Nothing matched just yet', 'Try a different search word, widen the price range or clear a filter.', 'Clear filters', '/shop.php') ?>
           <div class="text-center mt-3">
@@ -139,6 +140,7 @@ require INCLUDES_PATH . '/layout/header.php';
               'featured' => !empty($filters['featured']) ? 1 : null, 'condition' => $filters['condition'], 'sort' => $filters['sort'],
           ], static fn ($value) => $value !== null && $value !== '' && $value !== [])) ?></div>
         <?php endif; ?>
+        </div><!-- /#shop-results -->
       </div>
     </div>
   </div>

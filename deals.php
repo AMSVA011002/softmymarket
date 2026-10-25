@@ -50,6 +50,7 @@ require INCLUDES_PATH . '/layout/header.php';
     <div class="row g-4">
       <aside class="col-lg-3 d-none d-lg-block"><div class="sticky-sidebar"><?php $baseAction = '/deals.php'; $hiddenParams = []; require INCLUDES_PATH . '/partials/shop-filters.php'; ?></div></aside>
       <div class="col-lg-9">
+        <div id="shop-results" data-live-results>
         <?php if ($result['rows'] === []): ?>
           <?= View::emptyState('bi-percent', 'No deals match these filters', 'Try clearing the filters to see every offer.', 'See all products', '/shop.php') ?>
         <?php else: ?>
@@ -58,6 +59,7 @@ require INCLUDES_PATH . '/layout/header.php';
           </div>
           <div class="mt-4"><?= pagination_links($result['pager'], ['sort' => $filters['sort'], 'brand' => $filters['brand'], 'min' => $filters['min'], 'max' => $filters['max']]) ?></div>
         <?php endif; ?>
+        </div><!-- /#shop-results -->
       </div>
     </div>
   </div>

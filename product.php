@@ -94,7 +94,7 @@ require INCLUDES_PATH . '/layout/header.php';
           </div>
           <?php if (count($images) > 1): ?>
             <div class="gallery-thumbs">
-              <?php foreach (array_slice($images, 0, 5) as $index => $image): ?>
+              <?php foreach (array_slice($images, 0, 12) as $index => $image): ?>
                 <button class="gallery-thumb <?= $index === 0 ? 'active' : '' ?>" type="button"
                         data-gallery-thumb="<?= e(img_url($image, (string) $product['title'], 900)) ?>"
                         aria-label="View image <?= $index + 1 ?>">

@@ -23,8 +23,15 @@ require __DIR__ . '/includes/layout-top.php';
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card-soft p-0">
-      <div class="px-3 pt-3 pb-2"><h2 class="h6 fw-bold mb-0">Tree</h2></div>
-      <div class="table-responsive">
+      <div class="px-3 pt-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
+        <h2 class="h6 fw-bold mb-0">Tree</h2>
+        <input class="form-control form-control-sm ms-auto" style="max-width:240px" type="search"
+               placeholder="Filter categories" data-live-client="#categories-tree"
+               data-live-empty="#categories-empty" data-live-count="#categories-count"
+               aria-label="Filter categories" autocomplete="off">
+        <span class="live-search-note" id="categories-count"></span>
+      </div>
+      <div class="table-responsive" id="categories-tree">
         <table class="table table-admin mb-0">
           <thead><tr><th>Category</th><th class="text-center">Products</th><th class="text-center">Active</th><th class="text-end">Actions</th></tr></thead>
           <tbody>
@@ -33,7 +40,7 @@ require __DIR__ . '/includes/layout-top.php';
                 foreach ($nodes as $node) {
                     $children = $byParent[(int) $node['id']] ?? [];
                     ?>
-                    <tr>
+                    <tr data-filter-row <?= $depth === 0 ? 'data-filter-parent' : 'data-filter-child' ?>>
                       <td>
                         <div class="d-flex align-items-center gap-2" style="padding-left:<?= $depth * 1.1 ?>rem">
                           <i class="bi <?= e($node['icon'] ?: 'bi-grid') ?>" style="color:<?= e($node['color'] ?: '#0c800f') ?>"></i>

@@ -9,11 +9,20 @@ admin_require('messages.view');
 
 $tab = (string) query('tab', 'messages');
 $status = (string) query('status', '');
+$search = trim((string) query('q', ''));
 $where = ['1 = 1'];
 $params = [];
 if (in_array($status, ['new', 'open', 'closed', 'spam'], true)) {
     $where[] = 'status = :status';
     $params['status'] = $status;
+}
+if ($search !== '') {
+    $where[] = '(name LIKE :mq1 OR email LIKE :mq2 OR subject LIKE :mq3 OR message LIKE :mq4)';
+    $like = '%' . $search . '%';
+    $params['mq1'] = $like;
+    $params['mq2'] = $like;
+    $params['mq3'] = $like;
+    $params['mq4'] = $like;
 }
 $whereSql = implode(' AND ', $where);
 $total = Database::int("SELECT COUNT(*) FROM contact_messages WHERE {$whereSql}", $params);
@@ -65,11 +74,20 @@ require __DIR__ . '/includes/layout-top.php';
     </div>
   </div>
 <?php else: ?>
-  <div class="d-flex flex-wrap gap-2 mb-3">
-    <?php foreach (['' => 'All', 'new' => 'New', 'open' => 'Open', 'closed' => 'Closed', 'spam' => 'Spam'] as $value => $label): ?>
-      <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('messages.php', ['status' => $value])) ?>"><?= e($label) ?></a>
-    <?php endforeach; ?>
-  </div>
+  <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get"
+        action="<?= e(admin_url('messages.php')) ?>" data-live-filter>
+    <input type="hidden" name="tab" value="messages">
+    <div class="btn-group btn-group-sm">
+      <?php foreach (['' => 'All', 'new' => 'New', 'open' => 'Open', 'closed' => 'Closed', 'spam' => 'Spam'] as $value => $label): ?>
+        <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('messages.php', ['status' => $value])) ?>"><?= e($label) ?></a>
+      <?php endforeach; ?>
+    </div>
+    <input type="hidden" name="status" value="<?= e($status) ?>">
+    <input class="form-control form-control-sm ms-auto" style="max-width:280px" name="q" type="search"
+           value="<?= e($search) ?>" placeholder="Search name, email or subject" data-live-input autocomplete="off">
+  </form>
+
+  <div data-live-results>
 
   <?php foreach ($messages as $message): ?>
     <div class="card-soft p-3 mb-2">
@@ -113,7 +131,8 @@ require __DIR__ . '/includes/layout-top.php';
   <?php if ($messages === []): ?>
     <div class="card-soft p-4 text-center small text-ink-500"><i class="bi bi-chat-dots fs-4 d-block mb-2"></i>No messages in this queue.</div>
   <?php endif; ?>
-  <div class="mt-3"><?= pagination_links($pager, ['status' => $status]) ?></div>
+  <div class="mt-3"><?= pagination_links($pager, ['status' => $status, 'q' => $search]) ?></div>
+  </div><!-- /data-live-results -->
 <?php endif; ?>
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

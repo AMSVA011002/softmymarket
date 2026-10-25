@@ -23,11 +23,13 @@ $adminTitle = $filters['role'] === 'customer' ? 'Customers' : 'People';
 $adminSubtitle = number_format($result['total']) . ' account' . ($result['total'] === 1 ? '' : 's') . ' · ' . number_format(Users::newThisMonth()) . ' joined this month';
 require __DIR__ . '/includes/layout-top.php';
 ?>
-<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('customers.php')) ?>">
+<form class="card-soft p-3 mb-3" method="get" action="<?= e(admin_url('customers.php')) ?>" data-live-filter>
   <div class="row g-2 align-items-end">
     <div class="col-12 col-md-5">
       <label class="form-label small mb-1" for="u-q">Search</label>
-      <input class="form-control form-control-sm" id="u-q" name="q" value="<?= e($filters['q']) ?>" placeholder="Name, email or phone">
+      <input class="form-control form-control-sm" id="u-q" name="q" type="search" value="<?= e($filters['q']) ?>"
+             placeholder="Name, email or phone" data-live-input autocomplete="off">
+      <div class="live-search-note">Filters as you type.</div>
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label small mb-1" for="u-role">Role</label>
@@ -61,6 +63,7 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </form>
 
+<div data-live-results>
 <div class="card-soft p-0">
   <div class="table-responsive">
     <table class="table table-admin mb-0">
@@ -96,5 +99,6 @@ require __DIR__ . '/includes/layout-top.php';
   </div>
 </div>
 <div class="mt-3"><?= pagination_links($result['pager'], array_filter($filters, static fn ($v) => $v !== '' && $v !== null)) ?></div>
+</div><!-- /data-live-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>

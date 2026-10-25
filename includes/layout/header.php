@@ -78,10 +78,11 @@ $smmPath = current_path();
         <?php endif; ?>
       </a>
 
-      <form class="search-shell" action="/shop.php" method="get" role="search">
+      <form class="search-shell" action="/shop.php" method="get" role="search" data-live-search>
         <i class="bi bi-search" aria-hidden="true"></i>
         <input type="search" name="q" value="<?= e((string) query('q', '')) ?>" placeholder="Search products, brands and categories"
-               aria-label="Search products" autocomplete="off" data-search-input>
+               aria-label="Search products" autocomplete="off" autocapitalize="off" spellcheck="false"
+               enterkeyhint="search" data-search-input>
         <button class="btn btn-brand" type="submit" aria-label="Search"><span class="d-none d-sm-inline">Search</span><i class="bi bi-arrow-right d-sm-none"></i></button>
         <div class="suggest-box d-none" data-suggest-box></div>
       </form>

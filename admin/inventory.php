@@ -66,8 +66,9 @@ require __DIR__ . '/includes/layout-top.php';
 
 <div class="row g-3">
   <div class="col-lg-8">
-    <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get" action="<?= e(admin_url('inventory.php')) ?>">
-      <input class="form-control form-control-sm" style="max-width:260px" name="q" value="<?= e($search) ?>" placeholder="Search title or SKU">
+    <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get" action="<?= e(admin_url('inventory.php')) ?>" data-live-filter>
+      <input class="form-control form-control-sm" style="max-width:260px" name="q" type="search" value="<?= e($search) ?>"
+             placeholder="Search title or SKU" data-live-input autocomplete="off">
       <select class="form-select form-select-sm" style="max-width:170px" name="filter">
         <option value="">All stock levels</option>
         <option value="low" <?= $filter === 'low' ? 'selected' : '' ?>>Low stock only</option>
@@ -77,6 +78,7 @@ require __DIR__ . '/includes/layout-top.php';
       <a class="btn btn-sm btn-soft" href="<?= e(admin_url('inventory.php')) ?>">Clear</a>
     </form>
 
+    <div data-live-results>
     <div class="card-soft p-0">
       <div class="table-responsive">
         <table class="table table-admin mb-0">
@@ -127,6 +129,7 @@ require __DIR__ . '/includes/layout-top.php';
       </div>
     </div>
     <div class="mt-3"><?= pagination_links($pager, ['filter' => $filter, 'q' => $search]) ?></div>
+    </div><!-- /data-live-results -->
   </div>
 
   <div class="col-lg-4">

@@ -169,6 +169,14 @@ return [
             'i.imgur.com',
             'cdn.shopify.com',
         ],
+        // Product images come from Google Drive share links *and* from
+        // manufacturer / product-page URLs. Any public host is proxied (private
+        // and reserved IPs are always refused), so hotlink protection and
+        // http-only CDNs cannot break the storefront.
+        'allow_public_hosts' => true,
+        // Serve non-Drive images through /image.php as well (recommended: gives
+        // you caching and hides the visitor's IP from third-party hosts).
+        'proxy_remote' => true,
         'cache_ttl'   => 60 * 60 * 24 * 7, // seconds a remote image stays cached
         'max_bytes'   => 5 * 1024 * 1024,
         'cache_dir'   => 'storage/cache/images',

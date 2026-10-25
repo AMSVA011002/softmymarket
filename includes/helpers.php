@@ -520,14 +520,30 @@ function order_number(int $id): string
 
 /* ----------------------------------------------------------------- images */
 
-/** Extract a Google Drive file id from the usual share/open/uc link shapes. */
+/**
+ * Extract a Google Drive file id from the usual share/open/uc/thumbnail shapes.
+ *
+ * Accepted (all of these get pasted by real shop owners):
+ *   https://drive.google.com/file/d/ID/view?usp=sharing
+ *   https://drive.google.com/open?id=ID
+ *   https://drive.google.com/uc?export=download&id=ID
+ *   https://drive.google.com/thumbnail?id=ID&sz=w1200
+ *   https://drive.usercontent.google.com/download?id=ID
+ *   https://docs.google.com/document/d/ID/edit
+ *   https://lh3.googleusercontent.com/d/ID=w1200
+ *   ID  (a bare file id)
+ */
 function drive_file_id(string $url): ?string
 {
+    // NB: '#' is the pattern delimiter here, so a literal # inside a character
+    // class must be escaped ([\s\#]) — otherwise PHP parses the rest of the
+    // pattern as modifiers and preg_match() fails.
     $patterns = [
         '#drive\.google\.com/file/d/([a-zA-Z0-9_-]{10,})#',
-        '#drive\.google\.com/open\?id=([a-zA-Z0-9_-]{10,})#',
-        '#drive\.google\.com/uc\?(?:export=\w+&)?id=([a-zA-Z0-9_-]{10,})#',
-        '#docs\.google\.com/\w+/d/([a-zA-Z0-9_-]{10,})#',
+        '#drive\.google\.com/(?:open|thumbnail|uc)\?[^\s\#]*?id=([a-zA-Z0-9_-]{10,})#',
+        '#drive\.usercontent\.google\.com/\w+\?[^\s\#]*?id=([a-zA-Z0-9_-]{10,})#',
+        '#docs\.google\.com/[\w-]+/d/([a-zA-Z0-9_-]{10,})#',
+        '#lh3\.googleusercontent\.com/d/([a-zA-Z0-9_-]{10,})#',
         '#^([a-zA-Z0-9_-]{25,})$#',
     ];
     foreach ($patterns as $pattern) {
@@ -536,6 +552,75 @@ function drive_file_id(string $url): ?string
         }
     }
     return null;
+}
+
+/**
+ * Normalise whatever the shop owner pasted into a link we can store and render.
+ *
+ * Google Drive share links of any shape are folded into
+ *   https://drive.google.com/file/d/FILE_ID/view
+ * so the proxy can always resolve them. Plain https links (manufacturer product
+ * pages, CDNs, unsplash…) are kept verbatim — both are first-class citizens here.
+ *
+ * @return string|null null when the value is not a usable image link
+ */
+function normalize_image_url(?string $url): ?string
+{
+    $url = trim((string) $url);
+    // Copy/paste brings quotes, angle brackets and newlines along.
+    $url = trim($url, " \t\n\r\0\x0B\"'<>");
+    $url = (string) preg_replace('/\s+/', '%20', $url);
+    if ($url === '' || strlen($url) > 2000) {
+        return null;
+    }
+    // Refuse anything that could execute instead of render.
+    if (preg_match('#^\s*(javascript|data|vbscript|file):#i', $url)) {
+        return null;
+    }
+
+    // Sometimes only the bare Drive file id is pasted.
+    if (!str_contains($url, '/') && !str_contains($url, '.') && preg_match('/^[a-zA-Z0-9_-]{25,}$/', $url)) {
+        return 'https://drive.google.com/file/d/' . $url . '/view';
+    }
+
+    // Protocol-relative links copied out of page source.
+    if (str_starts_with($url, '//')) {
+        $url = 'https:' . $url;
+    }
+
+    // Google Drive / Docs / lh3 — every shape becomes one canonical share link.
+    $driveId = drive_file_id($url);
+    if ($driveId !== null) {
+        return 'https://drive.google.com/file/d/' . $driveId . '/view';
+    }
+
+    // Links pasted without a scheme ("www.samsung.com/img.jpg").
+    if (!preg_match('#^https?://#i', $url)) {
+        if (preg_match('#^[\w.-]+\.[a-z]{2,}(/|\?)#i', $url)) {
+            $url = 'https://' . $url;
+        } else {
+            return null;
+        }
+    }
+
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        return null;
+    }
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    if (!in_array($scheme, ['http', 'https'], true) || (string) parse_url($url, PHP_URL_HOST) === '') {
+        return null;
+    }
+    return $url;
+}
+
+/** True when the link is a Google Drive reference (needs the image proxy). */
+function is_drive_url(?string $url): bool
+{
+    $url = trim((string) $url);
+    if ($url === '') {
+        return false;
+    }
+    return drive_file_id($url) !== null;
 }
 
 function is_remote_url(?string $url): bool
@@ -558,10 +643,16 @@ function img_url(?string $image, ?string $fallback = null, int $width = 640): st
     if ($image === '') {
         return image_placeholder($fallback ?? 'SoftMyMarket', $width);
     }
-    if (preg_match('#^https?://(www\.)?(drive|docs)\.google\.com/#i', $image) || preg_match('#^https?://lh3\.googleusercontent\.com/#i', $image)) {
+    if (is_drive_url($image)) {
         return '/image.php?src=' . rawurlencode($image);
     }
     if (is_remote_url($image)) {
+        // Remote images go through the proxy too: manufacturer CDNs hotlink
+        // block, some are http-only, and the proxy caches to disk so repeated
+        // page views stay fast.
+        if (Config::get('images.proxy_remote', true)) {
+            return '/image.php?src=' . rawurlencode($image);
+        }
         return $image;
     }
     if (str_starts_with($image, '/')) {

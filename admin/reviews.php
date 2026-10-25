@@ -28,13 +28,15 @@ require __DIR__ . '/includes/layout-top.php';
   <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $value => $label): ?>
     <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('reviews.php', ['status' => $value])) ?>"><?= e($label) ?></a>
   <?php endforeach; ?>
-  <form class="ms-auto d-flex gap-1" method="get" action="<?= e(admin_url('reviews.php')) ?>">
+  <form class="ms-auto d-flex gap-1" method="get" action="<?= e(admin_url('reviews.php')) ?>" data-live-filter data-live-target="#reviews-results">
     <input type="hidden" name="status" value="<?= e($status) ?>">
-    <input class="form-control form-control-sm" name="q" value="<?= e($search) ?>" placeholder="Search reviews">
+    <input class="form-control form-control-sm" name="q" type="search" value="<?= e($search) ?>"
+           placeholder="Search reviews" data-live-input autocomplete="off">
     <button class="btn btn-sm btn-soft" type="submit">Search</button>
   </form>
 </div>
 
+<div id="reviews-results" data-live-results>
 <?php foreach ($rows as $review): ?>
   <div class="card-soft p-3 mb-2">
     <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
@@ -102,5 +104,6 @@ require __DIR__ . '/includes/layout-top.php';
   <div class="card-soft p-4 text-center small text-ink-500"><i class="bi bi-star fs-4 d-block mb-2"></i>No reviews in this queue.</div>
 <?php endif; ?>
 <div class="mt-3"><?= pagination_links($list['pager'], ['status' => $status, 'q' => $search]) ?></div>
+</div><!-- /#reviews-results -->
 
 <?php require __DIR__ . '/includes/layout-bottom.php'; ?>
