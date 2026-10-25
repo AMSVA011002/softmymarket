@@ -305,11 +305,11 @@ function smm_featured_categories(int $limit = 12): array
         if ($featured !== 0) {
             return $featured;
         }
-        return ($counts[(int) $b['id']] ?? 0) <=> ($counts[(int) $a['id']] ?? 0);
+        return (int) ($counts[(int) $b['id']]['total'] ?? 0) <=> (int) ($counts[(int) $a['id']]['total'] ?? 0);
     });
     $categories = array_slice($categories, 0, $limit);
     foreach ($categories as &$category) {
-        $category['product_count'] = $counts[(int) $category['id']] ?? 0;
+        $category['product_count'] = (int) ($counts[(int) $category['id']]['total'] ?? 0);
     }
     return $categories;
 }

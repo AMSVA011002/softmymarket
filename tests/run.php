@@ -549,6 +549,39 @@ T::case('home: support dock collapses into one launcher', function (): void {
     T::contains('.support-widget.is-open .support-channels { display: flex; }', $css, 'the panel opens on tap');
 });
 
+T::case('products: shop and category pages render up to 60 products per page', function (): void {
+    $shop = (string) file_get_contents(dirname(__DIR__) . '/shop.php');
+    $category = (string) file_get_contents(dirname(__DIR__) . '/category.php');
+    T::contains('$filters[\'per\'] = 60;', $shop, 'shop page size');
+    T::contains('$filters[\'per\'] = 60;', $category, 'category page size');
+    T::contains('min(60,', (string) file_get_contents(dirname(__DIR__) . '/includes/Catalog.php'), 'page-size upper bound');
+});
+
+T::case('products: admin form selects a parent before its subcategory', function (): void {
+    $form = (string) file_get_contents(dirname(__DIR__) . '/admin/product-form.php');
+    $parent = strpos($form, 'id="parent_category_id" name="parent_category_id"');
+    $child = strpos($form, 'id="category_id" name="category_id"');
+    T::true($parent !== false && $child !== false && $parent < $child, 'parent selector must come first');
+    T::contains('data-parent-group=', $form, 'subcategories must be grouped beneath their parent');
+    T::contains('parent_category_id', (string) file_get_contents(dirname(__DIR__) . '/admin/actions.php'), 'save parent relation');
+    T::contains('Choose a subcategory belonging to the selected parent category.', (string) file_get_contents(dirname(__DIR__) . '/includes/Catalog.php'), 'reject mismatched parent-child posts');
+});
+
+T::case('categories: storefront count reads the total count field', function (): void {
+    $catalog = (string) file_get_contents(dirname(__DIR__) . '/includes/Catalog.php');
+    $view = (string) file_get_contents(dirname(__DIR__) . '/includes/View.php');
+    T::contains('$category[\'product_count\'] = (int) ($counts[(int) $category[\'id\']][\'total\'] ?? 0);', $catalog, 'featured category count');
+    T::contains('$category[\'product_count\'] = (int) ($counts[(int) $category[\'id\']][\'total\'] ?? 0);', $view, 'view helper count');
+});
+
+T::case('categories: subtree query walks parent_id instead of trusting materialised paths', function (): void {
+    $catalog = (string) file_get_contents(dirname(__DIR__) . '/includes/Catalog.php');
+    T::contains('foreach (self::categories(false) as $row)', $catalog, 'load category relationships');
+    T::contains('$children[$parent][] = (int) $row[\'id\'];', $catalog, 'build child adjacency list');
+    T::contains('while ($queue !== [])', $catalog, 'walk all descendants');
+    T::false(str_contains($catalog, 'path LIKE :pathLike'), 'stale materialised paths must not hide child products');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {

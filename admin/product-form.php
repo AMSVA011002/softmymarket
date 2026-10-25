@@ -19,6 +19,7 @@ $values = [
     'slug' => old('slug', $product['slug'] ?? ''),
     'sku' => old('sku', $product['sku'] ?? ''),
     'category_id' => (int) old('category_id', $product['category_id'] ?? 0),
+    'parent_category_id' => (int) old('parent_category_id', 0),
     'brand_id' => (int) old('brand_id', $product['brand_id'] ?? 0),
     'short_description' => old('short_description', $product['short_description'] ?? ''),
     'description' => old('description', $product['description'] ?? ''),
@@ -37,6 +38,19 @@ $values = [
     'meta_description' => old('meta_description', $product['meta_description'] ?? ''),
     'tags' => old('tags', implode(', ', $product['tags_array'] ?? [])),
 ];
+$categoryOptions = Catalog::categories(true);
+$categoryById = [];
+foreach ($categoryOptions as $categoryOption) {
+    $categoryById[(int) $categoryOption['id']] = $categoryOption;
+}
+$selectedCategory = $categoryById[$values['category_id']] ?? null;
+if ((int) $values['parent_category_id'] <= 0) {
+    // A product in a subcategory uses its immediate parent; a product in a
+    // top-level category uses that category as its own parent selection.
+    $values['parent_category_id'] = $selectedCategory !== null && !empty($selectedCategory['parent_id'])
+        ? (int) $selectedCategory['parent_id']
+        : (int) ($selectedCategory['id'] ?? 0);
+}
 $flags = [
     'is_featured' => (int) old('is_featured', $product['is_featured'] ?? 0),
     'is_flash_deal' => (int) old('is_flash_deal', $product['is_flash_deal'] ?? 0),
@@ -87,13 +101,30 @@ require __DIR__ . '/includes/layout-top.php';
             <input class="form-control" id="slug" name="slug" value="<?= e($values['slug']) ?>" maxlength="220" placeholder="auto from the title">
           </div>
           <div class="col-md-6">
-            <label class="form-label small" for="category_id">Category *</label>
-            <select class="form-select" id="category_id" name="category_id" required>
-              <option value="">Choose…</option>
-              <?php foreach (Catalog::categoryFlat(true) as $category): ?>
-                <option value="<?= (int) $category['id'] ?>" <?= $values['category_id'] === (int) $category['id'] ? 'selected' : '' ?>><?= e($category['label']) ?></option>
+            <label class="form-label small" for="parent_category_id">Parent category *</label>
+            <select class="form-select" id="parent_category_id" name="parent_category_id" data-category-parent required>
+              <option value="">Choose a parent…</option>
+              <?php foreach ($categoryOptions as $categoryOption): ?>
+                <option value="<?= (int) $categoryOption['id'] ?>" <?= $values['parent_category_id'] === (int) $categoryOption['id'] ? 'selected' : '' ?>><?= e(str_repeat('— ', (int) ($categoryOption['depth'] ?? 0)) . $categoryOption['name']) ?></option>
               <?php endforeach; ?>
             </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small" for="category_id">Subcategory / final category *</label>
+            <select class="form-select" id="category_id" name="category_id" data-category-child required>
+              <option value="">Choose a parent category first…</option>
+              <?php foreach ($categoryOptions as $parentOption): ?>
+                <optgroup label="<?= e($parentOption['name']) ?>" data-parent-group="<?= (int) $parentOption['id'] ?>">
+                  <option value="<?= (int) $parentOption['id'] ?>" data-parent-id="<?= (int) $parentOption['id'] ?>" <?= $values['category_id'] === (int) $parentOption['id'] ? 'selected' : '' ?>>Use <?= e($parentOption['name']) ?> (no subcategory)</option>
+                  <?php foreach ($categoryOptions as $childOption): ?>
+                    <?php if ((int) ($childOption['parent_id'] ?? 0) === (int) $parentOption['id']): ?>
+                      <option value="<?= (int) $childOption['id'] ?>" data-parent-id="<?= (int) $parentOption['id'] ?>" <?= $values['category_id'] === (int) $childOption['id'] ? 'selected' : '' ?>><?= e($childOption['name']) ?></option>
+                    <?php endif; ?>
+                  <?php endforeach; ?>
+                </optgroup>
+              <?php endforeach; ?>
+            </select>
+            <div class="form-text">Choose the parent first, then choose a subcategory. Select “Use parent” when there is no subcategory.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label small" for="brand_id">Brand</label>

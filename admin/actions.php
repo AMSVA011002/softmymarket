@@ -127,6 +127,7 @@ switch ($action) {
             'slug' => (string) post('slug', ''),
             'sku' => (string) post('sku', ''),
             'category_id' => post_int('category_id'),
+            'parent_category_id' => post_int('parent_category_id'),
             'brand_id' => post_int('brand_id'),
             'short_description' => (string) post('short_description', ''),
             'description' => (string) post('description', ''),

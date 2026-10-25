@@ -20,22 +20,21 @@ if ($category === null || (int) $category['is_active'] === 0) {
 
 $filters = Catalog::parseFilters($_GET);
 $filters['category'] = $slug;
-$filters['per'] = 24;
+$filters['per'] = 60;
 $results = Catalog::paginateProducts($filters);
 $facets = Catalog::productFacets($filters);
 $products = $results['rows'];
 $total = (int) $results['total'];
 
 $children = [];
+$counts = Catalog::categoryCounts();
 foreach (Catalog::categories(true) as $candidate) {
     if ((int) ($candidate['parent_id'] ?? 0) === (int) $category['id']) {
-        $counts = Catalog::categoryCounts();
-        $candidate['product_count'] = $counts[(int) $candidate['id']] ?? 0;
+        $candidate['product_count'] = (int) ($counts[(int) $candidate['id']]['total'] ?? 0);
         $children[] = $candidate;
     }
 }
-$counts = Catalog::categoryCounts();
-$categoryCount = $counts[(int) $category['id']] ?? 0;
+$categoryCount = (int) ($counts[(int) $category['id']]['total'] ?? 0);
 $trail = Catalog::categoryBreadcrumb($category);
 $crumbs = [];
 foreach ($trail as $node) {

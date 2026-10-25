@@ -7,7 +7,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/bootstrap.php';
 
 $filters = Catalog::parseFilters($_GET);
-$filters['per'] = 24;
+$filters['per'] = 60;
 $result = Catalog::paginateProducts($filters);
 $facets = Catalog::productFacets($filters);
 $products = $result['rows'];
