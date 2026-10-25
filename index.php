@@ -20,6 +20,17 @@ $homeStats = [
     'brands'   => Database::int('SELECT COUNT(*) FROM brands'),
 ];
 
+// Brand strip: only brands that actually have something in stock, busiest first,
+// so the marquee never shows an empty shop front.
+$brandStrip = array_values(array_filter(
+    Catalog::brands(true),
+    static fn (array $brand): bool => (int) ($brand['product_count'] ?? 0) > 0
+));
+usort($brandStrip, static function (array $a, array $b): int {
+    return [(int) $b['product_count'], (string) $a['name']] <=> [(int) $a['product_count'], (string) $b['name']];
+});
+$brandStrip = array_slice($brandStrip, 0, 24);
+
 // Recently viewed rail (ids are stored in a first-party cookie by product.php).
 $recentIds = array_values(array_filter(array_map('intval', explode(',', (string) ($_COOKIE['smm_recent'] ?? '')))));
 $recentlyViewed = $recentIds !== [] ? Catalog::productsByIds(array_slice($recentIds, 0, 8)) : [];
@@ -300,6 +311,55 @@ require INCLUDES_PATH . '/layout/header.php';
       </div>
       <div class="grid-products">
         <?php foreach ($newArrivals as $product): ?><?= View::card($product) ?><?php endforeach; ?>
+      </div>
+    </div>
+  </section>
+<?php endif; ?>
+
+<?php if ($brandStrip !== []): ?>
+  <section class="section pt-0" aria-labelledby="brandStripTitle">
+    <div class="container-page">
+      <div class="section-head mb-2">
+        <div>
+          <p class="eyebrow">Brands we stock</p>
+          <h2 class="fw-bold" id="brandStripTitle">Shop by brand</h2>
+        </div>
+        <a class="small fw-semibold text-decoration-none" href="/brands.php">All brands <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+    <div class="brand-marquee" data-brand-marquee>
+      <div class="brand-marquee-track" data-brand-track>
+        <?php
+        // A short brand list would make a rail narrower than the screen and the
+        // loop would show a gap, so repeat it inside each copy until the track
+        // is comfortably wider than any viewport.
+        $brandRepeat = max(1, min(10, (int) ceil(20 / max(1, count($brandStrip)))));
+        ?>
+        <?php for ($pass = 1; $pass <= 2; $pass++): ?>
+          <?php // The second copy only exists to make the loop seamless: hide it from assistive tech and the tab order. ?>
+          <div class="brand-marquee-group"<?= $pass === 2 ? ' aria-hidden="true"' : '' ?>>
+            <?php for ($copy = 1; $copy <= $brandRepeat; $copy++): ?>
+              <?php foreach ($brandStrip as $brandItem): ?>
+                <?php
+                $brandLogo = trim((string) ($brandItem['logo_url'] ?? ''));
+                $brandHref = '/shop.php?brand%5B%5D=' . rawurlencode((string) $brandItem['slug']);
+                // Only the very first pass is real content; the rest is decoration.
+                $brandPrimary = $pass === 1 && $copy === 1;
+                ?>
+                <a class="brand-chip" href="<?= e($brandHref) ?>" title="<?= e($brandItem['name']) ?>"
+                   <?= $brandPrimary ? '' : 'aria-hidden="true" tabindex="-1"' ?>>
+                  <?php if ($brandLogo !== ''): ?>
+                    <img src="<?= e(img_url($brandLogo, (string) $brandItem['name'], 160)) ?>"
+                         alt="" width="104" height="26" loading="lazy" decoding="async">
+                  <?php else: ?>
+                    <span class="brand-chip-mark" aria-hidden="true"><?= e(initials((string) $brandItem['name'], 2)) ?></span>
+                  <?php endif; ?>
+                  <span class="brand-chip-name"><?= e($brandItem['name']) ?></span>
+                </a>
+              <?php endforeach; ?>
+            <?php endfor; ?>
+          </div>
+        <?php endfor; ?>
       </div>
     </div>
   </section>

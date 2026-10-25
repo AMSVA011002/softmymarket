@@ -517,6 +517,38 @@ T::case('header: css keeps the search flexible and centred', function (): void {
     T::contains('.header-main { flex-wrap: wrap; row-gap: .4rem; }', $css, 'small screens stack the search');
 });
 
+T::case('home: brand marquee sits between new arrivals and the help card', function (): void {
+    $index = (string) file_get_contents(dirname(__DIR__) . '/index.php');
+    $newArrivals = strpos($index, 'New arrivals');
+    $marquee = strpos($index, 'brand-marquee');
+    $help = strpos($index, 'Need help choosing?');
+    T::true($newArrivals !== false && $marquee !== false && $help !== false, 'a home section is missing');
+    T::true($newArrivals < $marquee && $marquee < $help, 'the brand rail must sit between new arrivals and help');
+
+    T::contains('$brandStrip !== []', $index, 'the rail only renders when brands exist');
+    T::contains('brand-marquee-group', $index, 'the rail needs its looping copies');
+    T::contains('aria-hidden="true"', $index, 'the duplicate copy must be hidden from assistive tech');
+    T::contains('tabindex="-1"', $index, 'the duplicate copy must stay out of the tab order');
+    T::contains('brand%5B%5D=', $index, 'each chip links to the brand filter');
+});
+
+T::case('home: the covered-every-order block cannot spill over the next section', function (): void {
+    $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/app.css');
+    T::contains(".review-card-empty {\n  height: auto;", $css, 'the empty state must size to its content');
+    T::contains('.row > [class*="col"] > .review-card', $css, 'only grid children may stretch to the row height');
+    T::contains('.card-soft.h-100 { height: auto; min-height: 100%; }', $css, 'cards must grow instead of overflowing');
+});
+
+T::case('home: support dock collapses into one launcher', function (): void {
+    $footer = (string) file_get_contents(dirname(__DIR__) . '/includes/layout/footer.php');
+    $css = (string) file_get_contents(dirname(__DIR__) . '/assets/css/app.css');
+    T::contains('data-dock-toggle', $footer, 'the dock needs a launcher');
+    T::contains('aria-expanded="false"', $footer, 'the launcher must report its state');
+    T::contains('support-channels', $footer, 'the channels live in their own panel');
+    T::contains('tabindex="-1"', $footer, 'closed channels stay out of the tab order');
+    T::contains('.support-widget.is-open .support-channels { display: flex; }', $css, 'the panel opens on tap');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {

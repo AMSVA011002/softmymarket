@@ -168,6 +168,10 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
 }
+/* Bootstrap's h-100 pins a fixed height, so a card whose content is taller than
+   its row spills out of its own background. min-height keeps cards level and
+   lets them grow when they need to. */
+.card-soft.h-100 { height: auto; min-height: 100%; }
 .card-soft-hover { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
 .card-soft-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: var(--ink-300); }
 
@@ -1139,7 +1143,11 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .trust-stat span { display: block; font-size: .7rem; font-weight: 600; color: var(--ink-600); }
 
 .review-card {
-  height: 100%;
+  /* Fill the column it sits in — never the whole card. A bare height: 100%
+     here also applied to the "every order is covered" block, which lives
+     directly inside the trust card, so it grew to the full card height and
+     spilled over the section below (it covered the enquiry form). */
+  height: auto;
   background: #fff;
   border: 1px solid var(--ink-200);
   border-radius: var(--radius-sm);
@@ -1162,11 +1170,97 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .review-author strong { color: var(--ink-900); font-weight: 700; }
 .review-author a { color: var(--brand-700); text-decoration: none; }
 .review-author a:hover { text-decoration: underline; }
-.review-card-empty { flex-direction: row; align-items: flex-start; gap: .6rem; }
-.review-card-empty i { font-size: 1.2rem; }
+/* Review cards inside the grid still share one height. */
+.row > [class*="col"] > .review-card,
+.col > .review-card { height: 100%; }
+/* The empty state is a block of text, not a grid cell: size it to its content
+   and keep it inside the card it belongs to. */
+.review-card-empty {
+  height: auto;
+  flex: 0 0 auto;
+  align-self: stretch;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: .6rem;
+  overflow-wrap: anywhere;
+}
+.review-card-empty i { font-size: 1.2rem; flex: 0 0 auto; }
+.review-card-empty strong { display: block; font-size: .9rem; color: var(--ink-900); }
+.review-card-empty p { margin-bottom: 0; }
 .contact-form .form-label { font-weight: 600; color: var(--ink-700); }
 .contact-form .form-control { border-color: var(--ink-300); }
 .contact-form .form-control:focus { border-color: var(--brand-600); box-shadow: 0 0 0 .2rem rgba(12, 128, 15, .15); }
+
+/* ------------------------------------------------------------- brand marquee */
+/* One continuous rail: the track holds two identical copies of the brand list
+   and slides by exactly half its width, so the loop has no visible seam. */
+.brand-marquee {
+  position: relative;
+  overflow: hidden;
+  padding-block: .3rem;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.brand-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: brand-scroll 46s linear infinite;
+  will-change: transform;
+}
+.brand-marquee-group { display: flex; align-items: center; }
+/* Pause whenever the visitor wants to look: hover, keyboard focus, or while the
+   rail is off-screen ((JS adds .is-paused through an IntersectionObserver). */
+.brand-marquee:hover .brand-marquee-track,
+.brand-marquee:focus-within .brand-marquee-track,
+.brand-marquee-track.is-paused { animation-play-state: paused; }
+@keyframes brand-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 0 0 auto;
+  min-height: 52px;
+  margin-right: clamp(.5rem, 1.4vw, .85rem);
+  padding: .45rem .95rem;
+  background: #fff;
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-soft);
+  color: var(--ink-800);
+  text-decoration: none;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.brand-chip:hover,
+.brand-chip:focus-visible {
+  border-color: var(--brand-300);
+  box-shadow: 0 10px 22px -14px rgba(12, 128, 15, .45);
+  transform: translateY(-1px);
+  color: var(--brand-800);
+}
+.brand-chip img { height: 24px; width: auto; max-width: 96px; object-fit: contain; display: block; }
+.brand-chip-mark {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand-600), var(--ocean-600));
+  color: #fff; font-size: .62rem; font-weight: 800; letter-spacing: .02em;
+  flex: 0 0 auto;
+}
+.brand-chip-name { font-size: .8rem; font-weight: 700; white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .brand-chip { min-height: 46px; padding: .35rem .75rem; }
+  .brand-chip img { height: 20px; max-width: 74px; }
+  .brand-chip-name { font-size: .74rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No animation: show one plain, wrapped row instead of a moving rail. */
+  .brand-marquee { -webkit-mask-image: none; mask-image: none; }
+  .brand-marquee-track { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
+  .brand-marquee-group { flex-wrap: wrap; justify-content: center; row-gap: .5rem; }
+  .brand-marquee-group[aria-hidden="true"] { display: none; }
+}
 
 /* ------------------------------------------------------- floating support dock */
 .quick-dock {
@@ -1181,7 +1275,27 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
   pointer-events: none;
 }
 .quick-dock > * { pointer-events: auto; }
-.support-widget { display: flex; align-items: center; gap: .45rem; flex-direction: row-reverse; }
+/* Collapsed by default: one 52px launcher instead of three stacked buttons, so
+   the dock cannot sit on top of page content. The channels slide out on tap. */
+.support-widget { display: flex; flex-direction: column; align-items: flex-end; gap: .45rem; }
+.support-channels {
+  display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .5rem;
+}
+.support-widget.is-open .support-channels { display: flex; }
+.support-launcher {
+  width: 52px; height: 52px;
+  font-size: 1.25rem;
+  background: var(--brand-600);
+  border-color: var(--brand-700);
+  color: #fff;
+  box-shadow: var(--shadow-brand);
+}
+.support-launcher:hover, .support-launcher:focus-visible { background: var(--brand-700); color: #fff; }
+.support-launcher i { transition: transform .2s ease; }
+.support-widget.is-open .support-launcher i { transform: rotate(90deg); }
 .support-caption {
   font-size: .72rem;
   font-weight: 700;
@@ -1212,5 +1326,9 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .back-to-top { position: static; }
 @media (max-width: 575.98px) {
   .support-caption { display: none; }
-  .support-fab { width: 42px; height: 42px; }
+  .support-fab { width: 44px; height: 44px; }
+  .support-launcher { width: 50px; height: 50px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .support-launcher i { transition: none; }
 }

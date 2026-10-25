@@ -117,21 +117,28 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
   $smmPhoneDial = preg_replace('/[^0-9+]/', '', Settings::get('support_phone')) ?? '';
   $smmSupportEmail = trim(Settings::get('support_email'));
   ?>
-  <div class="live-chat support-widget" data-live-chat data-support-widget role="group" aria-label="Chat with our team">
-    <span class="support-caption">Need help?</span>
-    <?php if ($smmWhatsapp !== ''): ?>
-      <a class="support-fab support-whatsapp" href="https://wa.me/<?= e(ltrim($smmWhatsapp, '+')) ?>"
-         target="_blank" rel="noopener" data-chat-channel="whatsapp"
-         aria-label="Chat with us on WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a>
-    <?php endif; ?>
-    <?php if ($smmPhoneDial !== ''): ?>
-      <a class="support-fab" href="tel:<?= e($smmPhoneDial) ?>" data-chat-channel="phone"
-         aria-label="Call <?= e(Settings::get('support_phone')) ?>"><i class="bi bi-telephone" aria-hidden="true"></i></a>
-    <?php endif; ?>
-    <?php if ($smmSupportEmail !== ''): ?>
-      <a class="support-fab" href="mailto:<?= e($smmSupportEmail) ?>" data-chat-channel="email"
-         aria-label="Email <?= e($smmSupportEmail) ?>"><i class="bi bi-envelope" aria-hidden="true"></i></a>
-    <?php endif; ?>
+  <div class="live-chat support-widget" data-live-chat data-support-widget data-dock role="group"
+       aria-label="Chat with our team">
+    <button class="support-fab support-launcher" type="button" data-dock-toggle
+            aria-expanded="false" aria-controls="supportChannels" aria-label="Contact us">
+      <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+    </button>
+    <div class="support-channels" id="supportChannels">
+      <span class="support-caption">Need help?</span>
+      <?php if ($smmWhatsapp !== ''): ?>
+        <a class="support-fab support-whatsapp" href="https://wa.me/<?= e(ltrim($smmWhatsapp, '+')) ?>"
+           target="_blank" rel="noopener" data-chat-channel="whatsapp" tabindex="-1"
+           aria-label="Chat with us on WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a>
+      <?php endif; ?>
+      <?php if ($smmPhoneDial !== ''): ?>
+        <a class="support-fab" href="tel:<?= e($smmPhoneDial) ?>" data-chat-channel="phone" tabindex="-1"
+           aria-label="Call <?= e(Settings::get('support_phone')) ?>"><i class="bi bi-telephone" aria-hidden="true"></i></a>
+      <?php endif; ?>
+      <?php if ($smmSupportEmail !== ''): ?>
+        <a class="support-fab" href="mailto:<?= e($smmSupportEmail) ?>" data-chat-channel="email" tabindex="-1"
+           aria-label="Email <?= e($smmSupportEmail) ?>"><i class="bi bi-envelope" aria-hidden="true"></i></a>
+      <?php endif; ?>
+    </div>
   </div>
   <button class="back-to-top" type="button" aria-label="Back to top"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
 </div>

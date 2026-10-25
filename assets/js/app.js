@@ -819,6 +819,52 @@
     el.addEventListener("change", () => el.form && el.form.submit());
   });
 
+  /* ------------------------------------------------------- support dock */
+  // One launcher keeps the dock from covering page content; the channels slide
+  // out on tap and the links rejoin the tab order while open.
+  const dock = $("[data-dock]");
+  if (dock) {
+    const toggle = $("[data-dock-toggle]", dock);
+    const channels = $$(".support-channels a", dock);
+    const setOpen = (open) => {
+      dock.classList.toggle("is-open", open);
+      if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      channels.forEach((a) => {
+        if (open) a.removeAttribute("tabindex");
+        else a.setAttribute("tabindex", "-1");
+      });
+    };
+    if (toggle) {
+      toggle.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setOpen(!dock.classList.contains("is-open"));
+      });
+    }
+    document.addEventListener("click", (event) => {
+      if (dock.classList.contains("is-open") && !dock.contains(event.target)) setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !dock.classList.contains("is-open")) return;
+      setOpen(false);
+      if (toggle) toggle.focus();
+    });
+    setOpen(false);
+  }
+
+  /* ------------------------------------------------------ brand marquee */
+  // Only animate while the rail is on screen, so a long home page does not keep
+  // compositing an off-screen track.
+  const marquee = $("[data-brand-marquee]");
+  if (marquee) {
+    const track = $("[data-brand-track]", marquee);
+    if (track && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => track.classList.toggle("is-paused", !entry.isIntersecting));
+      }, { rootMargin: "120px" });
+      observer.observe(marquee);
+    }
+  }
+
   /* ------------------------------------------------------- hero carousel */
   // Respect the visitor's motion preference: no autoplay, no sliding.
   const heroCarousel = $("#heroCarousel");
