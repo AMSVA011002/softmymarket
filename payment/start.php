@@ -60,7 +60,10 @@ try {
     $intent = $gateway->initiate($order, $payment);
 } catch (Throwable $e) {
     error_log('Payment initiate failed: ' . $e->getMessage());
-    flash('danger', 'The payment provider is not reachable right now. Please try again in a moment.');
+    $message = $gateway instanceof PayHereGateway && $e instanceof InvalidArgumentException
+        ? $e->getMessage()
+        : 'The payment provider is not reachable right now. Please try again in a moment.';
+    flash('danger', $message);
     redirect($back);
 }
 

@@ -13,6 +13,11 @@ $gatewayFields = admin_gateway_fields();
 $gatewayConfig = admin_gateway_config();
 $slides = View::heroSlides();
 $returnUrl = admin_url('settings.php', ['tab' => $tab]);
+$storeUrlParts = parse_url(url('/')) ?: [];
+$storeOrigin = (string) ($storeUrlParts['scheme'] ?? 'https') . '://' . (string) ($storeUrlParts['host'] ?? '');
+if (isset($storeUrlParts['port'])) {
+    $storeOrigin .= ':' . (int) $storeUrlParts['port'];
+}
 
 /** Render one settings input. */
 $renderField = static function (string $key, array $meta): string {
@@ -78,6 +83,11 @@ require __DIR__ . '/includes/layout-top.php';
           <h2 class="h6 fw-bold mb-0"><i class="bi <?= e($gatewayMeta['icon']) ?> me-1"></i> <?= e($gatewayMeta['label']) ?></h2>
           <span class="badge text-bg-<?= !empty($current['enabled']) ? 'success' : 'secondary' ?>"><?= !empty($current['enabled']) ? 'Enabled' : 'Disabled' ?></span>
         </div>
+        <?php if ($gatewayKey === 'payhere'): ?>
+          <div class="alert alert-warning small py-2 px-3 mb-3">
+            In the PayHere Merchant Portal, keep one Integration record for this store origin: <code><?= e($storeOrigin) ?></code>. Use the Merchant Secret issued for that same domain. Do not add duplicate domain records. The site sends a Referer origin on the cross-domain checkout request; do not override it with a no-referrer policy.
+          </div>
+        <?php endif; ?>
         <div class="row g-2">
           <?php foreach ($gatewayMeta['fields'] as $fieldKey => $fieldMeta): $fieldId = 'gw-' . $gatewayKey . '-' . $fieldKey; $value = $current[$fieldKey] ?? $fieldMeta['default']; ?>
             <div class="<?= in_array($fieldMeta['type'], ['textarea', 'bool'], true) ? 'col-12' : 'col-md-6 col-lg-4' ?>">
@@ -97,8 +107,8 @@ require __DIR__ . '/includes/layout-top.php';
                   <?php if ($gatewayKey === 'payhere' && $fieldKey === 'mode'): ?>
                     <div class="alert <?= $value === 'live' ? 'alert-danger' : 'alert-info' ?> small py-2 px-3 mt-2 mb-0" data-payhere-mode-notice role="status">
                       <?= $value === 'live'
-                          ? 'LIVE mode: customers may be charged real money. Use live merchant credentials only after completing sandbox tests.'
-                          : 'SANDBOX mode: checkout goes to PayHere test environment. Use sandbox credentials for development; no real charge is made.' ?>
+                          ? 'LIVE mode: real customer charges may occur. The checkout URL is fixed to https://www.payhere.lk/pay/checkout. Use the live Merchant ID and the secret for this exact store domain only after sandbox testing.'
+                          : 'SANDBOX mode: checkout uses https://sandbox.payhere.lk/pay/checkout. Use PayHere sandbox credentials for development; no real charge is made.' ?>
                     </div>
                   <?php endif; ?>
                 <?php elseif ($fieldMeta['type'] === 'textarea'): ?>
@@ -390,8 +400,8 @@ $adminInlineScript = <<<'JS'
       payHereNotice.classList.toggle('alert-danger', live);
       payHereNotice.classList.toggle('alert-info', !live);
       payHereNotice.textContent = live
-        ? 'LIVE mode: customers may be charged real money. Use live merchant credentials only after completing sandbox tests.'
-        : 'SANDBOX mode: checkout goes to PayHere test environment. Use sandbox credentials for development; no real charge is made.';
+        ? 'LIVE mode: real customer charges may occur. The checkout URL is fixed to https://www.payhere.lk/pay/checkout. Use the live Merchant ID and the secret for this exact store domain only after sandbox testing.'
+        : 'SANDBOX mode: checkout uses https://sandbox.payhere.lk/pay/checkout. Use PayHere sandbox credentials for development; no real charge is made.';
     };
     payHereMode.addEventListener('change', function () {
       if (payHereMode.value === 'live' && !window.confirm('Switch PayHere to LIVE mode? Customers can make real payments and be charged.')) {

@@ -45,9 +45,28 @@ final class PayHereGateway extends Gateway
 
     private function endpoint(): string
     {
+        // Keep the official action URLs fixed: PayHere requires `www` on live.
         return $this->mode() === 'live'
-            ? (string) ($this->config['live_url'] ?? 'https://www.payhere.lk/pay/checkout')
-            : (string) ($this->config['sandbox_url'] ?? 'https://sandbox.payhere.lk/pay/checkout');
+            ? 'https://www.payhere.lk/pay/checkout'
+            : 'https://sandbox.payhere.lk/pay/checkout';
+    }
+
+    /** Remove markup/control characters and emoji unsupported by the checkout API. */
+    private function cleanField(string $value, string $field, int $maxLength): string
+    {
+        $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = preg_replace('~<\\s*(script|style|iframe|object|svg)\\b[^>]*>.*?(?:</\\s*\\1\\s*>|$)~is', ' ', $value) ?? '';
+        $value = strip_tags($value);
+        $value = preg_replace('/[\\p{C}\\p{So}]+/u', ' ', $value) ?? '';
+        $value = preg_replace('/\\s+/u', ' ', trim($value)) ?? '';
+        if ($value === '') {
+            throw new InvalidArgumentException('PayHere requires a valid ' . $field . ' in the customer delivery details. Please update the order details and retry.');
+        }
+        $characters = preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($characters)) {
+            throw new InvalidArgumentException('PayHere could not read the ' . $field . ' value. Please update the order details and retry.');
+        }
+        return implode('', array_slice($characters, 0, $maxLength));
     }
 
     /**
@@ -131,21 +150,42 @@ final class PayHereGateway extends Gateway
         }
 
         $merchantId = trim((string) $this->config['merchant_id']);
+        if (!ctype_digit($merchantId)) {
+            throw new RuntimeException('PayHere Merchant ID must contain digits only. Check Admin → Settings → Payments.');
+        }
         $orderId = (string) $order['order_number'];
-        $amount = number_format((float) $order['total'], 2, '.', '');
+        $total = (float) ($order['total'] ?? 0);
+        if (!is_finite($total) || $total <= 0) {
+            throw new RuntimeException('PayHere requires a valid positive order amount.');
+        }
+        $amount = number_format($total, 2, '.', '');
         $currency = strtoupper((string) ($order['currency'] ?? $this->config['currency'] ?? 'LKR'));
         if (!in_array($currency, ['LKR', 'USD'], true)) {
             throw new RuntimeException('PayHere supports LKR or USD payments only.');
         }
         $shipping = (array) ($order['shipping_address_array'] ?? []);
-        $fullName = trim((string) ($shipping['full_name'] ?? $order['customer_name'] ?? 'Customer'));
+        $fullName = $this->cleanField((string) ($shipping['full_name'] ?? $order['customer_name'] ?? ''), 'recipient name', 100);
         $nameParts = preg_split('/\\s+/', $fullName, 2) ?: [];
-        $firstName = (string) ($nameParts[0] ?? 'Customer');
-        $lastName = (string) ($nameParts[1] ?? 'Customer');
-        $address = trim(implode(', ', array_filter([
+        $firstName = $this->cleanField((string) ($nameParts[0] ?? ''), 'first name', 50);
+        $lastName = $this->cleanField((string) ($nameParts[1] ?? 'Customer'), 'last name', 50);
+        $addressParts = array_filter([
             (string) ($shipping['line1'] ?? ''),
             (string) ($shipping['line2'] ?? ''),
-        ], static fn (string $part): bool => trim($part) !== '')));
+        ], static fn (string $part): bool => trim($part) !== '');
+        $address = $this->cleanField(implode(', ', $addressParts), 'address', 255);
+        $city = $this->cleanField((string) ($shipping['city'] ?? ''), 'city', 50);
+        $countryValue = trim((string) ($shipping['country'] ?? ''));
+        $country = $this->cleanField($countryValue !== '' ? $countryValue : 'Sri Lanka', 'country', 50);
+        $email = trim((string) ($order['email'] ?? ''));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('PayHere requires a valid email address. Please update the order contact details and retry.');
+        }
+        $rawPhone = (string) ($shipping['phone'] ?? $order['phone'] ?? '');
+        if (!is_valid_phone($rawPhone)) {
+            throw new InvalidArgumentException('PayHere requires a valid Sri Lankan mobile number. Please update the order contact details and retry.');
+        }
+        $localPhone = normalize_phone($rawPhone);
+        $phone = '+94' . substr($localPhone, 1);
 
         $returnToken = Security::sign(['order' => (int) $order['id'], 'gw' => $this->key], 60 * 60 * 24);
         $returnQuery = ['gateway' => $this->key, 'order' => $orderId, 'return_token' => $returnToken];
@@ -160,14 +200,14 @@ final class PayHereGateway extends Gateway
             'amount' => $amount,
             'first_name' => $firstName,
             'last_name' => $lastName,
-            'email' => (string) ($order['email'] ?? ''),
-            'phone' => (string) ($shipping['phone'] ?? $order['phone'] ?? ''),
-            'address' => $address !== '' ? $address : 'Sri Lanka',
-            'city' => (string) ($shipping['city'] ?? ''),
-            'country' => (string) ($shipping['country'] ?? 'Sri Lanka'),
-            'delivery_address' => $address !== '' ? $address : 'Sri Lanka',
-            'delivery_city' => (string) ($shipping['city'] ?? ''),
-            'delivery_country' => (string) ($shipping['country'] ?? 'Sri Lanka'),
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address,
+            'city' => $city,
+            'country' => $country,
+            'delivery_address' => $address,
+            'delivery_city' => $city,
+            'delivery_country' => $country,
         ];
         $payload['hash'] = $this->sign($payload);
 
