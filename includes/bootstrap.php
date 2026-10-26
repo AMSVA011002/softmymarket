@@ -22,7 +22,7 @@ if (defined('SMM_BOOTSTRAPPED')) {
 define('SMM_BOOTSTRAPPED', true);
 
 define('SMM_START', microtime(true));
-define('SMM_VERSION', '1.0.6');
+define('SMM_VERSION', '1.0.7');
 define('ROOT_PATH', str_replace('\\', '/', dirname(__DIR__)));
 define('INCLUDES_PATH', ROOT_PATH . '/includes');
 define('STORAGE_PATH', ROOT_PATH . '/storage');

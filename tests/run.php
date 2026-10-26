@@ -606,6 +606,31 @@ T::case('products: image links support 20 images and preserve only entered links
     T::contains('array_slice($imageUrls, 1, 19)', $actions, 'first image is primary, up to 19 are gallery items');
 });
 
+T::case('branding: admin sidebar uses logo without repeating the brand name', function (): void {
+    $layout = (string) file_get_contents(dirname(__DIR__) . '/admin/includes/layout-top.php');
+    $start = strpos($layout, '<a class="brand');
+    $end = strpos($layout, '</a>', $start === false ? 0 : $start);
+    T::true($start !== false && $end !== false, 'admin sidebar brand link missing');
+    $brand = substr($layout, $start, $end - $start);
+    T::contains('!empty($adminBrand', $brand, 'conditional branding logo');
+    T::contains('admin-brand-logo', $brand, 'logo should display when configured');
+    T::contains('<small>Dashboard</small>', $brand, 'Dashboard label stays under logo');
+    T::contains('adminBrand[', $brand, 'brand name is the no-logo fallback');
+    T::false(str_contains($brand, '<span><strong>'), 'do not show the brand name beside the logo');
+});
+
+T::case('branding: storefront footer shows either logo or brand text, not both', function (): void {
+    $footer = (string) file_get_contents(dirname(__DIR__) . '/includes/layout/footer.php');
+    $start = strpos($footer, '<a class="logo footer-branding');
+    $end = strpos($footer, '</a>', $start === false ? 0 : $start);
+    T::true($start !== false && $end !== false, 'footer brand link missing');
+    $brand = substr($footer, $start, $end - $start);
+    T::contains('!empty($brand', $brand, 'conditional storefront logo');
+    T::contains('alt=', $brand, 'logo remains accessible by brand name');
+    T::contains('footer-brand-name', $brand, 'brand name is shown without a logo');
+    T::false(str_contains($brand, 'class="logo-text"'), 'no duplicate brand wordmark beside logo');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {

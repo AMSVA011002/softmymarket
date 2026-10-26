@@ -27,13 +27,13 @@ $adminFl = flashes();
 <a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-brand btn-sm" href="#adminMain">Skip to content</a>
 <div class="admin-shell">
   <aside class="admin-sidebar" data-admin-sidebar>
-    <a class="brand" href="/admin/index.php">
+    <a class="brand<?= !empty($adminBrand['logo']) ? ' has-brand-logo' : '' ?>" href="/admin/index.php">
       <?php if (!empty($adminBrand['logo'])): ?>
-        <img src="<?= e(img_url($adminBrand['logo'], $adminBrand['name'], 320)) ?>" alt="<?= e($adminBrand['name']) ?>" height="30" style="object-fit:contain;max-width:150px">
+        <img class="admin-brand-logo" src="<?= e(img_url($adminBrand['logo'], $adminBrand['name'], 320)) ?>" alt="<?= e($adminBrand['name']) ?>" width="150" height="40">
+        <span class="brand-caption"><small>Dashboard</small></span>
       <?php else: ?>
-        <span class="logo-mark"><?= e($adminBrand['initials']) ?></span>
+        <strong><?= e($adminBrand['name']) ?></strong>
       <?php endif; ?>
-      <span><strong><?= e($adminBrand['name']) ?></strong><small>Dashboard</small></span>
     </a>
     <?php foreach (admin_nav_groups() as $groupLabel => $items): ?>
       <ul class="admin-nav">
