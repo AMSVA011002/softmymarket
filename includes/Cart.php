@@ -109,6 +109,42 @@ final class Cart
         unset($_SESSION[self::SESSION_KEY]);
     }
 
+    /** Preserve the cart for a hosted payment attempt so a failure can be retried. */
+    public static function rememberPendingCheckout(int $orderId, array $snapshot): void
+    {
+        $_SESSION['_gateway_cart_snapshots'][$orderId] = $snapshot;
+    }
+
+    /** Clear only the unchanged cart that produced a successfully paid order. */
+    public static function clearPendingCheckoutIfUnchanged(int $orderId): bool
+    {
+        $snapshots = $_SESSION['_gateway_cart_snapshots'] ?? [];
+        $snapshot = is_array($snapshots) ? ($snapshots[$orderId] ?? null) : null;
+        if (!is_array($snapshot)) {
+            return false;
+        }
+        $current = self::raw();
+        ksort($snapshot);
+        ksort($current);
+        unset($_SESSION['_gateway_cart_snapshots'][$orderId]);
+        if ($current !== $snapshot) {
+            return false;
+        }
+        self::clear();
+        return true;
+    }
+
+    /** Discard a saved cart comparison after a failed/abandoned payment attempt. */
+    public static function forgetPendingCheckout(int $orderId): void
+    {
+        if (isset($_SESSION['_gateway_cart_snapshots'][$orderId])) {
+            unset($_SESSION['_gateway_cart_snapshots'][$orderId]);
+        }
+        if (($_SESSION['_gateway_cart_snapshots'] ?? []) === []) {
+            unset($_SESSION['_gateway_cart_snapshots']);
+        }
+    }
+
     public static function quantityOf(int $productId): int
     {
         return self::raw()[$productId] ?? 0;

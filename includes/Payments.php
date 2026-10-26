@@ -82,7 +82,14 @@ final class Payments
             throw new RuntimeException('Order not found for this payment.');
         }
 
-        Database::tx(static function () use ($payment, $paymentId, $reference, $response, $verifiedBy, $order): void {
+        $gateway = PaymentManager::get((string) $order['payment_method']);
+        $onlineCheckout = $gateway !== null && $gateway->requiresRedirect();
+        $newlyPlaced = Database::tx(static function () use ($payment, $paymentId, $reference, $response, $verifiedBy, $order): bool {
+            $lockedPayment = Database::one('SELECT status FROM payments WHERE id = :pid FOR UPDATE', ['pid' => $paymentId]);
+            $lockedOrder = Database::one('SELECT id, status, user_id, order_number, payment_method FROM orders WHERE id = :oid FOR UPDATE', ['oid' => (int) $order['id']]);
+            if ($lockedPayment === null || $lockedOrder === null || strtolower((string) $lockedPayment['status']) === 'paid') {
+                return false;
+            }
             self::update($paymentId, [
                 'status' => 'paid',
                 'gateway_reference' => $reference ?? $payment['gateway_reference'],
@@ -94,29 +101,57 @@ final class Payments
                 'UPDATE orders SET payment_status = :ps, paid_at = COALESCE(paid_at, :now), updated_at = :now2 WHERE id = :oid',
                 ['ps' => 'PAID', 'now' => date('Y-m-d H:i:s'), 'now2' => date('Y-m-d H:i:s'), 'oid' => (int) $order['id']]
             );
-            if ($order['status'] === 'PENDING') {
+            $wasPending = strtoupper((string) $lockedOrder['status']) === 'PENDING';
+            if ($wasPending) {
                 Database::run('UPDATE orders SET status = :status WHERE id = :oid', ['status' => 'CONFIRMED', 'oid' => (int) $order['id']]);
                 Orders::addEvent((int) $order['id'], 'CONFIRMED', 'Payment received — order confirmed.', true, 'system');
             } else {
-                Orders::addEvent((int) $order['id'], (string) $order['status'], 'Payment received (' . money((float) $payment['amount']) . ').', true, 'system');
+                Orders::addEvent((int) $order['id'], (string) $lockedOrder['status'], 'Payment received (' . money((float) $payment['amount']) . ').', true, 'system');
             }
-            if ($order['user_id'] !== null) {
+            if ($lockedOrder['user_id'] !== null) {
                 Notifier::notify(
-                    (int) $order['user_id'],
+                    (int) $lockedOrder['user_id'],
                     'Payment received',
-                    'We have received your payment of ' . money((float) $payment['amount']) . ' for order ' . $order['order_number'] . '.',
+                    'We have received your payment of ' . money((float) $payment['amount']) . ' for order ' . $lockedOrder['order_number'] . '.',
                     'payment',
                     '/account/order.php?id=' . (int) $order['id']
                 );
             }
             Audit::log('payment.paid', 'order', (int) $order['id'], ['gateway' => $payment['gateway'], 'amount' => (float) $payment['amount']]);
+            return $wasPending;
         });
+        if ($onlineCheckout && $newlyPlaced) {
+            $confirmedOrder = Orders::find((int) $order['id']);
+            if ($confirmedOrder !== null) {
+                try {
+                    Mailer::orderConfirmation($confirmedOrder, Orders::items((int) $order['id']));
+                } catch (Throwable $e) {
+                    error_log('Order confirmation email failed after payment: ' . $e->getMessage());
+                }
+                Notifier::notifyTeam(
+                    'New paid order ' . $confirmedOrder['order_number'],
+                    money((float) $confirmedOrder['total']) . ' · ' . $confirmedOrder['customer_name'] . ' · ' . payment_method_label((string) $confirmedOrder['payment_method']),
+                    'order',
+                    '/admin/order.php?id=' . (int) $confirmedOrder['id']
+                );
+            }
+        }
     }
 
     public static function markFailed(int $paymentId, array $response = []): void
     {
         $payment = self::find($paymentId);
-        if ($payment === null) {
+        if ($payment === null || strtolower((string) $payment['status']) === 'paid') {
+            return;
+        }
+        $order = Orders::find((int) $payment['order_id']);
+        $gateway = $order !== null ? PaymentManager::get((string) $order['payment_method']) : null;
+        if ($order !== null && $gateway !== null && $gateway->requiresRedirect()) {
+            OrderService::discardUnpaidGatewayAttempt(
+                (int) $order['id'],
+                $paymentId,
+                ['source' => (string) ($response['source'] ?? 'provider_failure')]
+            );
             return;
         }
         self::update($paymentId, [

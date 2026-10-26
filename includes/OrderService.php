@@ -16,6 +16,7 @@ final class OrderService
      */
     public static function place(array $input): array
     {
+        self::expireStaleGatewayAttempts();
         $contents = Cart::contents();
         if ($contents['items'] === []) {
             return ['ok' => false, 'error' => 'Your cart is empty.'];
@@ -49,6 +50,8 @@ final class OrderService
         if ($gateway === null || !$gateway->isAvailable($quote['total'])) {
             return ['ok' => false, 'error' => 'That payment method is not available for this order value.'];
         }
+        $requiresOnlinePayment = $gateway->requiresRedirect();
+        $cartSnapshot = $requiresOnlinePayment ? Cart::raw() : [];
 
         $shipping = (array) ($input['shipping'] ?? []);
         if (empty($shipping['line1']) || empty($shipping['city']) || empty($shipping['full_name']) || empty($shipping['phone'])) {
@@ -59,7 +62,7 @@ final class OrderService
         self::validateCustomer($input);
 
         try {
-            $result = Database::tx(function () use ($contents, $input, $method, $quote, $coupon, $userId, $shipping, $billing): array {
+            $result = Database::tx(function () use ($contents, $input, $method, $quote, $coupon, $userId, $shipping, $billing, $requiresOnlinePayment): array {
                 // Lock every product row and re-price from the database so the
                 // amount charged cannot be manipulated from the browser.
                 $locked = [];
@@ -109,7 +112,7 @@ final class OrderService
                     'email' => strtolower(trim((string) $input['email'])),
                     'phone' => normalize_phone((string) $input['phone']),
                     'status' => 'PENDING',
-                    'payment_status' => 'UNPAID',
+                    'payment_status' => $requiresOnlinePayment ? 'PENDING' : 'UNPAID',
                     'payment_method' => $method,
                     'subtotal' => $lockedQuote['subtotal'],
                     'shipping_fee' => $lockedQuote['shipping'],
@@ -172,24 +175,12 @@ final class OrderService
                     ['method' => $method]
                 );
 
-                Orders::addEvent($orderId, 'PENDING', 'Order placed. We will confirm it shortly.', true, 'customer', $userId);
-                Orders::addEvent($orderId, 'PENDING', 'Payment method: ' . payment_method_label($method), false, 'system');
-
-                if ($userId !== null) {
-                    Notifier::notify(
-                        $userId,
-                        'Order ' . $orderNumber . ' received',
-                        'Thanks! We are preparing your order. You can follow every step from your account.',
-                        'order',
-                        '/account/order.php?id=' . $orderId
-                    );
+                if ($requiresOnlinePayment) {
+                    Orders::addEvent($orderId, 'PENDING', 'Checkout is awaiting verified payment; this is not yet a placed order.', false, 'system');
+                } else {
+                    Orders::addEvent($orderId, 'PENDING', 'Order placed. We will confirm it shortly.', true, 'customer', $userId);
                 }
-                Notifier::notifyTeam(
-                    'New order ' . $orderNumber,
-                    money((float) $lockedQuote['total']) . ' · ' . $input['customer_name'] . ' · ' . payment_method_label($method),
-                    'order',
-                    '/admin/order.php?id=' . $orderId
-                );
+                Orders::addEvent($orderId, 'PENDING', 'Payment method: ' . payment_method_label($method), false, 'system');
 
                 return ['order_id' => $orderId, 'order_number' => $orderNumber, 'total' => $lockedQuote['total']];
             });
@@ -198,23 +189,34 @@ final class OrderService
             return ['ok' => false, 'error' => $e->getMessage() !== '' ? $e->getMessage() : 'We could not place the order. Please try again.'];
         }
 
-        Cart::clear();
-        Audit::log('order.placed', 'order', $result['order_id'], ['number' => $result['order_number'], 'method' => $method]);
+        if ($requiresOnlinePayment) {
+            Cart::rememberPendingCheckout((int) $result['order_id'], $cartSnapshot);
+            Audit::log('payment.checkout_started', 'checkout', $result['order_id'], ['number' => $result['order_number'], 'method' => $method]);
+        } else {
+            Cart::clear();
+            Audit::log('order.placed', 'order', $result['order_id'], ['number' => $result['order_number'], 'method' => $method]);
+        }
 
         $order = Orders::find($result['order_id']);
         if ($order !== null) {
-            $items = Orders::items($result['order_id']);
-            try {
-                Mailer::orderConfirmation($order, $items);
-            } catch (Throwable $e) {
-                error_log('Order email failed: ' . $e->getMessage());
+            if (!$requiresOnlinePayment) {
+                $items = Orders::items($result['order_id']);
+                try {
+                    Mailer::orderConfirmation($order, $items);
+                } catch (Throwable $e) {
+                    error_log('Order email failed: ' . $e->getMessage());
+                }
+                if ($userId !== null) {
+                    Notifier::notify($userId, 'Order ' . $order['order_number'] . ' received', 'Thanks! We are preparing your order. You can follow every step from your account.', 'order', '/account/order.php?id=' . $result['order_id']);
+                }
+                Notifier::notifyTeam('New order ' . $order['order_number'], money((float) $order['total']) . ' · ' . $order['customer_name'] . ' · ' . payment_method_label($method), 'order', '/admin/order.php?id=' . $result['order_id']);
             }
 
             $token = Security::sign(['order' => $result['order_id'], 'n' => $result['order_number']], 60 * 60 * 24 * 30);
 
-            // Hosted gateways send the shopper straight to the provider.
-            $gateway = PaymentManager::get($method);
-            if ($gateway !== null && $gateway->requiresRedirect()) {
+            // Hosted gateways receive a provisional payment reference. The
+            // customer order is only confirmed after a verified success callback.
+            if ($requiresOnlinePayment) {
                 return [
                     'ok' => true,
                     'order_id' => $result['order_id'],
@@ -232,6 +234,88 @@ final class OrderService
         }
 
         return ['ok' => true, 'order_id' => $result['order_id'], 'order_number' => $result['order_number'], 'redirect' => '/'];
+    }
+
+    /** Release abandoned online-checkout reservations once they are 24 hours old. */
+    public static function expireStaleGatewayAttempts(int $limit = 50): int
+    {
+        $rows = Database::all(
+            "SELECT id FROM orders
+              WHERE payment_status = 'PENDING' AND status = 'PENDING'
+                AND payment_method NOT IN ('COD','BANK_TRANSFER')
+                AND placed_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+           ORDER BY placed_at ASC LIMIT " . max(1, min(200, $limit))
+        );
+        $expired = 0;
+        foreach ($rows as $row) {
+            if (self::discardUnpaidGatewayAttempt((int) $row['id'], null, ['source' => 'checkout_expired'])) {
+                Cart::forgetPendingCheckout((int) $row['id']);
+                $expired++;
+            }
+        }
+        return $expired;
+    }
+
+    /**
+     * Remove a failed hosted-payment attempt so it is not an order. Restore its
+     * reserved stock and coupon use atomically; retain only an audit record.
+     */
+    public static function discardUnpaidGatewayAttempt(int $orderId, ?int $paymentId = null, array $context = []): bool
+    {
+        return Database::tx(static function () use ($orderId, $paymentId, $context): bool {
+            $order = Database::one('SELECT id, order_number, payment_method, payment_status, status, coupon_id, total FROM orders WHERE id = :id FOR UPDATE', ['id' => $orderId]);
+            if ($order === null || strtoupper((string) $order['payment_status']) === 'PAID') {
+                return false;
+            }
+            $gateway = PaymentManager::get((string) $order['payment_method']);
+            if ($gateway === null || !$gateway->requiresRedirect()) {
+                return false;
+            }
+
+            $payment = $paymentId !== null
+                ? Database::one('SELECT * FROM payments WHERE id = :pid AND order_id = :oid FOR UPDATE', ['pid' => $paymentId, 'oid' => $orderId])
+                : Database::one('SELECT * FROM payments WHERE order_id = :oid ORDER BY id DESC LIMIT 1 FOR UPDATE', ['oid' => $orderId]);
+            if ($payment !== null && strtolower((string) $payment['status']) === 'paid') {
+                return false;
+            }
+            if ($payment !== null) {
+                Database::update('payments', [
+                    'status' => 'failed',
+                    'response_payload' => $context === [] ? null : json_encode($context, JSON_UNESCAPED_SLASHES),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ], 'id = :id', ['id' => (int) $payment['id']]);
+            }
+
+            if (!in_array(strtoupper((string) $order['status']), ['CANCELLED', 'RETURNED'], true)) {
+                foreach (Database::all('SELECT product_id, quantity FROM order_items WHERE order_id = :oid', ['oid' => $orderId]) as $item) {
+                    $productId = (int) ($item['product_id'] ?? 0);
+                    $quantity = max(0, (int) ($item['quantity'] ?? 0));
+                    if ($productId <= 0 || $quantity <= 0) {
+                        continue;
+                    }
+                    Database::run(
+                        'UPDATE products SET stock = stock + :qty, sold_count = GREATEST(0, sold_count - :sold), updated_at = :now WHERE id = :id',
+                        ['qty' => $quantity, 'sold' => $quantity, 'now' => date('Y-m-d H:i:s'), 'id' => $productId]
+                    );
+                    Inventory::record($productId, $quantity, 'payment_failed', 'Unpaid checkout attempt discarded', (string) $order['order_number']);
+                }
+            }
+
+            if (!empty($order['coupon_id'])) {
+                Database::run('UPDATE coupons SET used_count = IF(used_count > 0, used_count - 1, 0) WHERE id = :id', ['id' => (int) $order['coupon_id']]);
+                Database::run('DELETE FROM coupon_redemptions WHERE order_id = :oid', ['oid' => $orderId]);
+            }
+
+            Audit::log('payment.failed', 'checkout', $orderId, [
+                'gateway' => $gateway->key,
+                'amount' => (float) $order['total'],
+                'reference' => $payment['gateway_reference'] ?? null,
+                'source' => (string) ($context['source'] ?? 'payment'),
+            ]);
+            Database::run('DELETE FROM orders WHERE id = :id', ['id' => $orderId]);
+            Cart::forgetPendingCheckout($orderId);
+            return true;
+        });
     }
 
     /** @throws RuntimeException */
@@ -265,6 +349,17 @@ final class OrderService
         }
         if ($status === $order['status']) {
             return ['ok' => false, 'message' => 'The order is already ' . order_status_label($status) . '.'];
+        }
+        $paymentGateway = PaymentManager::get((string) $order['payment_method']);
+        if ($paymentGateway !== null && $paymentGateway->requiresRedirect() && strtoupper((string) $order['payment_status']) !== 'PAID') {
+            if ($status !== 'CANCELLED') {
+                return ['ok' => false, 'message' => 'Payment must be verified before an online order can be fulfilled.'];
+            }
+            $payment = Orders::latestPayment($orderId);
+            if (self::discardUnpaidGatewayAttempt($orderId, $payment !== null ? (int) $payment['id'] : null, ['source' => 'staff_cancelled'])) {
+                return ['ok' => true, 'message' => 'Unpaid checkout removed; reserved stock and coupon usage were restored.'];
+            }
+            return ['ok' => false, 'message' => 'This unpaid checkout could not be removed. Refresh the order and try again.'];
         }
         if (!$force && !Orders::canTransition((string) $order['status'], $status)) {
             return ['ok' => false, 'message' => 'An order cannot move from ' . order_status_label((string) $order['status']) . ' to ' . order_status_label($status) . '.'];

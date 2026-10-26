@@ -140,7 +140,7 @@ final class Users
                        COALESCE(o.total_spent, 0) AS total_spent
                   FROM users u
              LEFT JOIN (SELECT user_id, COUNT(*) AS orders_count, SUM(total) AS total_spent
-                          FROM orders WHERE payment_status <> 'CANCELLED' GROUP BY user_id) o ON o.user_id = u.id
+                          FROM orders WHERE payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID' GROUP BY user_id) o ON o.user_id = u.id
                  WHERE {$whereSql}
               ORDER BY {$sort}
                  LIMIT {$pager['limit']} OFFSET {$pager['offset']}";
@@ -152,11 +152,12 @@ final class Users
     public static function stats(int $id): array
     {
         $row = Database::one(
-            'SELECT COUNT(*) AS orders_count,
+            "SELECT COUNT(*) AS orders_count,
                     COALESCE(SUM(total), 0) AS total_spent,
                     COALESCE(AVG(total), 0) AS avg_order,
                     MAX(placed_at) AS last_order_at
-               FROM orders WHERE user_id = :id AND status <> :cancelled',
+               FROM orders WHERE user_id = :id AND status <> :cancelled
+                 AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')",
             ['id' => $id, 'cancelled' => 'CANCELLED']
         ) ?? [];
         return [

@@ -68,9 +68,9 @@ final class HostedGateway extends Gateway
             'customer_name' => (string) $order['customer_name'],
             'customer_email' => (string) $order['email'],
             'customer_phone' => (string) $order['phone'],
-            'return_url'  => $this->callbackUrl('/payment/return.php', ['gateway' => $this->key]),
+            'return_url'  => $this->callbackUrl('/payment/return.php', ['gateway' => $this->key, 'return_token' => Security::sign(['order' => (int) $order['id'], 'gw' => $this->key], 60 * 60 * 24)]),
             'notify_url'  => $this->callbackUrl('/payment/notify.php', ['gateway' => $this->key]),
-            'cancel_url'  => $this->callbackUrl('/payment/return.php', ['gateway' => $this->key, 'cancelled' => 1]),
+            'cancel_url'  => $this->callbackUrl('/payment/return.php', ['gateway' => $this->key, 'return_token' => Security::sign(['order' => (int) $order['id'], 'gw' => $this->key], 60 * 60 * 24), 'cancelled' => 1]),
             'timestamp'   => (string) time(),
         ];
 
@@ -102,13 +102,31 @@ final class HostedGateway extends Gateway
         }
         $stringPayload = [];
         foreach ($payload as $key => $value) {
-            if (is_scalar($value)) {
+            if (is_scalar($value) && !in_array((string) $key, ['gateway', 'cancelled', 'return_token'], true)) {
                 $stringPayload[(string) $key] = (string) $value;
             }
         }
         $expected = self::canonical($stringPayload, ['signature', 'sig']);
         return hash_equals(hash_hmac('sha256', $expected, $this->secret()), strtolower($received))
             || hash_equals(hash_hmac('sha256', $expected, $this->secret()), $received);
+    }
+
+    /** Ensure a signed callback belongs to this exact gateway, order and amount. */
+    public function matchesOrder(array $payload, array $order): bool
+    {
+        if (!$this->verifyCallback($payload)
+            || strtolower((string) ($order['payment_method'] ?? '')) !== strtolower(PaymentManager::methodCode($this->key))
+            || !hash_equals((string) $order['order_number'], (string) ($payload['order_id'] ?? ''))
+            || !hash_equals(strtoupper((string) $order['currency']), strtoupper((string) ($payload['currency'] ?? '')))) {
+            return false;
+        }
+        $expectedMerchant = (string) ($this->config['merchant_id'] ?? '');
+        if ($expectedMerchant !== '' && !hash_equals($expectedMerchant, (string) ($payload['merchant_id'] ?? ''))) {
+            return false;
+        }
+        $callbackAmount = str_replace([',', ' '], '', (string) ($payload['amount'] ?? '0'));
+        return is_numeric($callbackAmount)
+            && hash_equals(number_format((float) $order['total'], 2, '.', ''), number_format((float) $callbackAmount, 2, '.', ''));
     }
 
     public function initiate(array $order, array $payment): array

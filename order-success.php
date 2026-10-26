@@ -20,7 +20,11 @@ if (!$authorised) {
 $items = Orders::items((int) $order['id']);
 $bankAccounts = (array) Config::get('payments.bank_transfer.accounts', []);
 $gateway = PaymentManager::get((string) $order['payment_method']);
-$needsPayment = $order['payment_status'] !== 'PAID' && $gateway !== null && $gateway instanceof HostedGateway;
+$isAwaitingOnlinePayment = $order['payment_status'] !== 'PAID' && $gateway !== null && $gateway->requiresRedirect();
+if (!$isAwaitingOnlinePayment && $gateway !== null && $gateway->requiresRedirect()) {
+    Cart::clearPendingCheckoutIfUnchanged((int) $order['id']);
+}
+$needsPayment = $isAwaitingOnlinePayment;
 $isBank = $order['payment_method'] === 'BANK_TRANSFER';
 $trackToken = Security::sign(['order' => (int) $order['id'], 'n' => $order['order_number']], 60 * 60 * 24 * 30);
 $trackUrl = '/track.php?order=' . rawurlencode((string) $order['order_number']) . '&email=' . rawurlencode((string) $order['email']);
@@ -32,10 +36,15 @@ require INCLUDES_PATH . '/layout/header.php';
 <section class="section">
   <div class="container-page" style="max-width:980px">
     <div class="text-center mb-4">
-      <span class="success-burst"><i class="bi bi-check-lg"></i></span>
-      <h1 class="h4 fw-bold mt-3 mb-1">Thank you<?= $payload !== null || $isOwner ? ', ' . e(explode(' ', (string) $order['customer_name'])[0]) : '' ?>!</h1>
-      <p class="text-ink-600 mb-1">Your order <strong><?= e($order['order_number']) ?></strong> has been placed.</p>
-      <p class="small text-ink-500 mb-0">A confirmation email is on its way to <?= e($order['email']) ?>.</p>
+      <span class="success-burst"><i class="bi <?= $isAwaitingOnlinePayment ? 'bi-hourglass-split' : 'bi-check-lg' ?>"></i></span>
+      <h1 class="h4 fw-bold mt-3 mb-1"><?= $isAwaitingOnlinePayment ? 'Payment pending' : 'Thank you' ?><?= !$isAwaitingOnlinePayment && ($payload !== null || $isOwner) ? ', ' . e(explode(' ', (string) $order['customer_name'])[0]) : '' ?><?= !$isAwaitingOnlinePayment ? '!' : '' ?></h1>
+      <?php if ($isAwaitingOnlinePayment): ?>
+        <p class="text-ink-600 mb-1">Payment for checkout <strong><?= e($order['order_number']) ?></strong> is not confirmed yet, so this is not a placed order.</p>
+        <p class="small text-ink-500 mb-0">We will place the order only after the payment provider verifies payment. Your cart remains available.</p>
+      <?php else: ?>
+        <p class="text-ink-600 mb-1">Your order <strong><?= e($order['order_number']) ?></strong> has been placed.</p>
+        <p class="small text-ink-500 mb-0">A confirmation email is on its way to <?= e($order['email']) ?>.</p>
+      <?php endif; ?>
     </div>
 
     <div class="card-soft p-3 p-md-4 mb-3">
@@ -51,8 +60,8 @@ require INCLUDES_PATH . '/layout/header.php';
       </div>
       <div class="track-progress"><div style="width:<?= (int) $order['progress'] ?>%"></div></div>
       <div class="d-flex flex-wrap gap-2 mt-3">
-        <a class="btn btn-brand btn-sm" href="<?= e($trackUrl) ?>"><i class="bi bi-truck me-1"></i> Track this order</a>
-        <?php if (Auth::check()): ?><a class="btn btn-soft btn-sm" href="/account/order.php?id=<?= (int) $order['id'] ?>">View in my account</a><?php endif; ?>
+        <?php if (!$isAwaitingOnlinePayment): ?><a class="btn btn-brand btn-sm" href="<?= e($trackUrl) ?>"><i class="bi bi-truck me-1"></i> Track this order</a><?php endif; ?>
+        <?php if (Auth::check() && !$isAwaitingOnlinePayment): ?><a class="btn btn-soft btn-sm" href="/account/order.php?id=<?= (int) $order['id'] ?>">View in my account</a><?php endif; ?>
         <a class="btn btn-soft btn-sm" href="/shop.php">Continue shopping</a>
       </div>
     </div>
@@ -102,7 +111,7 @@ require INCLUDES_PATH . '/layout/header.php';
       <div class="card-soft p-3 p-md-4 mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
           <h2 class="h6 fw-bold mb-1">Finish your payment</h2>
-          <p class="small text-ink-500 mb-0">Pay securely with <?= e(payment_method_label((string) $order['payment_method'])) ?>. Your order is reserved for 24 hours.</p>
+          <p class="small text-ink-500 mb-0">Pay securely with <?= e(payment_method_label((string) $order['payment_method'])) ?>. This checkout is not an order until payment is verified.</p>
         </div>
         <a class="btn btn-brand" href="/payment/start.php?order=<?= rawurlencode((string) $order['uuid']) ?>&token=<?= rawurlencode($trackToken) ?>">
           <i class="bi bi-lock me-1"></i> Pay <?= e(money($order['total'])) ?>

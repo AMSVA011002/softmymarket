@@ -9,6 +9,9 @@ declare(strict_types=1);
  */
 final class Orders
 {
+    /** Online payment attempts are provisional until a signed success callback. */
+    private const PLACED_ORDER_FILTER = "(o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')";
+
     private const SELECT = 'SELECT o.*,
                                    u.name AS account_name, u.email AS account_email
                               FROM orders o
@@ -89,7 +92,7 @@ final class Orders
      */
     public static function adminList(array $filters = []): array
     {
-        $where = ['1 = 1'];
+        $where = [self::PLACED_ORDER_FILTER];
         $params = [];
         if (!empty($filters['status']) && array_key_exists($filters['status'], order_statuses())) {
             $where[] = 'o.status = :status';
@@ -150,10 +153,10 @@ final class Orders
     /** @return array{rows:list<array<string,mixed>>,total:int,pager:array<string,mixed>} */
     public static function forUser(int $userId, int $page = 1, int $per = 10): array
     {
-        $total = Database::int('SELECT COUNT(*) FROM orders WHERE user_id = :uid', ['uid' => $userId]);
+        $total = Database::int('SELECT COUNT(*) FROM orders o WHERE o.user_id = :uid AND ' . self::PLACED_ORDER_FILTER, ['uid' => $userId]);
         $pager = paginate($total, $page, $per);
         $rows = Database::all(
-            self::SELECT . ' WHERE o.user_id = :uid ORDER BY o.placed_at DESC LIMIT ' . $pager['limit'] . ' OFFSET ' . $pager['offset'],
+            self::SELECT . ' WHERE o.user_id = :uid AND ' . self::PLACED_ORDER_FILTER . ' ORDER BY o.placed_at DESC LIMIT ' . $pager['limit'] . ' OFFSET ' . $pager['offset'],
             ['uid' => $userId]
         );
         return ['rows' => array_map([self::class, 'map'], $rows), 'total' => $total, 'pager' => $pager];
@@ -162,7 +165,7 @@ final class Orders
     /** @return list<array<string,mixed>> */
     public static function recent(int $limit = 8): array
     {
-        $rows = Database::all(self::SELECT . ' ORDER BY o.placed_at DESC LIMIT ' . max(1, $limit));
+        $rows = Database::all(self::SELECT . ' WHERE ' . self::PLACED_ORDER_FILTER . ' ORDER BY o.placed_at DESC LIMIT ' . max(1, $limit));
         return array_map([self::class, 'map'], $rows);
     }
 
@@ -170,7 +173,7 @@ final class Orders
     public static function liveBoard(int $limit = 30): array
     {
         $rows = Database::all(
-            self::SELECT . " WHERE o.status IN ('PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY')
+            self::SELECT . " WHERE " . self::PLACED_ORDER_FILTER . " AND o.status IN ('PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY')
               ORDER BY FIELD(o.status, 'PENDING', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY'), o.placed_at ASC
               LIMIT " . max(1, min(100, $limit))
         );
@@ -179,7 +182,7 @@ final class Orders
 
     public static function countsByStatus(): array
     {
-        $rows = Database::all('SELECT status, COUNT(*) AS c FROM orders GROUP BY status');
+        $rows = Database::all('SELECT o.status, COUNT(*) AS c FROM orders o WHERE ' . self::PLACED_ORDER_FILTER . ' GROUP BY o.status');
         $counts = array_fill_keys(array_keys(order_statuses()), 0);
         foreach ($rows as $row) {
             $counts[(string) $row['status']] = (int) $row['c'];
@@ -190,16 +193,16 @@ final class Orders
     public static function stats(): array
     {
         $today = Database::one(
-            "SELECT COUNT(*) AS c, COALESCE(SUM(total), 0) AS t FROM orders WHERE DATE(placed_at) = CURDATE() AND status <> 'CANCELLED'"
+            'SELECT COUNT(*) AS c, COALESCE(SUM(o.total), 0) AS t FROM orders o WHERE DATE(o.placed_at) = CURDATE() AND o.status <> :cancelled AND ' . self::PLACED_ORDER_FILTER,
+            ['cancelled' => 'CANCELLED']
         ) ?? ['c' => 0, 't' => 0];
         $month = Database::one(
-            "SELECT COUNT(*) AS c, COALESCE(SUM(total), 0) AS t FROM orders
-              WHERE placed_at >= :from AND status <> 'CANCELLED'",
-            ['from' => date('Y-m-01 00:00:00')]
+            'SELECT COUNT(*) AS c, COALESCE(SUM(o.total), 0) AS t FROM orders o WHERE o.placed_at >= :from AND o.status <> :cancelled AND ' . self::PLACED_ORDER_FILTER,
+            ['from' => date('Y-m-01 00:00:00'), 'cancelled' => 'CANCELLED']
         ) ?? ['c' => 0, 't' => 0];
-        $allTime = Database::one("SELECT COUNT(*) AS c, COALESCE(SUM(total), 0) AS t FROM orders WHERE status <> 'CANCELLED'") ?? ['c' => 0, 't' => 0];
-        $average = Database::float("SELECT COALESCE(AVG(total), 0) FROM orders WHERE status <> 'CANCELLED'");
-        $pendingPayments = Database::int("SELECT COUNT(*) FROM orders WHERE payment_status IN ('PENDING', 'UNPAID') AND status <> 'CANCELLED'");
+        $allTime = Database::one('SELECT COUNT(*) AS c, COALESCE(SUM(o.total), 0) AS t FROM orders o WHERE o.status <> :cancelled AND ' . self::PLACED_ORDER_FILTER, ['cancelled' => 'CANCELLED']) ?? ['c' => 0, 't' => 0];
+        $average = Database::float('SELECT COALESCE(AVG(o.total), 0) FROM orders o WHERE o.status <> :cancelled AND ' . self::PLACED_ORDER_FILTER, ['cancelled' => 'CANCELLED']);
+        $pendingPayments = Database::int("SELECT COUNT(*) FROM orders o WHERE o.payment_status IN ('PENDING', 'UNPAID') AND o.status <> 'CANCELLED' AND " . self::PLACED_ORDER_FILTER);
 
         return [
             'today_count' => (int) $today['c'],
@@ -219,11 +222,11 @@ final class Orders
         $days = max(2, min(90, $days));
         $from = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
         $rows = Database::all(
-            "SELECT DATE(placed_at) AS d, COUNT(*) AS c, COALESCE(SUM(total), 0) AS t
-               FROM orders
-              WHERE placed_at >= :from AND status <> 'CANCELLED'
-           GROUP BY DATE(placed_at)",
-            ['from' => $from . ' 00:00:00']
+            'SELECT DATE(o.placed_at) AS d, COUNT(*) AS c, COALESCE(SUM(o.total), 0) AS t
+               FROM orders o
+              WHERE o.placed_at >= :from AND o.status <> :cancelled AND ' . self::PLACED_ORDER_FILTER . '
+           GROUP BY DATE(o.placed_at)',
+            ['from' => $from . ' 00:00:00', 'cancelled' => 'CANCELLED']
         );
         $byDate = [];
         foreach ($rows as $row) {
@@ -302,7 +305,7 @@ final class Orders
     public static function boardSince(string $since): array
     {
         $rows = Database::all(
-            self::SELECT . ' WHERE o.updated_at >= :since ORDER BY o.updated_at DESC LIMIT 40',
+            self::SELECT . ' WHERE ' . self::PLACED_ORDER_FILTER . ' AND o.updated_at >= :since ORDER BY o.updated_at DESC LIMIT 40',
             ['since' => $since]
         );
         return array_map([self::class, 'map'], $rows);
