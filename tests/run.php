@@ -358,6 +358,7 @@ T::case('payments: reverse mapping', function (): void {
 T::case('payments: CSP allows the PayHere hosted checkout form submission', function (): void {
     $security = (string) file_get_contents(dirname(__DIR__) . '/includes/Security.php');
     T::contains("form-action 'self' https://www.payhere.lk https://sandbox.payhere.lk", $security, 'PayHere live and sandbox form destinations');
+    T::contains("header('Referrer-Policy: strict-origin-when-cross-origin')", $security, 'PayHere receives the cross-origin Referer origin');
 });
 
 T::case('payments: PayHere checkout fields and signature are generated correctly', function (): void {
@@ -369,24 +370,53 @@ T::case('payments: PayHere checkout fields and signature are generated correctly
         'id' => 25, 'order_number' => 'SMM-20260301-ABC123', 'total' => 1250.5,
         'currency' => 'LKR', 'customer_name' => 'Ada Lovelace', 'email' => 'ada@example.test',
         'phone' => '+94770000000',
-        'shipping_address_array' => ['full_name' => 'Ada Lovelace', 'line1' => '1 Main Street', 'line2' => 'Unit 2', 'city' => 'Colombo', 'phone' => '+94770000000'],
+        'shipping_address_array' => ['full_name' => 'Ada Lovelace 🛒', 'line1' => '1 Main Street <script>alert(1)</script>', 'line2' => 'Unit 2', 'city' => 'Colombo', 'phone' => '077 000 0000'],
     ];
     $intent = $gateway->initiate($order, ['gateway_reference' => '']);
     T::same('https://sandbox.payhere.lk/pay/checkout', $intent['url']);
     T::same('POST', $intent['method']);
     $payload = $intent['params'];
+    foreach (['merchant_id', 'return_url', 'cancel_url', 'notify_url', 'order_id', 'items', 'currency', 'amount', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'country', 'delivery_address', 'delivery_city', 'delivery_country', 'hash'] as $required) {
+        T::true(isset($payload[$required]) && $payload[$required] !== '', 'missing required PayHere field: ' . $required);
+    }
     T::same('123456', $payload['merchant_id']);
     T::same('1250.50', $payload['amount']);
     T::same('LKR', $payload['currency']);
     T::same('Ada', $payload['first_name']);
     T::same('Lovelace', $payload['last_name']);
-    T::same($gateway->sign($payload), $payload['hash'], 'PayHere checkout hash');
+    T::same('+94770000000', $payload['phone']);
+    T::true(strpos($payload['address'], '<') === false && strpos($payload['address'], 'alert') === false, 'script content must not be sent to PayHere');
+    T::same($gateway->sign($payload), $payload['hash'], 'PayHere hash must cover the exact POST amount and currency');
+});
+
+T::case('payments: PayHere refuses invalid required contact data', function (): void {
+    $gateway = new PayHereGateway('payhere', [
+        'merchant_id' => '123456', 'merchant_secret' => 'test-secret', 'mode' => 'sandbox', 'simulate' => false,
+    ]);
+    $baseOrder = [
+        'id' => 1, 'order_number' => 'SMM-CONTACT-1', 'total' => 100, 'currency' => 'LKR',
+        'customer_name' => 'Test Buyer', 'email' => 'not-an-email', 'phone' => 'invalid',
+        'shipping_address_array' => ['full_name' => 'Test Buyer', 'line1' => '1 Road', 'city' => 'Colombo', 'phone' => 'invalid'],
+    ];
+    try {
+        $gateway->initiate($baseOrder, []);
+        throw new RuntimeException('Invalid email should be rejected.');
+    } catch (InvalidArgumentException $error) {
+        T::contains('valid email address', $error->getMessage());
+    }
+    $baseOrder['email'] = 'test@example.test';
+    try {
+        $gateway->initiate($baseOrder, []);
+        throw new RuntimeException('Invalid phone should be rejected.');
+    } catch (InvalidArgumentException $error) {
+        T::contains('valid Sri Lankan mobile number', $error->getMessage());
+    }
 });
 
 T::case('payments: PayHere live mode uses live endpoint and never falls back to simulation', function (): void {
     $gateway = new PayHereGateway('payhere', [
         'merchant_id' => '123456', 'merchant_secret' => 'live-secret',
-        'mode' => 'live', 'simulate' => true,
+        'mode' => 'live', 'simulate' => true, 'live_url' => 'https://www.payhere.lk/wrong/action',
     ]);
     $order = ['id' => 1, 'order_number' => 'SMM-LIVE-1', 'total' => 100, 'currency' => 'LKR'];
     $intent = $gateway->initiate($order, []);
@@ -426,6 +456,12 @@ T::case('payments: PayHere callback signature and order amount are verified', fu
     T::true($gateway->verifyCallback($payload), 'signed callback should verify');
     T::true($gateway->matchesOrder($payload, $order), 'signed callback matches order');
     T::same('paid', $gateway->handleCallback($payload)['status']);
+    $forged = $payload;
+    $forged['md5sig'] = str_repeat('0', 32);
+    T::false($gateway->verifyCallback($forged), 'an unsigned third-party payment notification must be rejected');
+    $wrongMerchant = $payload;
+    $wrongMerchant['merchant_id'] = '654321';
+    T::false($gateway->verifyCallback($wrongMerchant), 'a callback for another merchant must be rejected');
     $tampered = $payload;
     $tampered['payhere_amount'] = '1250.51';
     T::false($gateway->matchesOrder($tampered, $order), 'amount tampering must fail');
