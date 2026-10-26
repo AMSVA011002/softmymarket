@@ -24,11 +24,12 @@ if ($order === null || !$authorised) {
 }
 
 $gateway = PaymentManager::get((string) $order['payment_method']);
-if (!$gateway instanceof HostedGateway) {
+if (!$gateway instanceof HostedGateway && !$gateway instanceof PayHereGateway) {
     abort(404, 'Simulation is only available for hosted gateways.');
 }
 $config = (array) Config::get('payments.' . $gateway->key, []);
-$simulating = !empty($config['simulate']) || empty($config['merchant_id']) || empty($config['secret']);
+$secretKey = $gateway instanceof PayHereGateway ? 'merchant_secret' : 'secret';
+$simulating = !empty($config['simulate']) || empty($config['merchant_id']) || empty($config[$secretKey]);
 if (!$simulating) {
     abort(404, 'Simulation is disabled for this gateway.');
 }

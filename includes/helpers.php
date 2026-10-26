@@ -874,6 +874,7 @@ function payment_methods(): array
     return [
         'COD'           => 'Cash on delivery',
         'CARD_SEYLAN'   => 'Card — Seylan Bank',
+        'PAYHERE'       => 'PayHere',
         'BANK_TRANSFER' => 'Bank transfer',
         'KOKO'          => 'KOKO — pay in 3',
         'PAYZY'         => 'Payzy wallet',
@@ -891,6 +892,7 @@ function payment_method_icon(?string $method): string
     return match ($method) {
         'COD'           => 'bi-cash-coin',
         'CARD_SEYLAN'   => 'bi-credit-card-2-front',
+        'PAYHERE'       => 'bi-credit-card',
         'BANK_TRANSFER' => 'bi-bank',
         'KOKO'          => 'bi-phone',
         'PAYZY'         => 'bi-wallet2',

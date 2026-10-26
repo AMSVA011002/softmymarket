@@ -338,6 +338,7 @@ T::case('validator: unknown keys are dropped from clean data', function (): void
 T::case('payments: method code mapping covers every gateway', function (): void {
     T::same('CARD_SEYLAN', PaymentManager::methodCode('seylan'));
     T::same('CARD_SEYLAN', PaymentManager::methodCode('card'));
+    T::same('PAYHERE', PaymentManager::methodCode('payhere'));
     T::same('BANK_TRANSFER', PaymentManager::methodCode('bank'));
     T::same('BANK_TRANSFER', PaymentManager::methodCode('bank_transfer'));
     T::same('KOKO', PaymentManager::methodCode('koko'));
@@ -348,14 +349,60 @@ T::case('payments: method code mapping covers every gateway', function (): void 
 
 T::case('payments: reverse mapping', function (): void {
     T::same('seylan', PaymentManager::keyForMethod('CARD_SEYLAN'));
+    T::same('payhere', PaymentManager::keyForMethod('PAYHERE'));
     T::same('bank_transfer', PaymentManager::keyForMethod('BANK_TRANSFER'));
     T::same('cod', PaymentManager::keyForMethod('COD'));
     T::same('koko', PaymentManager::keyForMethod('KOKO'));
 });
 
-T::case('payments: all six gateways are registered', function (): void {
+T::case('payments: PayHere checkout fields and signature are generated correctly', function (): void {
+    $gateway = new PayHereGateway('payhere', [
+        'merchant_id' => '123456', 'merchant_secret' => 'test-secret',
+        'mode' => 'sandbox', 'simulate' => false, 'currency' => 'LKR',
+    ]);
+    $order = [
+        'id' => 25, 'order_number' => 'SMM-20260301-ABC123', 'total' => 1250.5,
+        'currency' => 'LKR', 'customer_name' => 'Ada Lovelace', 'email' => 'ada@example.test',
+        'phone' => '+94770000000',
+        'shipping_address_array' => ['full_name' => 'Ada Lovelace', 'line1' => '1 Main Street', 'line2' => 'Unit 2', 'city' => 'Colombo', 'phone' => '+94770000000'],
+    ];
+    $intent = $gateway->initiate($order, ['gateway_reference' => '']);
+    T::same('https://sandbox.payhere.lk/pay/checkout', $intent['url']);
+    T::same('POST', $intent['method']);
+    $payload = $intent['params'];
+    T::same('123456', $payload['merchant_id']);
+    T::same('1250.50', $payload['amount']);
+    T::same('LKR', $payload['currency']);
+    T::same('Ada', $payload['first_name']);
+    T::same('Lovelace', $payload['last_name']);
+    T::same($gateway->sign($payload), $payload['hash'], 'PayHere checkout hash');
+});
+
+T::case('payments: PayHere callback signature and order amount are verified', function (): void {
+    $gateway = new PayHereGateway('payhere', ['merchant_id' => '123456', 'merchant_secret' => 'test-secret']);
+    $payload = [
+        'merchant_id' => '123456', 'order_id' => 'SMM-20260301-ABC123',
+        'payhere_amount' => '1250.50', 'payhere_currency' => 'LKR', 'status_code' => '2', 'payment_id' => '9988',
+    ];
+    $payload['md5sig'] = strtoupper(md5(
+        $payload['merchant_id'] . $payload['order_id'] . $payload['payhere_amount']
+        . $payload['payhere_currency'] . $payload['status_code'] . strtoupper(md5('test-secret'))
+    ));
+    $order = ['order_number' => 'SMM-20260301-ABC123', 'total' => 1250.50, 'currency' => 'LKR', 'payment_method' => 'PAYHERE'];
+    T::true($gateway->verifyCallback($payload), 'signed callback should verify');
+    T::true($gateway->matchesOrder($payload, $order), 'signed callback matches order');
+    T::same('paid', $gateway->handleCallback($payload)['status']);
+    $tampered = $payload;
+    $tampered['payhere_amount'] = '1250.51';
+    T::false($gateway->matchesOrder($tampered, $order), 'amount tampering must fail');
+    $wrongOrder = $payload;
+    $wrongOrder['order_id'] = 'SMM-OTHER';
+    T::false($gateway->matchesOrder($wrongOrder, $order), 'order id tampering must fail');
+});
+
+T::case('payments: all seven gateways are registered', function (): void {
     $keys = array_map(static fn ($gateway) => $gateway->key, PaymentManager::gateways());
-    foreach (['cod', 'bank_transfer', 'card_seylan', 'koko', 'payzy', 'mintpay'] as $key) {
+    foreach (['cod', 'bank_transfer', 'seylan', 'payhere', 'koko', 'payzy', 'mintpay'] as $key) {
         T::true(in_array($key, $keys, true), "gateway {$key} is not registered (got: " . implode(', ', $keys) . ')');
     }
 });

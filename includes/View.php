@@ -232,7 +232,7 @@ function smm_hero_slides(): array
             'eyebrow' => 'Pay your way',
             'title' => 'Cards, wallets and',
             'highlight' => 'pay in 3',
-            'description' => 'Seylan Bank cards, bank transfer, KOKO, Payzy and Mintpay — plus good old cash on delivery.',
+            'description' => 'PayHere and Seylan Bank cards, bank transfer, KOKO, Payzy and Mintpay — plus good old cash on delivery.',
             'cta_label' => 'See payment options',
             'cta_url' => '/help.php#payments',
             'secondary_label' => 'Start shopping',

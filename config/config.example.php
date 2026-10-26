@@ -116,6 +116,19 @@ return [
             'simulate'       => true,
         ],
 
+        // PayHere hosted checkout. Set enabled=true and provide merchant
+        // credentials from the PayHere dashboard before switching to live mode.
+        'payhere' => [
+            'enabled'         => false,
+            'mode'            => 'sandbox',
+            'merchant_id'     => '',
+            'merchant_secret' => '',
+            'currency'        => 'LKR',
+            'min_total'       => 0,
+            'max_total'       => 0,
+            'simulate'        => true,
+        ],
+
         // KOKO — Sri Lankan buy-now-pay-later (hosted redirect + HMAC callback)
         'koko' => [
             'enabled'     => false,

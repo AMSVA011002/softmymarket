@@ -39,6 +39,14 @@ if ($order === null) {
     exit;
 }
 
+// PayHere callbacks are only accepted when the signature, merchant, order id,
+// amount and currency all match the exact order held by the store.
+if ($gateway instanceof PayHereGateway && !$gateway->matchesOrder($payload, $order)) {
+    http_response_code(400);
+    echo 'INVALID_PAYMENT';
+    exit;
+}
+
 $result = $gateway->handleCallback($payload);
 $payment = Payments::findByReference($result['reference'] ?? '', $gateway->key) ?? Orders::latestPayment((int) $order['id']);
 

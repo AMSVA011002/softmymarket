@@ -22,8 +22,8 @@ HTML/CSS/JS/PHP/MySQL stack.
   sort, pagination, related products, flash deals
 * Product gallery with thumbnails, specs table, reviews with rating breakdown, wishlist
 * Cart, guest or account checkout, coupon codes, shipping rules, tax
-* Six payment methods: **Cash on Delivery, Seylan Bank gateway (card), bank
-  transfer, KOKO, Payzy, Mintpay**
+* Seven payment methods: **Cash on Delivery, Seylan Bank gateway (card),
+  PayHere, bank transfer, KOKO, Payzy, Mintpay**
 * **Live order tracking** — public tracking by order number, customer timeline,
   admin live board streaming new orders
 * Invoice (print/PDF-ready), order emails, saved addresses, account dashboard
@@ -200,7 +200,7 @@ product saves).
 | Database credentials | configured (`sql306.hstn.me` / `mseet_43261025_softmymarket`) |
 | SQL scripts | ready — `database/install.sql` + `database/demo-data.sql` |
 | Domain | `softmymarket.hstn.me` — set `app.url` once SSL is active |
-| Payment gateways | COD + bank transfer enabled; Seylan / KOKO / Payzy / Mintpay await merchant credentials |
+| Payment gateways | COD + bank transfer enabled; Seylan / PayHere / KOKO / Payzy / Mintpay await merchant credentials |
 | SMTP | not configured — mail uses the host's sendmail |
 | Demo data | import `demo-data.sql` or use Admin → Tools |
 
