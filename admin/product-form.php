@@ -32,7 +32,6 @@ $values = [
     'status' => old('status', $product['status'] ?? 'draft'),
     'warranty' => old('warranty', $product['warranty'] ?? ''),
     'weight_grams' => old('weight_grams', $product['weight_grams'] ?? ''),
-    'image_url' => old('image_url', $product['image_url'] ?? ''),
     'shipping_fee' => old('shipping_fee', $product['shipping_fee'] ?? ''),
     'meta_title' => old('meta_title', $product['meta_title'] ?? ''),
     'meta_description' => old('meta_description', $product['meta_description'] ?? ''),
@@ -56,15 +55,10 @@ $flags = [
     'is_flash_deal' => (int) old('is_flash_deal', $product['is_flash_deal'] ?? 0),
     'free_shipping' => (int) old('free_shipping', $product['free_shipping'] ?? 0),
 ];
-$gallery = $product['gallery'] ?? [];
-if (!is_array($gallery)) {
-    $gallery = [];
-}
-$gallery = array_values(array_filter(array_map('normalize_image_url', $gallery)));
-// Twelve editable gallery slots: the primary image plus up to eleven extras.
-// Both Google Drive share links and ordinary product-page image URLs are valid.
-$gallerySlots = 12;
-$slots = array_slice(array_values(array_unique(array_merge($gallery, array_fill(0, $gallerySlots, '')))), 0, $gallerySlots);
+// One newline-separated field replaces the old primary + per-slot + paste fields.
+// Preserve all legacy image links when editing a product.
+$existingImages = is_array($product['images'] ?? null) ? $product['images'] : [];
+$imageLinksValue = old('image_links', implode("\n", $existingImages));
 $specs = $product['specs'] ?? [];
 if (!is_array($specs) || $specs === []) {
     $specs = ['' => ''];
@@ -194,73 +188,17 @@ require __DIR__ . '/includes/layout-top.php';
 
       <div class="card-soft p-3 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <h2 class="h6 fw-bold mb-0">Images</h2>
-          <span class="badge text-bg-light" data-gallery-count>0 / 12</span>
+          <h2 class="h6 fw-bold mb-0">Product images</h2>
+          <span class="badge text-bg-light" data-gallery-count>0 / 20</span>
         </div>
-        <p class="small text-ink-500">Paste up to <strong>12</strong> links. Both work:
-          a public <strong>Google Drive</strong> share link
-          (<code>drive.google.com/file/d/…/view</code>) and a normal
-          <strong>https image link</strong> from a manufacturer or product page.
-          They are served through <code>/image.php</code>, so Drive quirks and hotlink
-          protection never break the page.</p>
-
-        <label class="form-label small" for="image_url">Primary image</label>
-        <div class="d-flex gap-2 align-items-start mb-3" data-image-row>
-          <span class="image-slot-preview" data-image-preview>
-            <i class="bi bi-image"></i>
-          </span>
-          <div class="flex-grow-1">
-            <input class="form-control" id="image_url" name="image_url" value="<?= e($values['image_url']) ?>"
-                   placeholder="https://drive.google.com/file/d/FILE_ID/view" data-image-input data-image-primary>
-            <div class="form-text" data-image-status></div>
-          </div>
-        </div>
-
-        <div class="row g-2" data-gallery-grid>
-          <?php foreach ($slots as $index => $slot): ?>
-            <div class="col-12 col-lg-6" data-image-row>
-              <div class="d-flex gap-2 align-items-start">
-                <span class="image-slot-preview" data-image-preview>
-                  <i class="bi bi-image"></i>
-                </span>
-                <div class="flex-grow-1">
-                  <label class="form-label small mb-1" for="gallery-<?= $index ?>">Gallery image <?= $index + 1 ?></label>
-                  <input class="form-control form-control-sm" id="gallery-<?= $index ?>" name="gallery[]"
-                         value="<?= e((string) $slot) ?>" placeholder="https://… or drive.google.com/file/d/…/view"
-                         data-image-input>
-                  <div class="form-text" data-image-status></div>
-                </div>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-
-        <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
-          <button class="btn btn-sm btn-soft" type="button" data-image-paste-toggle>
-            <i class="bi bi-clipboard me-1"></i> Paste a list of links
-          </button>
-          <button class="btn btn-sm btn-soft" type="button" data-image-clear>
-            <i class="bi bi-eraser me-1"></i> Clear all gallery slots
-          </button>
-        </div>
-        <div class="mt-2 d-none" data-image-paste>
-          <textarea class="form-control form-control-sm" rows="4" data-image-paste-box
-                    placeholder="One link per line — Drive share links and normal image URLs can be mixed."></textarea>
-          <div class="d-flex gap-2 mt-2">
-            <button class="btn btn-sm btn-brand" type="button" data-image-paste-apply>Fill slots</button>
-            <button class="btn btn-sm btn-soft" type="button" data-image-paste-cancel>Cancel</button>
-            <span class="small text-ink-500 align-self-center" data-image-paste-status></span>
-          </div>
-        </div>
-
-        <?php if (!empty($product['images'])): ?>
-          <div class="d-flex flex-wrap gap-2 mt-3">
-            <?php foreach (array_slice($product['images'], 0, 12) as $image): ?>
-              <img src="<?= e(img_url((string) $image, (string) $product['title'], 120)) ?>" alt="" width="54" height="54"
-                   style="border-radius:.5rem;object-fit:cover;background:var(--ink-100)">
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
+        <p class="small text-ink-500 mb-2">Paste up to <strong>20 image links</strong>, one per line. The first link is the main image; any remaining links appear in the product gallery. Public Google Drive share links and normal https image URLs work.</p>
+        <label class="form-label small" for="image_links">Image links</label>
+        <textarea class="form-control" id="image_links" name="image_links" rows="5" maxlength="40000"
+                  placeholder="https://example.com/product-main.jpg&#10;https://example.com/product-side.jpg"
+                  data-image-links><?= e((string) $imageLinksValue) ?></textarea>
+        <div class="form-text">Add or remove lines; only valid links entered here are saved. The preview appears below.</div>
+        <div class="image-links-preview mt-3" data-image-preview-grid aria-live="polite"></div>
+        <div class="form-text mt-2" data-image-links-status></div>
       </div>
 
       <div class="card-soft p-3 mb-3">

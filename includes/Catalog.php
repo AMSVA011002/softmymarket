@@ -961,7 +961,7 @@ final class Catalog
         }
 
         // Accept Google Drive share links and ordinary product-page image URLs,
-        // normalise them into one stored shape and cap the gallery at 12.
+        // normalise them into one stored shape and cap the full gallery at 20 images.
         $gallery = [];
         foreach ((array) ($data['gallery'] ?? []) as $rawImage) {
             $normalized = normalize_image_url(is_string($rawImage) ? $rawImage : null);
@@ -969,7 +969,8 @@ final class Catalog
                 $gallery[] = $normalized;
             }
         }
-        $gallery = array_slice($gallery, 0, 12);
+        // image_url is rendered as the first gallery item, leaving at most 19 extras.
+        $gallery = array_slice($gallery, 0, !empty($data['image_url']) ? 19 : 20);
         $specs = [];
         foreach ((array) ($data['specs'] ?? []) as $entry) {
             $name = trim((string) ($entry['name'] ?? ''));
@@ -1209,10 +1210,10 @@ final class Catalog
         if (!empty($row['image_url'])) {
             array_unshift($images, (string) $row['image_url']);
         }
-        // Normalise on read as well: rows saved before the 12-slot editor kept
+        // Normalise on read as well: rows saved by older image editors kept
         // raw paste, and mixed Drive/web links must both keep working.
         $images = array_values(array_unique(array_filter(array_map('normalize_image_url', $images))));
-        $row['images'] = array_slice($images, 0, 12);
+        $row['images'] = array_slice($images, 0, 20);
         $row['image'] = $row['images'][0] ?? null;
 
         $specs = json_decode((string) ($row['specs'] ?? ''), true);
