@@ -24,13 +24,12 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
   <div class="container-page">
     <div class="row g-4 py-4 py-lg-5">
       <div class="col-lg-4">
-        <a class="logo mb-3 d-inline-flex" href="/">
+        <a class="logo footer-branding mb-3 d-inline-flex<?= !empty($brand['logo']) ? ' has-brand-logo' : ' no-brand-logo' ?>" href="/">
           <?php if (!empty($brand['logo'])): ?>
-            <img src="<?= e(img_url($brand['logo'], $brand['name'], 320)) ?>" alt="<?= e($brand['name']) ?>" height="32">
+            <img src="<?= e(img_url($brand['logo'], $brand['name'], 320)) ?>" alt="<?= e($brand['name']) ?>" width="200" height="48">
           <?php else: ?>
-            <span class="logo-mark"><?= e($brand['initials']) ?></span>
+            <span class="footer-brand-name"><?= e($brand['name']) ?></span>
           <?php endif; ?>
-          <span class="logo-text"><?= e($brand['name']) ?></span>
         </a>
         <p class="small text-ink-600 mb-3"><?= e(limit_text(Settings::get('store_description'), 190)) ?></p>
         <ul class="list-unstyled small text-ink-600 mb-3">
