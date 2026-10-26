@@ -116,8 +116,10 @@ return [
             'simulate'       => true,
         ],
 
-        // PayHere hosted checkout. Set enabled=true and provide merchant
-        // credentials from the PayHere dashboard before switching to live mode.
+        // PayHere hosted checkout. Sandbox mode is for development and uses
+        // PayHere sandbox credentials/endpoint. Switch to Live only after
+        // testing, and only with live merchant credentials. Local simulation
+        // is permitted only in sandbox mode when credentials are missing.
         'payhere' => [
             'enabled'         => false,
             'mode'            => 'sandbox',

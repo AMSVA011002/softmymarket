@@ -633,6 +633,10 @@ switch ($action) {
                 if ($posted === null) {
                     continue;
                 }
+                if ($fieldMeta['type'] === 'select'
+                    && !array_key_exists(trim((string) $posted), (array) ($fieldMeta['options'] ?? []))) {
+                    $done('danger', 'Choose a valid ' . strtolower((string) $fieldMeta['label']) . ' option.');
+                }
                 $values[$fieldKey] = $fieldMeta['type'] === 'number' ? (float) $posted : trim((string) $posted);
                 // Never blank out a stored secret by submitting the masked placeholder.
                 if ($fieldMeta['type'] === 'password' && $values[$fieldKey] === '') {

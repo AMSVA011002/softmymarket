@@ -183,8 +183,7 @@ Register those two URLs with the bank / KOKO / Payzy / Mintpay merchant portal.
 * **Bank transfer** ships with editable account details; customers upload a
   slip, finance verifies it in **Admin → Payments**.
 * **Seylan / PayHere / KOKO / Payzy / Mintpay** are disabled until credentials are added.
-  For PayHere, enter the Merchant ID and Merchant Secret in **Admin → Settings → Payments**, configure its notify URL (`/payment/notify.php?gateway=payhere`) in the PayHere merchant portal, test in Sandbox, then switch to Live with real credentials. The browser return is not trusted as payment confirmation; the signed server-to-server notify verifies merchant, order, amount and currency before marking an order paid.
-  `simulate => true` lets you test checkout without charging a real card; set it to `false` when live credentials go in.
+  For PayHere, configure it in **Admin → Settings → Payments**. Select **Sandbox** during development and enter the sandbox merchant credentials; the hosted form posts to PayHere's sandbox checkout. The local simulation is used only when sandbox credentials are missing and the simulation option is enabled. Complete sandbox tests before selecting **Live**: the dashboard warns and asks for confirmation because real customer charges may occur. Live mode posts only to PayHere's live checkout and fails closed if credentials are missing (it will never silently fall back to a simulated payment). Configure the notify URL shown in the dashboard (`/payment/notify.php?gateway=payhere`) in the PayHere merchant portal. Payment confirmation is based on the signed server-to-server notification, not the browser return; the notification is checked against the merchant, order, amount and currency before an order can be marked paid.
 
 After saving credentials, place a test order for each method and confirm the
 order status becomes `PAID` and the admin ledger shows the transaction.
