@@ -355,6 +355,11 @@ T::case('payments: reverse mapping', function (): void {
     T::same('koko', PaymentManager::keyForMethod('KOKO'));
 });
 
+T::case('payments: CSP allows the PayHere hosted checkout form submission', function (): void {
+    $security = (string) file_get_contents(dirname(__DIR__) . '/includes/Security.php');
+    T::contains("form-action 'self' https://www.payhere.lk https://sandbox.payhere.lk", $security, 'PayHere live and sandbox form destinations');
+});
+
 T::case('payments: PayHere checkout fields and signature are generated correctly', function (): void {
     $gateway = new PayHereGateway('payhere', [
         'merchant_id' => '123456', 'merchant_secret' => 'test-secret',

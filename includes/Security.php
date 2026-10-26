@@ -43,7 +43,7 @@ final class Security
         $csp = implode('; ', [
             "default-src 'self'",
             "base-uri 'self'",
-            "form-action 'self'",
+            "form-action 'self' https://www.payhere.lk https://sandbox.payhere.lk",
             "frame-ancestors 'self'",
             "object-src 'none'",
             "img-src 'self' data: blob: https:",
