@@ -35,15 +35,15 @@ require INCLUDES_PATH . '/layout/header.php';
 
     <div class="card-soft p-4 invoice-sheet">
       <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
-        <div>
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="logo-mark"><?= e($brand['initials']) ?></span>
-            <div>
-              <div class="fw-bold"><?= e($brand['name']) ?></div>
-              <div class="text-ink-500" style="font-size:.72rem"><?= e($brand['address']) ?></div>
-            </div>
-          </div>
-          <div class="small text-ink-600"><?= e($brand['phone']) ?> · <?= e($brand['email']) ?></div>
+        <div class="invoice-brand-block">
+          <?php if (!empty($brand['logo'])): ?>
+            <img class="invoice-brand-logo" src="<?= e(img_url((string) $brand['logo'], (string) $brand['name'], 320)) ?>" alt="<?= e((string) $brand['name']) ?>">
+          <?php else: ?>
+            <span class="logo-mark invoice-brand-mark" aria-hidden="true"><?= e($brand['initials']) ?></span>
+          <?php endif; ?>
+          <div class="invoice-brand-name fw-bold"><?= e($brand['name']) ?></div>
+          <div class="invoice-brand-details text-ink-500"><?= e($brand['address']) ?></div>
+          <div class="invoice-brand-details small text-ink-600"><?= e($brand['phone']) ?> · <?= e($brand['email']) ?></div>
         </div>
         <div class="text-end">
           <h1 class="h5 fw-bold mb-1">Invoice</h1>

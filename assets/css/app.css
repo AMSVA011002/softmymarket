@@ -1080,6 +1080,19 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 /* Invoice / printable documents ------------------------------------------ */
 .invoice-sheet { background: #fff; }
 .invoice-sheet .invoice-head { border-bottom: 2px solid var(--ink-900); padding-bottom: .8rem; }
+.invoice-brand-block { min-width: 0; max-width: 100%; }
+.invoice-brand-logo {
+  display: block;
+  width: auto;
+  max-width: min(100%, 240px);
+  max-height: 78px;
+  object-fit: contain;
+  object-position: left center;
+  margin-bottom: .7rem;
+}
+.invoice-brand-mark { margin-bottom: .7rem; }
+.invoice-brand-name { overflow-wrap: anywhere; }
+.invoice-brand-details { overflow-wrap: anywhere; }
 .invoice-sheet table th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-500); }
 .invoice-sheet table td, .invoice-sheet table th { padding: .5rem .4rem; }
 @media print {
