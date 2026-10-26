@@ -20,6 +20,16 @@ if (!$authorised) {
     abort(403, 'This payment link has expired. Please sign in and try again.');
 }
 
+$placedAt = strtotime((string) ($order['placed_at'] ?? ''));
+if ($order['payment_status'] === 'PENDING'
+    && !in_array((string) $order['payment_method'], ['COD', 'BANK_TRANSFER'], true)
+    && $placedAt !== false && $placedAt < time() - 86400) {
+    OrderService::discardUnpaidGatewayAttempt((int) $order['id'], null, ['source' => 'checkout_expired']);
+    Cart::forgetPendingCheckout((int) $order['id']);
+    flash('danger', 'This payment checkout expired after 24 hours, so no order was placed. Your cart is still available.');
+    redirect('/checkout.php');
+}
+
 $back = '/order-success.php?order=' . rawurlencode((string) $order['uuid']) . '&token=' . rawurlencode($token);
 
 if ($order['payment_status'] === 'PAID') {
@@ -29,8 +39,15 @@ if ($order['payment_status'] === 'PAID') {
 
 $gateway = PaymentManager::get((string) $order['payment_method']);
 if ($gateway === null || !$gateway->enabled()) {
-    flash('danger', 'That payment method is not available. Please contact support.');
-    redirect($back);
+    $pending = Orders::latestPayment((int) $order['id']);
+    if ($pending !== null) {
+        Payments::markFailed((int) $pending['id'], ['source' => 'gateway_unavailable']);
+    } else {
+        OrderService::discardUnpaidGatewayAttempt((int) $order['id'], null, ['source' => 'gateway_unavailable']);
+    }
+    Cart::forgetPendingCheckout((int) $order['id']);
+    flash('danger', 'This payment method is unavailable, so no order was placed. Your cart is still available.');
+    redirect('/checkout.php');
 }
 
 if ($gateway instanceof BankTransferGateway) {
@@ -52,19 +69,23 @@ if ($payment === null) {
     $payment = Payments::find($paymentId);
 }
 if ($payment === null) {
-    flash('danger', 'We could not start the payment. Please try again.');
-    redirect($back);
+    OrderService::discardUnpaidGatewayAttempt((int) $order['id'], null, ['source' => 'payment_record_missing']);
+    Cart::forgetPendingCheckout((int) $order['id']);
+    flash('danger', 'We could not start payment, so no order was placed. Your cart is still available.');
+    redirect('/checkout.php');
 }
 
 try {
     $intent = $gateway->initiate($order, $payment);
 } catch (Throwable $e) {
     error_log('Payment initiate failed: ' . $e->getMessage());
+    Payments::markFailed((int) $payment['id'], ['source' => 'initiate_failed']);
+    Cart::forgetPendingCheckout((int) $order['id']);
     $message = $gateway instanceof PayHereGateway && $e instanceof InvalidArgumentException
-        ? $e->getMessage()
-        : 'The payment provider is not reachable right now. Please try again in a moment.';
+        ? $e->getMessage() . ' No order was placed; your cart is still available.'
+        : 'The payment provider could not start checkout. No order was placed; your cart is still available.';
     flash('danger', $message);
-    redirect($back);
+    redirect('/checkout.php');
 }
 
 if (($intent['type'] ?? '') === 'instructions') {
@@ -80,8 +101,10 @@ if (($intent['type'] ?? '') === 'done') {
 $method = strtoupper((string) ($intent['method'] ?? 'GET'));
 $url = (string) ($intent['url'] ?? '');
 if ($url === '') {
-    flash('danger', 'The payment provider did not return a destination.');
-    redirect($back);
+    Payments::markFailed((int) $payment['id'], ['source' => 'missing_gateway_destination']);
+    Cart::forgetPendingCheckout((int) $order['id']);
+    flash('danger', 'The payment provider did not return a destination. No order was placed; your cart is still available.');
+    redirect('/checkout.php');
 }
 
 Payments::update((int) $payment['id'], ['status' => 'initiated']);

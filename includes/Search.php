@@ -30,11 +30,12 @@ final class Search
         );
 
         $orders = Database::all(
-            'SELECT id, order_number, customer_name, total, status, placed_at
-               FROM orders
-              WHERE order_number LIKE :o1 OR customer_name LIKE :o2 OR email LIKE :o3 OR phone LIKE :o4
-           ORDER BY placed_at DESC
-              LIMIT ' . $limit,
+            "SELECT o.id, o.order_number, o.customer_name, o.total, o.status, o.placed_at
+               FROM orders o
+              WHERE (o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')
+                AND (o.order_number LIKE :o1 OR o.customer_name LIKE :o2 OR o.email LIKE :o3 OR o.phone LIKE :o4)
+           ORDER BY o.placed_at DESC
+              LIMIT " . $limit,
             ['o1' => $like, 'o2' => $like, 'o3' => $like, 'o4' => $like]
         );
 
@@ -228,8 +229,9 @@ final class Search
     public static function customerOrders(int $userId, int $limit = 5): array
     {
         return Database::all(
-            'SELECT id, order_number, total, status, payment_status, placed_at
-               FROM orders WHERE user_id = :uid ORDER BY placed_at DESC LIMIT ' . max(1, min(50, $limit)),
+            "SELECT id, order_number, total, status, payment_status, placed_at
+               FROM orders WHERE user_id = :uid AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')
+           ORDER BY placed_at DESC LIMIT " . max(1, min(50, $limit)),
             ['uid' => $userId]
         );
     }

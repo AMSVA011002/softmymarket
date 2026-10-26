@@ -33,7 +33,8 @@ final class Reports
                     COALESCE(SUM(shipping_fee), 0) AS shipping,
                     COALESCE(AVG(total), 0) AS aov
                FROM orders
-              WHERE placed_at BETWEEN :start AND :end AND status <> 'CANCELLED'",
+              WHERE placed_at BETWEEN :start AND :end AND status <> 'CANCELLED'
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')",
             $params
         ) ?? [];
 
@@ -42,12 +43,14 @@ final class Reports
         $previous = Database::one(
             "SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
                FROM orders
-              WHERE placed_at BETWEEN :ps AND :pe AND status <> 'CANCELLED'",
+              WHERE placed_at BETWEEN :ps AND :pe AND status <> 'CANCELLED'
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')",
             ['ps' => $previousStart, 'pe' => $previousEnd]
         ) ?? ['orders' => 0, 'revenue' => 0];
 
         $customers = Database::int(
-            'SELECT COUNT(DISTINCT COALESCE(user_id, email)) FROM orders WHERE placed_at BETWEEN :start AND :end2',
+            "SELECT COUNT(DISTINCT COALESCE(user_id, email)) FROM orders WHERE placed_at BETWEEN :start AND :end2
+               AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')",
             ['start' => $start, 'end2' => $end]
         );
         $newCustomers = Database::int(
@@ -95,6 +98,7 @@ final class Reports
             "SELECT DATE(placed_at) AS d, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
                FROM orders
               WHERE placed_at BETWEEN :start AND :end AND status <> 'CANCELLED'
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')
            GROUP BY DATE(placed_at)
            ORDER BY d ASC",
             ['start' => $start, 'end' => $end]
@@ -129,6 +133,7 @@ final class Reports
           LEFT JOIN products p ON p.id = oi.product_id
           LEFT JOIN categories c ON c.id = p.category_id
               WHERE o.placed_at BETWEEN :start AND :end AND o.status <> 'CANCELLED'
+                AND (o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')
            GROUP BY c.id, c.name
            ORDER BY revenue DESC
               LIMIT " . max(1, min(50, $limit)),
@@ -143,6 +148,7 @@ final class Reports
             "SELECT payment_method, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
                FROM orders
               WHERE placed_at BETWEEN :start AND :end AND status <> 'CANCELLED'
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')
            GROUP BY payment_method
            ORDER BY revenue DESC",
             ['start' => $start, 'end' => $end]
@@ -153,11 +159,12 @@ final class Reports
     {
         [$start, $end] = self::range($from, $to);
         return Database::all(
-            'SELECT status, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+            "SELECT status, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
                FROM orders
               WHERE placed_at BETWEEN :start AND :end
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')
            GROUP BY status
-           ORDER BY orders DESC',
+           ORDER BY orders DESC",
             ['start' => $start, 'end' => $end]
         );
     }
@@ -174,6 +181,7 @@ final class Reports
                FROM orders o
           LEFT JOIN users u ON u.id = o.user_id
               WHERE o.placed_at BETWEEN :start AND :end AND o.status <> 'CANCELLED'
+                AND (o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')
            GROUP BY o.email, o.user_id
            ORDER BY spent DESC
               LIMIT " . max(1, min(50, $limit)),
@@ -189,6 +197,7 @@ final class Reports
                FROM order_items oi
                JOIN orders o ON o.id = oi.order_id
               WHERE o.placed_at BETWEEN :start AND :end AND o.status <> 'CANCELLED'
+                AND (o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')
            GROUP BY oi.product_id, oi.title, oi.sku
            ORDER BY revenue DESC
               LIMIT " . max(1, min(50, $limit)),
@@ -204,6 +213,7 @@ final class Reports
                FROM orders o
           LEFT JOIN coupons c ON c.id = o.coupon_id
               WHERE o.placed_at BETWEEN :start AND :end
+                AND (o.payment_method IN ('COD','BANK_TRANSFER') OR o.payment_status = 'PAID')
                 AND (o.coupon_id IS NOT NULL OR o.coupon_code IS NOT NULL)
            GROUP BY c.code, o.coupon_code
            ORDER BY uses DESC
@@ -240,11 +250,12 @@ final class Reports
     {
         [$start, $end, $fromDate, $toDate] = self::range($from, $to);
         $rows = Database::all(
-            'SELECT order_number, placed_at, customer_name, email, phone, status, payment_method,
+            "SELECT order_number, placed_at, customer_name, email, phone, status, payment_method,
                     payment_status, subtotal, shipping_fee, discount, total, currency
                FROM orders
               WHERE placed_at BETWEEN :start AND :end
-           ORDER BY placed_at DESC',
+                AND (payment_method IN ('COD','BANK_TRANSFER') OR payment_status = 'PAID')
+           ORDER BY placed_at DESC",
             ['start' => $start, 'end' => $end]
         );
 

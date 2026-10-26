@@ -25,7 +25,17 @@ if ($sim !== null) {
     $orderNumber = (string) ($_GET['order_id'] ?? $_POST['order_id'] ?? $_GET['order'] ?? $_POST['order'] ?? '');
     $order = $orderNumber !== '' ? Orders::findByNumber($orderNumber) : null;
     $gateway = $gatewayKey !== '' ? PaymentManager::get($gatewayKey) : null;
-    if ($order === null || $gateway === null) {
+    if ($gateway === null) {
+        abort(404, 'We could not match that payment to an order.');
+    }
+    if ($order === null) {
+        $returnToken = (string) ($_GET['return_token'] ?? $_POST['return_token'] ?? '');
+        $returnClaims = $returnToken !== '' ? Security::verify($returnToken) : null;
+        if ($gateway->requiresRedirect() && $returnClaims !== null && (string) ($returnClaims['gw'] ?? '') === $gateway->key) {
+            Cart::forgetPendingCheckout((int) ($returnClaims['order'] ?? 0));
+            flash('danger', 'The payment was not completed, so no order was placed. Your cart is still available.');
+            redirect('/checkout.php');
+        }
         abort(404, 'We could not match that payment to an order.');
     }
     if ($gateway instanceof PayHereGateway) {
@@ -40,12 +50,24 @@ if ($sim !== null) {
         }
         // PayHere browser returns and cancels are UX signals only. Payment
         // state is changed solely by its signature-verified notify callback.
-        $cancelled = !empty($_GET['cancelled']) || !empty($_POST['cancelled']);
         $result = [
-            'status' => $order['payment_status'] === 'PAID' ? 'paid' : ($cancelled ? 'failed' : 'pending'),
+            'status' => $order['payment_status'] === 'PAID' ? 'paid' : 'pending',
             'reference' => null,
             'message' => 'PayHere payment status is confirmed by the server notification.',
         ];
+    } elseif ($gateway instanceof HostedGateway) {
+        $callback = array_merge($_GET, $_POST);
+        if (!$gateway->matchesOrder($callback, $order)) {
+            $result = ['status' => 'pending', 'reference' => null, 'message' => 'Waiting for the payment provider to verify this payment.'];
+        } else {
+            $result = $gateway->handleCallback($callback);
+            // A signed browser return is still not an authoritative receipt.
+            // Only the server-to-server notification can place the online order.
+            if ($result['status'] === 'paid') {
+                $result['status'] = 'pending';
+                $result['message'] = 'Payment is awaiting server confirmation.';
+            }
+        }
     } else {
         $result = $gateway->handleCallback(array_merge($_GET, $_POST));
     }
@@ -73,15 +95,18 @@ if ($result['status'] === 'paid') {
 }
 
 if ($result['status'] === 'failed') {
-    if ($payment !== null && strtolower((string) $payment['status']) !== 'paid') {
-        Payments::markFailed((int) $payment['id'], ['source' => 'return', 'reference' => $result['reference']]);
-        Database::run('UPDATE orders SET payment_status = :ps WHERE id = :id AND payment_status <> :paid', [
-            'ps' => 'FAILED', 'id' => (int) $order['id'], 'paid' => 'PAID',
-        ]);
+    if ($payment !== null && strtolower((string) $payment['status']) === 'paid') {
+        flash('success', 'Payment received — thank you! Your order is confirmed.');
+        redirect($back);
     }
-    Orders::addEvent((int) $order['id'], (string) $order['status'], 'Payment attempt failed — the customer can try again.', false, 'system');
-    flash('danger', 'The payment was not completed. You can try again below.');
-    redirect($back);
+    if ($payment !== null) {
+        Payments::markFailed((int) $payment['id'], ['source' => 'return', 'reference' => $result['reference']]);
+    } else {
+        OrderService::discardUnpaidGatewayAttempt((int) $order['id'], null, ['source' => 'return']);
+    }
+    Cart::forgetPendingCheckout((int) $order['id']);
+    flash('danger', 'The payment was not completed, so no order was placed. Your cart is still available.');
+    redirect('/checkout.php');
 }
 
 flash('info', 'Your payment is still processing. We will confirm it as soon as the provider responds.');
