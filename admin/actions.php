@@ -114,7 +114,34 @@ switch ($action) {
     case 'product_save':
         admin_require('products.manage');
         $id = post_int('id');
-        $gallery = array_values(array_filter(array_map('trim', (array) ($_POST['gallery'] ?? []))));
+        $imageUrls = [];
+        if (array_key_exists('image_links', $_POST)) {
+            // One URL per line; normalize, deduplicate and enforce a 20-image cap.
+            foreach (preg_split('/\R+/', (string) post('image_links', '')) ?: [] as $rawImage) {
+                $image = normalize_image_url(trim((string) $rawImage));
+                if ($image !== null && !in_array($image, $imageUrls, true)) {
+                    $imageUrls[] = $image;
+                }
+                if (count($imageUrls) >= 20) {
+                    break;
+                }
+            }
+        } else {
+            // Backward-compatible fallback for older product forms or integrations.
+            $legacyPrimary = normalize_image_url((string) post('image_url', ''));
+            if ($legacyPrimary !== null) {
+                $imageUrls[] = $legacyPrimary;
+            }
+            foreach ((array) ($_POST['gallery'] ?? []) as $rawImage) {
+                $image = normalize_image_url(is_string($rawImage) ? $rawImage : null);
+                if ($image !== null && !in_array($image, $imageUrls, true)) {
+                    $imageUrls[] = $image;
+                }
+                if (count($imageUrls) >= 20) {
+                    break;
+                }
+            }
+        }
         $specNames = (array) ($_POST['spec_name'] ?? []);
         $specValues = (array) ($_POST['spec_value'] ?? []);
         $specs = [];
@@ -144,8 +171,8 @@ switch ($action) {
             'shipping_fee' => (float) post('shipping_fee', '0'),
             'warranty' => (string) post('warranty', ''),
             'weight_grams' => post_int('weight_grams'),
-            'image_url' => (string) post('image_url', ''),
-            'gallery' => $gallery,
+            'image_url' => $imageUrls[0] ?? '',
+            'gallery' => array_slice($imageUrls, 1, 19),
             'specs' => $specs,
             'tags' => $tags,
             'meta_title' => (string) post('meta_title', ''),

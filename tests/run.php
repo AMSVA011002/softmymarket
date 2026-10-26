@@ -582,6 +582,30 @@ T::case('categories: subtree query walks parent_id instead of trusting materiali
     T::false(str_contains($catalog, 'path LIKE :pathLike'), 'stale materialised paths must not hide child products');
 });
 
+T::case('products: one image-links field previews links beneath it', function (): void {
+    $form = (string) file_get_contents(dirname(__DIR__) . '/admin/product-form.php');
+    $textarea = strpos($form, 'name="image_links"');
+    $preview = strpos($form, 'data-image-preview-grid');
+    T::true($textarea !== false && $preview !== false && $textarea < $preview, 'preview must follow the single image-links field');
+    T::contains('data-image-links', $form, 'image field hook');
+    T::false(str_contains($form, 'name="gallery[]"'), 'remove per-image link inputs');
+    T::false(str_contains($form, 'name="image_url"'), 'remove the separate primary-image input');
+    T::false(str_contains($form, 'data-image-paste-box'), 'remove the separate paste textarea');
+});
+
+T::case('products: image links support 20 images and preserve only entered links', function (): void {
+    $form = (string) file_get_contents(dirname(__DIR__) . '/admin/product-form.php');
+    $actions = (string) file_get_contents(dirname(__DIR__) . '/admin/actions.php');
+    $catalog = (string) file_get_contents(dirname(__DIR__) . '/includes/Catalog.php');
+    $product = (string) file_get_contents(dirname(__DIR__) . '/product.php');
+    T::contains('0 / 20', $form, '20-image counter');
+    T::contains('up to <strong>20 image links</strong>', $form, '20-link guidance');
+    T::contains('count($imageUrls) >= 20', $actions, 'server-side 20-image cap');
+    T::contains('$row[\'images\'] = array_slice($images, 0, 20);', $catalog, '20 images from product data');
+    T::contains('array_slice($images, 0, 20)', $product, 'display all saved gallery thumbnails');
+    T::contains('array_slice($imageUrls, 1, 19)', $actions, 'first image is primary, up to 19 are gallery items');
+});
+
 /* --------------------------------------------------------------------- db */
 
 if ($withDb) {
