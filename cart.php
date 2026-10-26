@@ -34,18 +34,39 @@ require INCLUDES_PATH . '/layout/header.php';
     <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
       <div>
         <h1 class="h4 fw-bold mb-1">Your cart</h1>
-        <p class="small text-ink-500 mb-0"><?= (int) $quote['item_count'] ?> item<?= $quote['item_count'] === 1 ? '' : 's' ?> · prices include VAT where applicable</p>
+        <p class="small text-ink-500 mb-0"><?= (int) $cart['count'] ?> item<?= $cart['count'] === 1 ? '' : 's' ?> selected · prices include VAT where applicable</p>
       </div>
       <a class="btn btn-soft btn-sm" href="/shop.php"><i class="bi bi-arrow-left me-1"></i>Continue shopping</a>
     </div>
 
-    <?php if ($cart['items'] === []): ?>
+    <?php if ($cart['items'] === [] && $cart['unavailable'] === []): ?>
       <?= View::emptyState('bi-bag', 'Your cart is empty', 'Find something you love — over 10,000 products with island-wide delivery.', 'Browse products', '/shop.php') ?>
     <?php else: ?>
       <div class="row g-4">
         <div class="col-lg-8">
-          <?php if ($cart['removed'] !== []): ?>
-            <div class="alert alert-warning small">Some items were removed because they went out of stock: <?= e(implode(', ', $cart['removed'])) ?></div>
+          <?php if ($cart['unavailable'] !== []): ?>
+            <div class="alert alert-danger small" role="alert">
+              <strong><i class="bi bi-exclamation-triangle me-1"></i> Some selected items are not available in the requested quantity.</strong>
+              <ul class="mb-0 mt-2 ps-3">
+                <?php foreach ($cart['unavailable'] as $unavailable): ?>
+                  <li class="mb-1">
+                    <strong><?= e($unavailable['title']) ?></strong> — <?= e($unavailable['reason']) ?>
+                    <?php if ($unavailable['product'] !== null && $unavailable['product']['status'] === 'active' && (int) $unavailable['product']['stock'] > 0): ?>
+                      <?php $availableQty = min((int) $unavailable['product']['stock'], (int) Config::get('security.max_order_qty', 10)); ?>
+                      <form method="post" action="/actions/cart.php" class="d-inline ms-1">
+                        <?= Csrf::field() ?>
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="product_id" value="<?= (int) $unavailable['product_id'] ?>">
+                        <input type="hidden" name="quantity" value="<?= $availableQty ?>">
+                        <button class="btn btn-link btn-sm p-0 text-decoration-none" type="submit">Set quantity to <?= $availableQty ?> available</button>
+                      </form>
+                    <?php endif; ?>
+                    <button class="btn btn-link btn-sm text-danger p-0 ms-1" type="button" data-cart-remove="<?= (int) $unavailable['product_id'] ?>">Remove</button>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+              <div class="mt-2">Update or remove these items before proceeding. Checkout is disabled until every item is available.</div>
+            </div>
           <?php endif; ?>
 
           <?php if ($toFreeShipping > 0): ?>
@@ -142,7 +163,11 @@ require INCLUDES_PATH . '/layout/header.php';
             <?php if ($quote['tax'] > 0): ?><div class="summary-row"><span>Tax</span><span><?= e(money($quote['tax'])) ?></span></div><?php endif; ?>
             <div class="summary-row total"><span>Total</span><span><?= e(money($quote['total'])) ?></span></div>
             <div class="d-grid gap-2 mt-3">
-              <a class="btn btn-brand btn-lg" href="/checkout.php">Proceed to checkout <i class="bi bi-arrow-right"></i></a>
+              <?php if ($cart['unavailable'] === [] && $cart['items'] !== []): ?>
+                <a class="btn btn-brand btn-lg" href="/checkout.php">Proceed to checkout <i class="bi bi-arrow-right"></i></a>
+              <?php else: ?>
+                <button class="btn btn-brand btn-lg" type="button" disabled aria-disabled="true">Resolve unavailable items to checkout</button>
+              <?php endif; ?>
               <a class="btn btn-soft" href="/shop.php">Keep shopping</a>
             </div>
             <ul class="list-unstyled small text-ink-500 mt-3 mb-0">

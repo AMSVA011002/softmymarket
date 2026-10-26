@@ -149,7 +149,7 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
   <div class="offcanvas-body d-flex flex-column" data-cart-drawer-body>
-    <?php if ($footerCart['items'] === []): ?>
+    <?php if ($footerCart['items'] === [] && $footerCart['unavailable'] === []): ?>
       <div class="text-center py-5">
         <i class="bi bi-bag" style="font-size:2.4rem;color:var(--ink-300)"></i>
         <p class="small text-ink-500 mt-2 mb-3">Your cart is empty.</p>
@@ -157,6 +157,16 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
       </div>
     <?php else: ?>
       <div class="flex-grow-1" style="overflow:auto">
+        <?php if ($footerCart['unavailable'] !== []): ?>
+          <div class="alert alert-danger small py-2" role="alert">
+            <strong>Unavailable items block checkout:</strong>
+            <ul class="mb-0 mt-1 ps-3">
+              <?php foreach ($footerCart['unavailable'] as $unavailable): ?>
+                <li><?= e($unavailable['title']) ?> — <?= e($unavailable['reason']) ?> <button class="btn btn-link btn-sm text-danger p-0" type="button" data-cart-remove="<?= (int) $unavailable['product_id'] ?>">Remove</button></li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
         <?php foreach ($footerCart['items'] as $line): $product = $line['product']; ?>
           <div class="cart-line">
             <img src="<?= e(product_image($product)) ?>" alt="" loading="lazy">
@@ -185,7 +195,11 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
         <div class="summary-row"><span>Delivery</span><span><?= $footerQuote['shipping'] > 0 ? e(money($footerQuote['shipping'])) : '<span class="text-brand">Free</span>' ?></span></div>
         <div class="summary-row total"><span>Total</span><span><?= e(money($footerQuote['total'])) ?></span></div>
         <div class="d-grid gap-2 mt-2">
-          <a class="btn btn-brand" href="/checkout.php">Checkout <i class="bi bi-arrow-right"></i></a>
+          <?php if ($footerCart['unavailable'] === [] && $footerCart['items'] !== []): ?>
+            <a class="btn btn-brand" href="/checkout.php">Checkout <i class="bi bi-arrow-right"></i></a>
+          <?php else: ?>
+            <button class="btn btn-brand" type="button" disabled>Resolve unavailable items</button>
+          <?php endif; ?>
           <a class="btn btn-soft" href="/cart.php">View cart</a>
         </div>
       </div>

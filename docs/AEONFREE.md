@@ -109,12 +109,13 @@ written for. Only real failures reach the error page.
 
 ## 4. Care and feeding on a free plan
 
-**No SSH?** Everything that needs the CLI has a dashboard equivalent:
+**No SSH?** Most maintenance has a dashboard equivalent:
 
-| CLI | Dashboard |
+| CLI | Dashboard / fallback |
 | --- | --- |
 | `php tools/seed.php --products=10000 --customers=10000` | Admin → Tools → Seed demo data (batched) |
 | `php tools/deploy-check.php` | Admin → Tools (runtime + row counts) |
+| `php tools/expire-orders.php` | Runs through a scheduled task if available; otherwise the site checks for overdue orders during normal traffic (the check may be delayed if the site receives no visits). |
 | `php tests/run.php` | *(CLI only — safe to skip on the host)* |
 
 **Execution limit** — free hosting usually caps PHP at 30 s per request. The web

@@ -20,12 +20,22 @@ if (!$authorised) {
 $items = Orders::items((int) $order['id']);
 $bankAccounts = (array) Config::get('payments.bank_transfer.accounts', []);
 $gateway = PaymentManager::get((string) $order['payment_method']);
-$isAwaitingOnlinePayment = $order['payment_status'] !== 'PAID' && $gateway !== null && $gateway->requiresRedirect();
-if (!$isAwaitingOnlinePayment && $gateway !== null && $gateway->requiresRedirect()) {
+$isCancelled = $order['status'] === 'CANCELLED';
+$isAwaitingOnlinePayment = !$isCancelled && $order['payment_status'] !== 'PAID' && $gateway !== null && $gateway->requiresRedirect();
+if (!$isCancelled && !$isAwaitingOnlinePayment && $gateway !== null && $gateway->requiresRedirect()) {
     Cart::clearPendingCheckoutIfUnchanged((int) $order['id']);
 }
 $needsPayment = $isAwaitingOnlinePayment;
 $isBank = $order['payment_method'] === 'BANK_TRANSFER';
+$cancellationReason = '';
+if ($isCancelled) {
+    foreach (array_reverse(Orders::events((int) $order['id'], true)) as $event) {
+        if (($event['status'] ?? '') === 'CANCELLED') {
+            $cancellationReason = (string) ($event['message'] ?? 'This order was canceled.');
+            break;
+        }
+    }
+}
 $trackToken = Security::sign(['order' => (int) $order['id'], 'n' => $order['order_number']], 60 * 60 * 24 * 30);
 $trackUrl = '/track.php?order=' . rawurlencode((string) $order['order_number']) . '&email=' . rawurlencode((string) $order['email']);
 
@@ -36,9 +46,12 @@ require INCLUDES_PATH . '/layout/header.php';
 <section class="section">
   <div class="container-page" style="max-width:980px">
     <div class="text-center mb-4">
-      <span class="success-burst"><i class="bi <?= $isAwaitingOnlinePayment ? 'bi-hourglass-split' : 'bi-check-lg' ?>"></i></span>
-      <h1 class="h4 fw-bold mt-3 mb-1"><?= $isAwaitingOnlinePayment ? 'Payment pending' : 'Thank you' ?><?= !$isAwaitingOnlinePayment && ($payload !== null || $isOwner) ? ', ' . e(explode(' ', (string) $order['customer_name'])[0]) : '' ?><?= !$isAwaitingOnlinePayment ? '!' : '' ?></h1>
-      <?php if ($isAwaitingOnlinePayment): ?>
+      <span class="success-burst"><i class="bi <?= $isAwaitingOnlinePayment ? 'bi-hourglass-split' : ($isCancelled ? 'bi-x-lg' : 'bi-check-lg') ?>"></i></span>
+      <h1 class="h4 fw-bold mt-3 mb-1"><?= $isCancelled ? 'Order canceled' : ($isAwaitingOnlinePayment ? 'Payment pending' : 'Thank you' . (($payload !== null || $isOwner) ? ', ' . e(explode(' ', (string) $order['customer_name'])[0]) : '') . '!') ?></h1>
+      <?php if ($isCancelled): ?>
+        <p class="text-ink-600 mb-1">Order <strong><?= e($order['order_number']) ?></strong> was canceled.</p>
+        <p class="small text-danger mb-0"><?= e($cancellationReason !== '' ? $cancellationReason : 'This order was canceled.') ?></p>
+      <?php elseif ($isAwaitingOnlinePayment): ?>
         <p class="text-ink-600 mb-1">Payment for checkout <strong><?= e($order['order_number']) ?></strong> is not confirmed yet, so this is not a placed order.</p>
         <p class="small text-ink-500 mb-0">We will place the order only after the payment provider verifies payment. Your cart remains available.</p>
       <?php else: ?>
@@ -66,10 +79,10 @@ require INCLUDES_PATH . '/layout/header.php';
       </div>
     </div>
 
-    <?php if ($isBank && $order['payment_status'] !== 'PAID'): ?>
+    <?php if ($isBank && !$isCancelled && $order['payment_status'] !== 'PAID'): ?>
       <div class="card-soft p-3 p-md-4 mb-3" id="bank">
         <h2 class="h6 fw-bold mb-2"><i class="bi bi-bank text-brand me-1"></i> Complete your bank transfer</h2>
-        <p class="small text-ink-600">Transfer <strong><?= e(money($order['total'])) ?></strong> using your order number <strong><?= e($order['order_number']) ?></strong> as the reference, then upload the slip below.</p>
+        <p class="small text-ink-600">Transfer <strong><?= e(money($order['total'])) ?></strong> using order number <strong><?= e($order['order_number']) ?></strong> as the reference, then upload the receipt within one hour. Without an uploaded receipt the order is automatically canceled because payment was not completed; a reference number alone is not enough.</p>
         <div class="table-responsive mb-3">
           <table class="table table-sm spec-table mb-0">
             <thead><tr><th>Bank</th><th>Account number</th><th>Account name</th><th>Branch</th></tr></thead>
@@ -95,7 +108,7 @@ require INCLUDES_PATH . '/layout/header.php';
           </div>
           <div class="col-md-5">
             <label class="form-label" for="slip">Deposit slip (JPG, PNG or PDF, max 5MB)</label>
-            <input class="form-control form-control-sm" id="slip" type="file" name="slip" accept="image/jpeg,image/png,image/webp,application/pdf">
+            <input class="form-control form-control-sm" id="slip" type="file" name="slip" accept="image/jpeg,image/png,image/webp,application/pdf" required>
           </div>
           <div class="col-md-3 d-flex align-items-end">
             <button class="btn btn-brand btn-sm w-100" type="submit"><i class="bi bi-upload me-1"></i> Submit proof</button>

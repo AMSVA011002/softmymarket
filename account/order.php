@@ -56,6 +56,7 @@ require INCLUDES_PATH . '/layout/header.php';
             <p class="small text-ink-600 mb-2">Status: <?= payment_status_badge((string) $order['payment_status']) ?> · Amount due <strong><?= e(money($order['total'])) ?></strong></p>
             <?php if ($order['payment_method'] === 'BANK_TRANSFER'): ?>
               <p class="small text-ink-600"><?= e(Settings::get('bank_transfer_note')) ?></p>
+              <p class="small text-danger">Upload the bank receipt within one hour of placing the order. If no receipt is uploaded, the order is automatically canceled because payment was not completed. A reference number alone is not enough.</p>
               <div class="table-responsive mb-2">
                 <table class="table table-sm spec-table mb-0">
                   <thead><tr><th>Bank</th><th>Account</th><th>Name</th></tr></thead>
@@ -71,7 +72,7 @@ require INCLUDES_PATH . '/layout/header.php';
                 <input type="hidden" name="order_uuid" value="<?= e($order['uuid']) ?>">
                 <input type="hidden" name="token" value="<?= e($trackToken) ?>">
                 <div class="col-md-4"><input class="form-control form-control-sm" name="reference" placeholder="Transfer reference" maxlength="80"></div>
-                <div class="col-md-5"><input class="form-control form-control-sm" type="file" name="slip" accept="image/jpeg,image/png,image/webp,application/pdf"></div>
+                <div class="col-md-5"><input class="form-control form-control-sm" type="file" name="slip" accept="image/jpeg,image/png,image/webp,application/pdf" required></div>
                 <div class="col-md-3"><button class="btn btn-brand btn-sm w-100" type="submit">Upload slip</button></div>
               </form>
             <?php elseif ($order['payment_status'] === 'FAILED'): ?>

@@ -137,6 +137,9 @@ final class Cart
     /** Discard a saved cart comparison after a failed/abandoned payment attempt. */
     public static function forgetPendingCheckout(int $orderId): void
     {
+        if (!isset($_SESSION) || !is_array($_SESSION)) {
+            return;
+        }
         if (isset($_SESSION['_gateway_cart_snapshots'][$orderId])) {
             unset($_SESSION['_gateway_cart_snapshots'][$orderId]);
         }
@@ -171,13 +174,13 @@ final class Cart
     /**
      * Hydrated cart lines with stock-aware quantities.
      *
-     * @return array{items:list<array<string,mixed>>,removed:list<string>,subtotal:float,count:int}
+     * @return array{items:list<array<string,mixed>>,unavailable:list<array{product_id:int,title:string,quantity:int,reason:string,product:?array}>,removed:list<string>,subtotal:float,count:int}
      */
     public static function contents(): array
     {
         $raw = self::raw();
         if ($raw === []) {
-            return ['items' => [], 'removed' => [], 'subtotal' => 0.0, 'count' => 0];
+            return ['items' => [], 'unavailable' => [], 'removed' => [], 'subtotal' => 0.0, 'count' => 0];
         }
         $products = [];
         foreach (Catalog::productsByIds(array_keys($raw)) as $product) {
@@ -185,23 +188,38 @@ final class Cart
         }
 
         $items = [];
+        $unavailable = [];
         $removed = [];
         $subtotal = 0.0;
-        $count = 0;
+        $count = array_sum($raw);
         foreach ($raw as $productId => $qty) {
             $product = $products[$productId] ?? null;
-            if ($product === null || $product['stock'] <= 0) {
-                $removed[] = $product['title'] ?? 'An item';
-                self::remove($productId);
+            if ($product === null || $product['status'] !== 'active') {
+                $unavailable[] = [
+                    'product_id' => (int) $productId,
+                    'title' => $product['title'] ?? 'Product no longer available',
+                    'quantity' => (int) $qty,
+                    'reason' => 'This product is no longer available for purchase.',
+                    'product' => $product,
+                ];
                 continue;
             }
-            $quantity = min($qty, $product['stock']);
-            if ($quantity !== $qty) {
-                self::setQuantity($productId, $quantity);
+            if ((int) $product['stock'] < $qty) {
+                $available = max(0, (int) $product['stock']);
+                $unavailable[] = [
+                    'product_id' => (int) $productId,
+                    'title' => (string) $product['title'],
+                    'quantity' => (int) $qty,
+                    'reason' => $available === 0
+                        ? 'Out of stock; your cart has ' . (int) $qty . ' unit(s) selected. Remove this item or try again later.'
+                        : 'Your cart has ' . (int) $qty . ' unit(s) selected, but only ' . $available . ' are available. Update the quantity or remove this item.',
+                    'product' => $product,
+                ];
+                continue;
             }
+            $quantity = (int) $qty;
             $lineTotal = $product['price'] * $quantity;
             $subtotal += $lineTotal;
-            $count += $quantity;
             $items[] = [
                 'product' => $product,
                 'quantity' => $quantity,
@@ -210,7 +228,7 @@ final class Cart
             ];
         }
 
-        return ['items' => $items, 'removed' => $removed, 'subtotal' => round($subtotal, 2), 'count' => $count];
+        return ['items' => $items, 'unavailable' => $unavailable, 'removed' => $removed, 'subtotal' => round($subtotal, 2), 'count' => $count];
     }
 
     /** Move a guest basket into the signed-in user's cart. */

@@ -67,6 +67,12 @@ if (query('view') !== 'drawer') {
             'price' => (float) $line['product']['price'],
             'total' => (float) $line['line_total'],
         ], $cart['items']),
+        'unavailable' => array_map(static fn ($item) => [
+            'id' => (int) $item['product_id'],
+            'title' => (string) $item['title'],
+            'quantity' => (int) $item['quantity'],
+            'reason' => (string) $item['reason'],
+        ], $cart['unavailable']),
         'subtotal' => $quote['subtotal'],
         'shipping' => $quote['shipping'],
         'discount' => $quote['discount'],
@@ -76,7 +82,7 @@ if (query('view') !== 'drawer') {
 
 ob_start();
 ?>
-<?php if ($cart['items'] === []): ?>
+<?php if ($cart['items'] === [] && $cart['unavailable'] === []): ?>
   <div class="text-center py-5">
     <i class="bi bi-bag" style="font-size:2.4rem;color:var(--ink-300)"></i>
     <p class="small text-ink-500 mt-2 mb-3">Your cart is empty.</p>
@@ -84,6 +90,16 @@ ob_start();
   </div>
 <?php else: ?>
   <div class="flex-grow-1" style="overflow:auto">
+    <?php if ($cart['unavailable'] !== []): ?>
+      <div class="alert alert-danger small py-2" role="alert">
+        <strong>Unavailable items block checkout:</strong>
+        <ul class="mb-0 mt-1 ps-3">
+          <?php foreach ($cart['unavailable'] as $unavailable): ?>
+            <li><?= e($unavailable['title']) ?> — <?= e($unavailable['reason']) ?> <button class="btn btn-link btn-sm text-danger p-0" type="button" data-cart-remove="<?= (int) $unavailable['product_id'] ?>">Remove</button></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
     <?php foreach ($cart['items'] as $line): $product = $line['product']; ?>
       <div class="cart-line">
         <img src="<?= e(product_image($product)) ?>" alt="" loading="lazy">
@@ -113,7 +129,11 @@ ob_start();
     <?php if ($quote['discount'] > 0): ?><div class="summary-row text-brand"><span>Discount</span><span>−<?= e(money($quote['discount'])) ?></span></div><?php endif; ?>
     <div class="summary-row total"><span>Total</span><span><?= e(money($quote['total'])) ?></span></div>
     <div class="d-grid gap-2 mt-2">
-      <a class="btn btn-brand" href="/checkout.php">Checkout <i class="bi bi-arrow-right"></i></a>
+      <?php if ($cart['unavailable'] === [] && $cart['items'] !== []): ?>
+        <a class="btn btn-brand" href="/checkout.php">Checkout <i class="bi bi-arrow-right"></i></a>
+      <?php else: ?>
+        <button class="btn btn-brand" type="button" disabled>Resolve unavailable items</button>
+      <?php endif; ?>
       <a class="btn btn-soft" href="/cart.php">View cart</a>
     </div>
     <?php if (Pricing::amountToFreeShipping($quote['subtotal']) > 0): ?>

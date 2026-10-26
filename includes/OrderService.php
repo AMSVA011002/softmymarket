@@ -18,6 +18,10 @@ final class OrderService
     {
         self::expireStaleGatewayAttempts();
         $contents = Cart::contents();
+        if ($contents['unavailable'] !== []) {
+            $names = array_map(static fn (array $item): string => (string) $item['title'], $contents['unavailable']);
+            return ['ok' => false, 'error' => 'Some selected items are no longer available in the requested quantity: ' . implode(', ', $names) . '. Update your cart before placing the order.'];
+        }
         if ($contents['items'] === []) {
             return ['ok' => false, 'error' => 'Your cart is empty.'];
         }
@@ -256,6 +260,80 @@ final class OrderService
         return $expired;
     }
 
+    /** Automatically cancel bank-transfer orders that have no uploaded receipt after one hour. */
+    public static function expireOverdueBankTransfers(int $limit = 100): int
+    {
+        $rows = Database::all(
+            "SELECT id FROM orders
+              WHERE payment_method = 'BANK_TRANSFER'
+                AND payment_status IN ('UNPAID','PENDING')
+                AND receipt_url IS NULL
+                AND status NOT IN ('CANCELLED','RETURNED','REFUNDED','DELIVERED')
+                AND placed_at <= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+           ORDER BY placed_at ASC LIMIT " . max(1, min(500, $limit))
+        );
+        $cancelled = 0;
+        $reason = 'Automatically canceled because payment was not completed and no bank transfer receipt was uploaded within one hour.';
+        foreach ($rows as $row) {
+            $cancelledOrderId = Database::tx(static function () use ($row, $reason): ?int {
+                $order = Database::one(
+                    "SELECT id, user_id, order_number, status, payment_status, payment_method, receipt_url,
+                            (placed_at <= DATE_SUB(NOW(), INTERVAL 1 HOUR)) AS overdue
+                       FROM orders WHERE id = :id FOR UPDATE",
+                    ['id' => (int) $row['id']]
+                );
+                if ($order === null
+                    || $order['payment_method'] !== 'BANK_TRANSFER'
+                    || $order['receipt_url'] !== null
+                    || (int) $order['overdue'] !== 1
+                    || !in_array((string) $order['payment_status'], ['UNPAID', 'PENDING'], true)
+                    || in_array((string) $order['status'], ['CANCELLED', 'RETURNED', 'REFUNDED', 'DELIVERED'], true)) {
+                    return null;
+                }
+                $now = date('Y-m-d H:i:s');
+                Database::run(
+                    'UPDATE orders SET status = :status, cancelled_at = :cancelled, updated_at = :updated WHERE id = :id',
+                    ['status' => 'CANCELLED', 'cancelled' => $now, 'updated' => $now, 'id' => (int) $order['id']]
+                );
+                Database::run(
+                    "UPDATE payments SET status = 'failed', response_payload = :response, updated_at = :now WHERE order_id = :id AND status IN ('pending','submitted')",
+                    ['response' => json_encode(['source' => 'bank_transfer_receipt_timeout'], JSON_UNESCAPED_SLASHES), 'now' => $now, 'id' => (int) $order['id']]
+                );
+                self::restock((int) $order['id']);
+                Orders::addEvent((int) $order['id'], 'CANCELLED', $reason, true, 'system');
+                if ($order['user_id'] !== null) {
+                    Notifier::notify(
+                        (int) $order['user_id'],
+                        'Order ' . $order['order_number'] . ' cancelled',
+                        $reason,
+                        'danger',
+                        '/account/order.php?id=' . (int) $order['id']
+                    );
+                }
+                Notifier::notifyTeam(
+                    'Bank transfer order ' . $order['order_number'] . ' auto-cancelled',
+                    $reason,
+                    'order',
+                    '/admin/order.php?id=' . (int) $order['id']
+                );
+                Audit::log('order.auto_cancelled', 'order', (int) $order['id'], ['reason' => $reason, 'trigger' => 'bank_transfer_receipt_timeout']);
+                return (int) $order['id'];
+            });
+            if ($cancelledOrderId !== null) {
+                $cancelled++;
+                $fresh = Orders::find($cancelledOrderId);
+                if ($fresh !== null) {
+                    try {
+                        Mailer::orderStatus($fresh, 'CANCELLED', $reason);
+                    } catch (Throwable $e) {
+                        error_log('Auto-cancellation email failed: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+        return $cancelled;
+    }
+
     /**
      * Remove a failed hosted-payment attempt so it is not an order. Restore its
      * reserved stock and coupon use atomically; retain only an audit record.
@@ -360,6 +438,11 @@ final class OrderService
                 return ['ok' => true, 'message' => 'Unpaid checkout removed; reserved stock and coupon usage were restored.'];
             }
             return ['ok' => false, 'message' => 'This unpaid checkout could not be removed. Refresh the order and try again.'];
+        }
+        if ((string) $order['payment_method'] === 'BANK_TRANSFER'
+            && strtoupper((string) $order['payment_status']) !== 'PAID'
+            && $status !== 'CANCELLED') {
+            return ['ok' => false, 'message' => 'Verify the bank transfer before moving this order into fulfillment.'];
         }
         if (!$force && !Orders::canTransition((string) $order['status'], $status)) {
             return ['ok' => false, 'message' => 'An order cannot move from ' . order_status_label((string) $order['status']) . ' to ' . order_status_label($status) . '.'];

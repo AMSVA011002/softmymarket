@@ -81,14 +81,20 @@ final class Payments
         if ($order === null) {
             throw new RuntimeException('Order not found for this payment.');
         }
+        if (in_array(strtoupper((string) $order['status']), ['CANCELLED', 'RETURNED', 'REFUNDED'], true)) {
+            throw new RuntimeException('Payment cannot be confirmed for a canceled, returned, or refunded order.');
+        }
 
         $gateway = PaymentManager::get((string) $order['payment_method']);
         $onlineCheckout = $gateway !== null && $gateway->requiresRedirect();
         $newlyPlaced = Database::tx(static function () use ($payment, $paymentId, $reference, $response, $verifiedBy, $order): bool {
-            $lockedPayment = Database::one('SELECT status FROM payments WHERE id = :pid FOR UPDATE', ['pid' => $paymentId]);
             $lockedOrder = Database::one('SELECT id, status, user_id, order_number, payment_method FROM orders WHERE id = :oid FOR UPDATE', ['oid' => (int) $order['id']]);
+            $lockedPayment = Database::one('SELECT status FROM payments WHERE id = :pid FOR UPDATE', ['pid' => $paymentId]);
             if ($lockedPayment === null || $lockedOrder === null || strtolower((string) $lockedPayment['status']) === 'paid') {
                 return false;
+            }
+            if (in_array(strtoupper((string) $lockedOrder['status']), ['CANCELLED', 'RETURNED', 'REFUNDED'], true)) {
+                throw new RuntimeException('Payment cannot be confirmed for a canceled, returned, or refunded order.');
             }
             self::update($paymentId, [
                 'status' => 'paid',

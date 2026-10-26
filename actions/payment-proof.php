@@ -25,8 +25,15 @@ if (!$authorised) {
 }
 
 $back = '/order-success.php?order=' . rawurlencode((string) $order['uuid']) . '&token=' . rawurlencode($token);
+if ($order['payment_method'] !== 'BANK_TRANSFER') {
+    abort(400, 'Payment proof can only be submitted for bank-transfer orders.');
+}
 if ($order['payment_status'] === 'PAID') {
     flash('info', 'This order is already paid.');
+    redirect($back);
+}
+if ($order['status'] === 'CANCELLED') {
+    flash('danger', 'This order was canceled. Payment proof can no longer be submitted.');
     redirect($back);
 }
 
@@ -43,8 +50,8 @@ if (!empty($_FILES['slip']['name'])) {
     $stored = $result;
 }
 
-if ($stored === null && $reference === '') {
-    flash('warning', 'Add a transfer reference or upload your slip so we can verify the payment.');
+if ($stored === null) {
+    flash('warning', 'Upload the bank transfer receipt. A reference number alone does not stop the one-hour automatic cancellation.');
     redirect($back);
 }
 
@@ -52,6 +59,24 @@ $receiptUrl = $stored !== null ? '/payment/proof.php?file=' . rawurlencode((stri
 
 try {
     Database::tx(function () use ($order, $receiptUrl, $reference, $stored): void {
+        $lockedOrder = Database::one(
+            "SELECT id, status, payment_status, payment_method, receipt_url,
+                    (placed_at <= DATE_SUB(NOW(), INTERVAL 1 HOUR)) AS overdue
+               FROM orders WHERE id = :id FOR UPDATE",
+            ['id' => (int) $order['id']]
+        );
+        if ($lockedOrder === null || $lockedOrder['payment_method'] !== 'BANK_TRANSFER') {
+            throw new RuntimeException('This bank-transfer order no longer exists.');
+        }
+        if ($lockedOrder['payment_status'] === 'PAID') {
+            throw new RuntimeException('This order is already paid.');
+        }
+        if ($lockedOrder['status'] === 'CANCELLED') {
+            throw new RuntimeException('This order was automatically canceled; payment proof can no longer be submitted.');
+        }
+        if ($lockedOrder['receipt_url'] === null && (int) $lockedOrder['overdue'] === 1) {
+            throw new RuntimeException('The one-hour receipt submission period has expired. This order is being canceled automatically.');
+        }
         if ($receiptUrl !== null) {
             Database::run('UPDATE orders SET receipt_url = :receipt, updated_at = :now WHERE id = :id', [
                 'receipt' => $receiptUrl, 'now' => date('Y-m-d H:i:s'), 'id' => (int) $order['id'],
@@ -81,7 +106,10 @@ try {
     });
 } catch (Throwable $e) {
     error_log('Payment proof failed: ' . $e->getMessage());
-    flash('danger', 'We could not save your proof. Please try again or contact support.');
+    if ($stored !== null) {
+        Uploads::delete((string) ($stored['path'] ?? ''));
+    }
+    flash('danger', $e instanceof RuntimeException ? $e->getMessage() : 'We could not save your proof. Please try again or contact support.');
     redirect($back);
 }
 

@@ -347,3 +347,18 @@ if (is_file(ROOT_PATH . '/config/config.php')) {
         error_log('Gateway settings load failed: ' . $e->getMessage());
     }
 }
+
+// Shared-hosting fallback: process overdue bank-transfer orders during normal
+// traffic. The CLI task in tools/expire-orders.php can also run from cron.
+if (!IS_CLI && isset($_SESSION)) {
+    $lastOrderExpiryCheck = (int) ($_SESSION['_order_expiry_check_at'] ?? 0);
+    if (time() - $lastOrderExpiryCheck >= 300) {
+        $_SESSION['_order_expiry_check_at'] = time();
+        try {
+            OrderService::expireOverdueBankTransfers();
+            OrderService::expireStaleGatewayAttempts();
+        } catch (Throwable $e) {
+            error_log('Automatic order expiry check failed: ' . $e->getMessage());
+        }
+    }
+}
