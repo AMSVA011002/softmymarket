@@ -52,7 +52,14 @@ final class Orders
     /** @return list<array<string,mixed>> */
     public static function items(int $orderId): array
     {
-        return Database::all('SELECT * FROM order_items WHERE order_id = :oid ORDER BY id ASC', ['oid' => $orderId]);
+        return Database::all(
+            'SELECT oi.*, p.warranty AS warranty
+               FROM order_items oi
+               LEFT JOIN products p ON p.id = oi.product_id
+              WHERE oi.order_id = :oid
+              ORDER BY oi.id ASC',
+            ['oid' => $orderId]
+        );
     }
 
     /** @return list<array<string,mixed>> */

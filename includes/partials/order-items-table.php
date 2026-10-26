@@ -21,6 +21,9 @@
               <div>
                 <a class="small fw-semibold text-decoration-none" href="/product.php?slug=<?= e($item['slug']) ?>"><?= e($item['title']) ?></a>
                 <div class="text-ink-400" style="font-size:.7rem">SKU <?= e($item['sku']) ?></div>
+                <?php if (!empty($showWarranty)): ?>
+                  <div class="order-item-warranty small text-ink-500"><strong>Warranty:</strong> <?= e(trim((string) ($item['warranty'] ?? '')) !== '' ? (string) $item['warranty'] : 'Not specified') ?></div>
+                <?php endif; ?>
               </div>
             </div>
           </td>
