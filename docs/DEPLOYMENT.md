@@ -15,7 +15,7 @@ build step is required in production.
 | Apache | 2.4 with `mod_rewrite` | `.htaccess` files ship with the app; Nginx notes below |
 | PHP extensions | `pdo_mysql`, `mbstring`, `openssl`, `json`, `fileinfo` | the installer checks these |
 | Disk | 200 MB + image cache | `storage/cache/images` grows with the proxied catalogue |
-| Cron (optional) | 1 job | only for the housekeeping task described in §7 |
+| Cron (recommended) | 1 job | runs automatic one-hour bank-transfer cancellation and payment cleanup |
 
 The installer (`/install/`) verifies every requirement on step 1 and blocks the
 next step until they pass.
@@ -132,18 +132,27 @@ Each has a `.gitkeep` file so the folders survive version control.
 
 ---
 
-## 7. Optional cron job
+## 7. Scheduled order cleanup (recommended)
 
-Nothing in the storefront depends on cron. Two optional housekeeping jobs keep
-the session table and the image cache from growing forever — add them under
-**cPanel → Cron Jobs**:
+The site checks for overdue bank-transfer receipts during normal traffic, but a
+scheduled task ensures cancellation happens even when nobody is browsing the
+store. Add this job in **cPanel → Cron Jobs** (adjust the PHP binary and path to
+your hosting account):
+
+```cron
+*/5 * * * * /usr/bin/php /home/USER/public_html/tools/expire-orders.php >> /home/USER/public_html/storage/logs/order-expiry.log 2>&1
+```
+
+The job cancels bank-transfer orders one hour after placement if no receipt was
+uploaded, records the cancellation reason, restores reserved stock, and releases
+stale hosted-checkout reservations. It is safe to run repeatedly.
+
+Optional storage housekeeping jobs:
 
 ```cron
 15 3 * * * find /home/USER/public_html/storage/sessions -type f -mtime +14 -delete
 30 3 * * 0 find /home/USER/public_html/storage/cache/images -type f -mtime +30 -delete
 ```
-
-Neither is required for the store to work.
 
 ---
 

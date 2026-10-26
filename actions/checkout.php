@@ -10,6 +10,10 @@ Csrf::verifyRequest();
 RateLimiter::guard('order');
 
 $cart = Cart::contents();
+if ($cart['unavailable'] !== []) {
+    flash('warning', 'Some selected items are no longer available in the requested quantity. Please update your cart before checking out.');
+    redirect('/cart.php');
+}
 if ($cart['items'] === []) {
     flash('warning', 'Your cart is empty.');
     redirect('/cart.php');

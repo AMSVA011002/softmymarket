@@ -27,7 +27,7 @@ if (is_post() && (string) post('intent', '') === 'buy') {
 }
 
 $cart = Cart::contents();
-if ($cart['items'] === []) {
+if ($cart['items'] === [] && $cart['unavailable'] === []) {
     flash('info', 'Your cart is empty — add something first.');
     redirect('/cart.php');
 }
@@ -40,6 +40,7 @@ if ($couponCode !== '') {
     }
 }
 $quote = Pricing::quote($cart, $coupon);
+$hasUnavailableItems = $cart['unavailable'] !== [];
 
 $user = Auth::user();
 $addresses = $user !== null ? Addresses::forUser((int) $user['id']) : [];
@@ -78,6 +79,18 @@ require INCLUDES_PATH . '/layout/header.php';
       </div>
     <?php endif; ?>
 
+    <?php if ($hasUnavailableItems): ?>
+      <div class="card-soft border border-danger-subtle p-3 p-md-4" role="alert">
+        <h2 class="h6 fw-bold text-danger"><i class="bi bi-exclamation-triangle me-1"></i> Please update your cart before checkout</h2>
+        <p class="small text-ink-600">We checked current inventory and cannot fulfill these selected quantities. No order or payment can be started until they are updated or removed.</p>
+        <ul class="small mb-3">
+          <?php foreach ($cart['unavailable'] as $unavailable): ?>
+            <li><strong><?= e($unavailable['title']) ?></strong> — <?= e($unavailable['reason']) ?></li>
+          <?php endforeach; ?>
+        </ul>
+        <a class="btn btn-brand" href="/cart.php"><i class="bi bi-cart me-1"></i> Review cart</a>
+      </div>
+    <?php else: ?>
     <form method="post" action="/actions/checkout.php" class="row g-4" id="checkoutForm" data-disable-on-submit>
       <?= Csrf::field() ?>
       <div class="col-lg-7">
@@ -271,6 +284,7 @@ require INCLUDES_PATH . '/layout/header.php';
         </div>
       </div>
     </form>
+    <?php endif; ?>
   </div>
 </section>
 
