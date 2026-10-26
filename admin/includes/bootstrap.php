@@ -215,7 +215,7 @@ function admin_gateway_fields(): array
                 'currency' => ['label' => 'Currency', 'type' => 'select', 'default' => 'LKR', 'options' => ['LKR' => 'LKR', 'USD' => 'USD']],
                 'min_total' => ['label' => 'Minimum order value', 'type' => 'number', 'default' => 0],
                 'max_total' => ['label' => 'Maximum order value', 'type' => 'number', 'default' => 0],
-                'simulate' => ['label' => 'Allow simulated payments when credentials are missing', 'type' => 'bool', 'default' => 1],
+                'simulate' => ['label' => 'Use local sandbox simulation only when sandbox credentials are missing', 'type' => 'bool', 'default' => 1],
             ],
         ],
         'koko' => [

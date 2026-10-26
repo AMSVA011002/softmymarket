@@ -20,11 +20,22 @@ final class PayHereGateway extends Gateway
         return true;
     }
 
+    private function mode(): string
+    {
+        $mode = strtolower(trim((string) ($this->config['mode'] ?? 'sandbox')));
+        if (!in_array($mode, ['sandbox', 'live'], true)) {
+            throw new RuntimeException('PayHere mode must be set to Sandbox or Live in payment settings.');
+        }
+        return $mode;
+    }
+
     protected function shouldSimulate(): bool
     {
-        return !empty($this->config['simulate'])
-            || empty($this->config['merchant_id'])
-            || empty($this->config['merchant_secret']);
+        // Local simulation is strictly a development fallback. Never let a
+        // missing live credential silently turn a real checkout into a demo.
+        return $this->mode() === 'sandbox'
+            && !empty($this->config['simulate'])
+            && (empty($this->config['merchant_id']) || empty($this->config['merchant_secret']));
     }
 
     private function secret(): string
@@ -34,8 +45,7 @@ final class PayHereGateway extends Gateway
 
     private function endpoint(): string
     {
-        $mode = (string) ($this->config['mode'] ?? 'sandbox');
-        return $mode === 'live'
+        return $this->mode() === 'live'
             ? (string) ($this->config['live_url'] ?? 'https://www.payhere.lk/pay/checkout')
             : (string) ($this->config['sandbox_url'] ?? 'https://sandbox.payhere.lk/pay/checkout');
     }
@@ -116,7 +126,11 @@ final class PayHereGateway extends Gateway
             ];
         }
 
-        $merchantId = (string) $this->config['merchant_id'];
+        if (trim((string) ($this->config['merchant_id'] ?? '')) === '' || trim($this->secret()) === '') {
+            throw new RuntimeException('PayHere credentials are required. Add sandbox credentials for development or live credentials for real payments.');
+        }
+
+        $merchantId = trim((string) $this->config['merchant_id']);
         $orderId = (string) $order['order_number'];
         $amount = number_format((float) $order['total'], 2, '.', '');
         $currency = strtoupper((string) ($order['currency'] ?? $this->config['currency'] ?? 'LKR'));

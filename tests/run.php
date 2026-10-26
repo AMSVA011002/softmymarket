@@ -383,6 +383,35 @@ T::case('payments: PayHere checkout fields and signature are generated correctly
     T::same($gateway->sign($payload), $payload['hash'], 'PayHere checkout hash');
 });
 
+T::case('payments: PayHere live mode uses live endpoint and never falls back to simulation', function (): void {
+    $gateway = new PayHereGateway('payhere', [
+        'merchant_id' => '123456', 'merchant_secret' => 'live-secret',
+        'mode' => 'live', 'simulate' => true,
+    ]);
+    $order = ['id' => 1, 'order_number' => 'SMM-LIVE-1', 'total' => 100, 'currency' => 'LKR'];
+    $intent = $gateway->initiate($order, []);
+    T::same('https://www.payhere.lk/pay/checkout', $intent['url']);
+    T::same(false, $intent['simulated']);
+
+    $missingCredentials = new PayHereGateway('payhere', ['mode' => 'live', 'simulate' => true]);
+    try {
+        $missingCredentials->initiate($order, []);
+        throw new RuntimeException('Live checkout must fail closed without credentials.');
+    } catch (RuntimeException $error) {
+        T::contains('credentials are required', $error->getMessage());
+    }
+});
+
+T::case('payments: invalid PayHere mode is rejected', function (): void {
+    $gateway = new PayHereGateway('payhere', ['mode' => 'other', 'merchant_id' => '1', 'merchant_secret' => 'secret']);
+    try {
+        $gateway->initiate(['id' => 1, 'order_number' => 'SMM-1', 'total' => 10, 'currency' => 'LKR'], []);
+        throw new RuntimeException('Unknown mode must be rejected.');
+    } catch (RuntimeException $error) {
+        T::contains('mode must be set', $error->getMessage());
+    }
+});
+
 T::case('payments: PayHere callback signature and order amount are verified', function (): void {
     $gateway = new PayHereGateway('payhere', ['merchant_id' => '123456', 'merchant_secret' => 'test-secret']);
     $payload = [

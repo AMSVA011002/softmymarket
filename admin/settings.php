@@ -68,7 +68,7 @@ require __DIR__ . '/includes/layout-top.php';
 </ul>
 
 <?php if ($tab === 'payments'): ?>
-  <form method="post" action="/admin/actions.php">
+  <form method="post" action="/admin/actions.php" data-payhere-settings>
     <?= Csrf::field() ?>
     <input type="hidden" name="action" value="gateway_save">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
@@ -89,11 +89,18 @@ require __DIR__ . '/includes/layout-top.php';
               <?php else: ?>
                 <label class="form-label small mb-1" for="<?= e($fieldId) ?>"><?= e($fieldMeta['label']) ?></label>
                 <?php if ($fieldMeta['type'] === 'select'): ?>
-                  <select class="form-select form-select-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]">
+                  <select class="form-select form-select-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" <?= $gatewayKey === 'payhere' && $fieldKey === 'mode' ? 'data-payhere-mode' : '' ?>>
                     <?php foreach ((array) ($fieldMeta['options'] ?? []) as $optionValue => $optionLabel): ?>
                       <option value="<?= e((string) $optionValue) ?>" <?= (string) $value === (string) $optionValue ? 'selected' : '' ?>><?= e((string) $optionLabel) ?></option>
                     <?php endforeach; ?>
                   </select>
+                  <?php if ($gatewayKey === 'payhere' && $fieldKey === 'mode'): ?>
+                    <div class="alert <?= $value === 'live' ? 'alert-danger' : 'alert-info' ?> small py-2 px-3 mt-2 mb-0" data-payhere-mode-notice role="status">
+                      <?= $value === 'live'
+                          ? 'LIVE mode: customers may be charged real money. Use live merchant credentials only after completing sandbox tests.'
+                          : 'SANDBOX mode: checkout goes to PayHere test environment. Use sandbox credentials for development; no real charge is made.' ?>
+                    </div>
+                  <?php endif; ?>
                 <?php elseif ($fieldMeta['type'] === 'textarea'): ?>
                   <textarea class="form-control form-control-sm" id="<?= e($fieldId) ?>" name="gateway[<?= e($gatewayKey) ?>][<?= e($fieldKey) ?>]" rows="2"><?= e((string) $value) ?></textarea>
                 <?php elseif ($fieldMeta['type'] === 'password'): ?>
@@ -374,6 +381,30 @@ $adminInlineScript = <<<'JS'
 (function () {
   var rows = document.querySelector('[data-bank-rows]');
   var add = document.querySelector('[data-bank-add]');
+  var payHereForm = document.querySelector('[data-payhere-settings]');
+  var payHereMode = document.querySelector('[data-payhere-mode]');
+  var payHereNotice = document.querySelector('[data-payhere-mode-notice]');
+  if (payHereForm && payHereMode && payHereNotice) {
+    var syncPayHereMode = function () {
+      var live = payHereMode.value === 'live';
+      payHereNotice.classList.toggle('alert-danger', live);
+      payHereNotice.classList.toggle('alert-info', !live);
+      payHereNotice.textContent = live
+        ? 'LIVE mode: customers may be charged real money. Use live merchant credentials only after completing sandbox tests.'
+        : 'SANDBOX mode: checkout goes to PayHere test environment. Use sandbox credentials for development; no real charge is made.';
+    };
+    payHereMode.addEventListener('change', function () {
+      if (payHereMode.value === 'live' && !window.confirm('Switch PayHere to LIVE mode? Customers can make real payments and be charged.')) {
+        payHereMode.value = 'sandbox';
+      }
+      syncPayHereMode();
+    });
+    payHereForm.addEventListener('submit', function (event) {
+      if (payHereMode.value === 'live' && !window.confirm('Save PayHere in LIVE mode? This will send customer payments to PayHere live checkout.')) {
+        event.preventDefault();
+      }
+    });
+  }
   if (add && rows) {
     add.addEventListener('click', function () {
       var row = rows.querySelector('[data-bank-row]').cloneNode(true);
