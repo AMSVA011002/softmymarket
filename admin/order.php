@@ -26,7 +26,9 @@ $orderNumber = (string) $order['order_number'];
 
 $adminTitle = 'Order ' . $order['order_number'];
 $adminSubtitle = 'Placed ' . fmt_datetime((string) $order['placed_at']) . ' · ' . payment_method_label((string) $order['payment_method']);
-$adminActions = '<a class="btn btn-sm btn-soft" href="' . e('/invoice.php?order=' . (int) $order['id']) . '" target="_blank" rel="noopener"><i class="bi bi-printer me-1"></i> Invoice</a>'
+$adminActions = '<a class="btn btn-sm btn-soft" href="' . e('/invoice.php?order=' . (int) $order['id']) . '" target="_blank" rel="noopener"><i class="bi bi-receipt me-1"></i> Invoice</a>'
+    . '<a class="btn btn-sm btn-soft" href="' . e('/invoice.php?order=' . (int) $order['id'] . '&print=a5') . '" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i> A5 invoice</a>'
+    . '<a class="btn btn-sm btn-soft" href="' . e('/invoice.php?order=' . (int) $order['id'] . '&print=label') . '" target="_blank" rel="noopener"><i class="bi bi-box-seam me-1"></i> Package sticker</a>'
     . '<a class="btn btn-sm btn-soft" href="' . e(admin_url('orders.php')) . '"><i class="bi bi-arrow-left me-1"></i> All orders</a>';
 require __DIR__ . '/includes/layout-top.php';
 ?>

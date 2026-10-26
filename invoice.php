@@ -13,7 +13,16 @@ if (!Auth::isTeam() && !Orders::ownedBy($order, Auth::id())) {
     abort(403, 'You do not have access to this invoice.');
 }
 
-$items = Orders::items((int) $order['id']);
+$isAdmin = Auth::isTeam();
+$printMode = $isAdmin ? (string) query('print', '') : '';
+if (!in_array($printMode, ['', 'a5', 'label'], true)) {
+    $printMode = '';
+}
+$isA5Print = $printMode === 'a5';
+$isShippingLabel = $printMode === 'label';
+$pageClass = 'invoice-page' . ($printMode !== '' ? ' invoice-print-page invoice-print-' . $printMode : '');
+$items = $isShippingLabel ? [] : Orders::items((int) $order['id']);
+$showWarranty = !$isShippingLabel;
 $brand = Settings::brand();
 $address = $order['shipping_address_array'];
 $paid = 0.0;
@@ -22,18 +31,65 @@ foreach (Orders::payments((int) $order['id']) as $payment) {
         $paid += (float) $payment['amount'];
     }
 }
-$pageTitle = 'Invoice ' . $order['order_number'];
+$isCod = strtoupper((string) $order['payment_method']) === 'COD';
+$adminPaid = !$isCod && (
+    strtoupper((string) $order['payment_status']) === 'PAID'
+    || ($order['total'] > 0 && $paid >= (float) $order['total'] - 0.01)
+);
+$pageTitle = ($isShippingLabel ? 'Package label ' : 'Invoice ') . $order['order_number'];
 $noindex = true;
 require INCLUDES_PATH . '/layout/header.php';
 ?>
 <section class="section">
   <div class="container-page" style="max-width:900px">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <a class="btn btn-soft btn-sm" href="<?= Auth::isTeam() ? '/admin/order.php?id=' . (int) $order['id'] : '/account/order.php?id=' . (int) $order['id'] ?>"><i class="bi bi-arrow-left"></i> Back</a>
-      <button class="btn btn-brand btn-sm" type="button" data-print><i class="bi bi-printer"></i> Print / save PDF</button>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 invoice-controls">
+      <a class="btn btn-soft btn-sm" href="<?= $isAdmin ? '/admin/order.php?id=' . (int) $order['id'] : '/account/order.php?id=' . (int) $order['id'] ?>"><i class="bi bi-arrow-left"></i> Back</a>
+      <div class="d-flex flex-wrap justify-content-end gap-2">
+        <?php if ($isAdmin && !$isA5Print && !$isShippingLabel): ?>
+          <a class="btn btn-soft btn-sm" href="/invoice.php?order=<?= (int) $order['id'] ?>&amp;print=a5"><i class="bi bi-file-earmark-text"></i> A5 admin invoice</a>
+          <a class="btn btn-soft btn-sm" href="/invoice.php?order=<?= (int) $order['id'] ?>&amp;print=label"><i class="bi bi-box-seam"></i> Package sticker</a>
+        <?php endif; ?>
+        <button class="btn btn-brand btn-sm" type="button" data-print><i class="bi bi-printer"></i> <?= $isA5Print ? 'Print A5 invoice' : ($isShippingLabel ? 'Print package sticker' : 'Print / save PDF') ?></button>
+      </div>
     </div>
 
-    <div class="card-soft p-4 invoice-sheet">
+    <?php if ($isShippingLabel): ?>
+      <article class="shipping-label" aria-label="Package shipping label">
+        <div class="shipping-label-brand">
+          <?php if (!empty($brand['logo'])): ?>
+            <img class="shipping-label-logo" src="<?= e(img_url((string) $brand['logo'], (string) $brand['name'], 320)) ?>" alt="<?= e((string) $brand['name']) ?>">
+          <?php else: ?>
+            <span class="logo-mark" aria-hidden="true"><?= e($brand['initials']) ?></span>
+          <?php endif; ?>
+          <div class="fw-bold mt-2"><?= e($brand['name']) ?></div>
+          <div class="small text-ink-500"><?= e($brand['address']) ?></div>
+          <div class="small"><?= e($brand['phone']) ?> · <?= e($brand['email']) ?></div>
+        </div>
+        <div class="shipping-label-order">
+          <span class="small text-uppercase text-ink-500 fw-bold">Order reference</span>
+          <strong><?= e($order['order_number']) ?></strong>
+          <span class="small text-ink-500">Placed <?= e(fmt_date((string) $order['placed_at'])) ?></span>
+        </div>
+        <div class="shipping-label-recipient">
+          <span class="small text-uppercase text-ink-500 fw-bold">Deliver to</span>
+          <strong><?= e($order['customer_name']) ?></strong>
+          <span><?= e($order['email']) ?></span>
+          <span><?= e(phone_display((string) $order['phone'])) ?></span>
+          <span><?= e($address['line1'] ?? '') ?><?= !empty($address['line2']) ? ', ' . e($address['line2']) : '' ?></span>
+          <span><?= e(trim(($address['city'] ?? '') . ' ' . ($address['postal_code'] ?? ''))) ?><?= !empty($address['district']) ? ', ' . e($address['district']) : '' ?></span>
+          <?php if (!empty($address['country'])): ?><span><?= e($address['country']) ?></span><?php endif; ?>
+        </div>
+        <div class="shipping-label-payment">
+          <span><?= e(payment_method_label((string) $order['payment_method'])) ?></span>
+          <?php if ($isCod): ?>
+            <strong>COD AMOUNT DUE: <?= e(money($order['total'])) ?></strong>
+          <?php else: ?>
+            <strong><?= $adminPaid ? 'PREPAID' : 'PAYMENT NOT CONFIRMED' ?></strong>
+          <?php endif; ?>
+        </div>
+      </article>
+    <?php else: ?>
+    <div class="card-soft p-4 invoice-sheet <?= $isA5Print ? 'invoice-sheet-a5' : '' ?>">
       <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
         <div class="invoice-brand-block">
           <?php if (!empty($brand['logo'])): ?>
@@ -78,7 +134,10 @@ require INCLUDES_PATH . '/layout/header.php';
 
       <div class="row g-2 mt-4">
         <div class="col-sm-7 small text-ink-500">
-          <p class="mb-1">Payment received: <strong><?= e(money($paid)) ?></strong></p>
+          <?php if ($isA5Print): ?>
+            <p class="mb-1">Payment received: <strong class="<?= $adminPaid ? 'text-brand' : 'text-danger' ?>"><?= $adminPaid ? 'Paid' : 'Not Paid' ?></strong></p>
+            <?php if ($paid > 0): ?><p class="mb-1">Amount received: <strong><?= e(money($paid)) ?></strong></p><?php endif; ?>
+          <?php endif; ?>
           <p class="mb-0">Thank you for shopping with <?= e($brand['name']) ?>.</p>
         </div>
         <div class="col-sm-5 text-sm-end small">
@@ -87,6 +146,7 @@ require INCLUDES_PATH . '/layout/header.php';
         </div>
       </div>
     </div>
+    <?php endif; ?>
   </div>
 </section>
 <?php require INCLUDES_PATH . '/layout/footer.php'; ?>

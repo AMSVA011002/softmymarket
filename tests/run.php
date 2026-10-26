@@ -560,6 +560,18 @@ T::case('invoice: configured store logo is used with initials as fallback', func
     T::contains('invoice-brand-name fw-bold', $invoice, 'brand name should appear beneath the logo');
 });
 
+T::case('invoice: admin print variants and warranty details are present', function (): void {
+    $invoice = (string) file_get_contents(dirname(__DIR__) . '/invoice.php');
+    $orders = (string) file_get_contents(dirname(__DIR__) . '/includes/Orders.php');
+    $items = (string) file_get_contents(dirname(__DIR__) . '/includes/partials/order-items-table.php');
+    T::contains('print=a5', $invoice, 'admin A5 invoice action');
+    T::contains('print=label', $invoice, 'admin package sticker action');
+    T::contains('$isShippingLabel', $invoice, 'label view must be separated from the invoice items');
+    T::contains('p.warranty AS warranty', $orders, 'product warranty must be available for order items');
+    T::contains('Warranty:</strong>', $items, 'invoice items should display warranty details');
+    T::contains('Payment received:', $invoice, 'admin A5 invoice includes payment state');
+});
+
 T::case('assets: every demo product image exists', function (): void {
     $root = dirname(__DIR__);
     for ($i = 1; $i <= 12; $i++) {

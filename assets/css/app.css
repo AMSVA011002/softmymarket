@@ -1095,9 +1095,42 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 700; letter-
 .invoice-brand-details { overflow-wrap: anywhere; }
 .invoice-sheet table th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-500); }
 .invoice-sheet table td, .invoice-sheet table th { padding: .5rem .4rem; }
+@page invoice-a5 { size: A5 portrait; margin: 8mm; }
+@page package-label { size: 100mm 150mm; margin: 5mm; }
+body.invoice-print-a5 { page: invoice-a5; }
+body.invoice-print-label { page: package-label; }
+.shipping-label {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 1rem;
+  border: 2px solid var(--ink-900);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+.shipping-label-brand { padding-bottom: .8rem; border-bottom: 1px solid var(--ink-200); }
+.shipping-label-logo { display: block; width: auto; max-width: 190px; max-height: 52px; object-fit: contain; object-position: left center; }
+.shipping-label-order,
+.shipping-label-recipient,
+.shipping-label-payment { display: flex; flex-direction: column; gap: .2rem; padding: .75rem 0; border-bottom: 1px solid var(--ink-200); }
+.shipping-label-order strong { font-size: 1.1rem; letter-spacing: .04em; }
+.shipping-label-recipient strong { font-size: 1.25rem; }
+.shipping-label-payment { border-bottom: 0; font-size: .9rem; }
+.shipping-label-payment strong { font-size: 1.05rem; }
 @media print {
-  .invoice-sheet { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
   body { background: #fff !important; }
+  .invoice-page .site-header,
+  .invoice-page .site-footer,
+  .invoice-page .invoice-controls { display: none !important; }
+  .invoice-page .site-main,
+  .invoice-page .section { margin: 0 !important; padding: 0 !important; }
+  .invoice-page .container-page { width: 100% !important; max-width: none !important; padding: 0 !important; }
+  .invoice-page .invoice-sheet { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+  .invoice-print-a5 .invoice-sheet-a5 { min-height: 194mm; }
+  .invoice-print-label .shipping-label { width: 100%; max-width: none; min-height: 140mm; margin: 0; border-radius: 0; padding: 0; }
+  .invoice-print-page .invoice-sheet table tr { break-inside: avoid; }
 }
 
 /* Notification list ------------------------------------------------------ */
