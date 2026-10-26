@@ -552,6 +552,14 @@ T::case('sql: demo-data.sql only touches catalogue tables', function (): void {
     T::contains('/assets/img/demo/product-01.svg', $demo, 'demo products should use the bundled artwork');
 });
 
+T::case('invoice: configured store logo is used with initials as fallback', function (): void {
+    $invoice = (string) file_get_contents(dirname(__DIR__) . '/invoice.php');
+    T::contains("if (!empty(\$brand['logo']))", $invoice, 'invoice should render the configured brand logo');
+    T::contains("img_url((string) \$brand['logo']", $invoice, 'invoice logo should use the existing external-image proxy');
+    T::contains("e(\$brand['initials'])", $invoice, 'invoice should retain initials when no logo is configured');
+    T::contains('invoice-brand-name fw-bold', $invoice, 'brand name should appear beneath the logo');
+});
+
 T::case('assets: every demo product image exists', function (): void {
     $root = dirname(__DIR__);
     for ($i = 1; $i <= 12; $i++) {
