@@ -155,8 +155,8 @@ id 9  Gaming Laptops     parent 4     depth 2  path /1/4/
   corrupts order history (`ON DELETE SET NULL` on `product_id`).
 * `coupon_redemptions` has **no** unique constraint on `(coupon_id, order_id)`; the per-user limit is enforced in `Coupons::validate()` inside the checkout transaction.
 * `payments.gateway` stores the **config key** (`seylan`, `bank_transfer`,
-  `koko`, `payzy`, `mintpay`, `cod`) and `orders.payment_method` stores the
-  storefront code (`CARD_SEYLAN`, `BANK_TRANSFER`, `KOKO`, `PAYZY`, `MINTPAY`,
+  `payhere`, `koko`, `payzy`, `mintpay`, `cod`) and `orders.payment_method` stores the
+  storefront code (`CARD_SEYLAN`, `PAYHERE`, `BANK_TRANSFER`, `KOKO`, `PAYZY`, `MINTPAY`,
   `COD`). `PaymentManager::methodCode()` / `::keyForMethod()` translate both ways.
 * Money is `DECIMAL(12,2)`; never sum floats in PHP without `Pricing::round()`.
 * Every FK is indexed; the hot storefront queries are covered by

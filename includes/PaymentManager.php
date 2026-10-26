@@ -20,6 +20,7 @@ final class PaymentManager
         $map['COD'] = new CodGateway('cod', (array) ($config['cod'] ?? []));
         $map['BANK_TRANSFER'] = new BankTransferGateway('bank_transfer', (array) ($config['bank_transfer'] ?? []));
         $map['CARD_SEYLAN'] = new HostedGateway('seylan', (array) ($config['seylan'] ?? []));
+        $map['PAYHERE'] = new PayHereGateway('payhere', (array) ($config['payhere'] ?? []));
         $map['KOKO'] = new HostedGateway('koko', (array) ($config['koko'] ?? []));
         $map['PAYZY'] = new HostedGateway('payzy', (array) ($config['payzy'] ?? []));
         $map['MINTPAY'] = new HostedGateway('mintpay', (array) ($config['mintpay'] ?? []));
@@ -71,6 +72,7 @@ final class PaymentManager
     {
         return match (strtolower($key)) {
             'seylan', 'card', 'card_seylan' => 'CARD_SEYLAN',
+            'payhere' => 'PAYHERE',
             'bank', 'bank_transfer', 'transfer' => 'BANK_TRANSFER',
             'koko' => 'KOKO',
             'payzy' => 'PAYZY',
@@ -85,6 +87,7 @@ final class PaymentManager
     {
         return strtolower(match (strtoupper($method)) {
             'CARD_SEYLAN' => 'seylan',
+            'PAYHERE' => 'payhere',
             'BANK_TRANSFER' => 'bank_transfer',
             default => strtoupper($method) === 'COD' ? 'cod' : strtolower($method),
         });

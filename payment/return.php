@@ -6,8 +6,9 @@ require_once dirname(__DIR__) . '/includes/bootstrap.php';
 /**
  * Browser return URL from a payment provider (and from the sandbox screen).
  *
- * The provider's word is not trusted until its signature is verified, except
- * for the sandbox flow which carries our own signed token.
+ * The provider's word is not trusted until its signature is verified. PayHere
+ * uses a separate signed return token while its server notification remains
+ * authoritative; the sandbox flow also carries our own signed token.
  */
 $simToken = (string) ($_POST['sim_token'] ?? $_GET['sim_token'] ?? '');
 $sim = $simToken !== '' ? Security::verify($simToken) : null;
@@ -27,7 +28,27 @@ if ($sim !== null) {
     if ($order === null || $gateway === null) {
         abort(404, 'We could not match that payment to an order.');
     }
-    $result = $gateway->handleCallback(array_merge($_GET, $_POST));
+    if ($gateway instanceof PayHereGateway) {
+        // The provider return is not signed; require our own short-lived token
+        // before resolving an order or issuing its long-lived tracking token.
+        $returnToken = (string) ($_GET['return_token'] ?? $_POST['return_token'] ?? '');
+        $returnClaims = $returnToken !== '' ? Security::verify($returnToken) : null;
+        if ($returnClaims === null
+            || (int) ($returnClaims['order'] ?? 0) !== (int) $order['id']
+            || (string) ($returnClaims['gw'] ?? '') !== 'payhere') {
+            abort(403, 'This PayHere return link is invalid or expired.');
+        }
+        // PayHere browser returns and cancels are UX signals only. Payment
+        // state is changed solely by its signature-verified notify callback.
+        $cancelled = !empty($_GET['cancelled']) || !empty($_POST['cancelled']);
+        $result = [
+            'status' => $order['payment_status'] === 'PAID' ? 'paid' : ($cancelled ? 'failed' : 'pending'),
+            'reference' => null,
+            'message' => 'PayHere payment status is confirmed by the server notification.',
+        ];
+    } else {
+        $result = $gateway->handleCallback(array_merge($_GET, $_POST));
+    }
 }
 
 if ($order === null) {

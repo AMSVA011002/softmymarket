@@ -204,6 +204,20 @@ function admin_gateway_fields(): array
                 'simulate' => ['label' => 'Allow simulated payments when credentials are missing', 'type' => 'bool', 'default' => 1],
             ],
         ],
+        'payhere' => [
+            'label' => 'PayHere',
+            'icon' => 'bi-credit-card',
+            'fields' => [
+                'enabled' => ['label' => 'Enable', 'type' => 'bool', 'default' => 0],
+                'mode' => ['label' => 'Mode', 'type' => 'select', 'default' => 'sandbox', 'options' => ['sandbox' => 'Sandbox', 'live' => 'Live']],
+                'merchant_id' => ['label' => 'Merchant ID', 'type' => 'text', 'default' => ''],
+                'merchant_secret' => ['label' => 'Merchant secret', 'type' => 'password', 'default' => ''],
+                'currency' => ['label' => 'Currency', 'type' => 'select', 'default' => 'LKR', 'options' => ['LKR' => 'LKR', 'USD' => 'USD']],
+                'min_total' => ['label' => 'Minimum order value', 'type' => 'number', 'default' => 0],
+                'max_total' => ['label' => 'Maximum order value', 'type' => 'number', 'default' => 0],
+                'simulate' => ['label' => 'Allow simulated payments when credentials are missing', 'type' => 'bool', 'default' => 1],
+            ],
+        ],
         'koko' => [
             'label' => 'KOKO — pay in 3',
             'icon' => 'bi-phone',

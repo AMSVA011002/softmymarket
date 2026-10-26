@@ -76,6 +76,7 @@ abstract class Gateway
     {
         return match ($key) {
             'seylan' => 'CARD_SEYLAN',
+            'payhere' => 'PAYHERE',
             'bank_transfer' => 'BANK_TRANSFER',
             'koko' => 'KOKO',
             'payzy' => 'PAYZY',

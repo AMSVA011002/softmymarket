@@ -127,7 +127,7 @@ require __DIR__ . '/includes/layout-top.php';
 
         <p class="small text-ink-400 mt-2 mb-0">
           Callback URL: <code><?= e(url('/payment/notify.php?gateway=' . $gatewayKey)) ?></code> ·
-          Return URL: <code><?= e(url('/payment/return.php?gateway=' . $gatewayKey)) ?></code>
+          <?php if ($gatewayKey === 'payhere'): ?>Return URL is generated securely per order during checkout.<?php else: ?>Return URL: <code><?= e(url('/payment/return.php?gateway=' . $gatewayKey)) ?></code><?php endif; ?>
         </p>
       </div>
     <?php endforeach; ?>
