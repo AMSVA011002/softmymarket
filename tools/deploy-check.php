@@ -98,7 +98,7 @@ try {
 
 $expectedTables = ['users', 'password_resets', 'user_addresses', 'categories', 'brands', 'products',
     'reviews', 'cart_items', 'wishlist_items', 'orders', 'order_items', 'order_events', 'payments',
-    'coupons', 'coupon_redemptions', 'inventory_movements', 'notifications', 'settings',
+    'coupons', 'coupon_redemptions', 'inventory_movements', 'return_requests', 'return_request_items', 'return_events', 'notifications', 'settings',
     'rate_limits', 'audit_log', 'newsletter_subscribers', 'contact_messages', 'search_log'];
 
 $existing = [];
@@ -106,7 +106,7 @@ foreach (Database::all('SHOW TABLES') as $row) {
     $existing[] = (string) array_values($row)[0];
 }
 $missing = array_values(array_diff($expectedTables, $existing));
-check('schema imported (23 tables)', $missing === [],
+check('schema imported (26 tables)', $missing === [],
     'Import database/install.sql in phpMyAdmin. Missing: ' . implode(', ', array_slice($missing, 0, 6)),
     true, count($existing) . ' tables found');
 

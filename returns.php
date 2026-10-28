@@ -53,8 +53,9 @@ require INCLUDES_PATH . '/partials/page-hero.php';
         <div class="card-soft p-3 p-md-4 mb-3">
           <h2 class="h6 fw-bold mb-2">Start a return</h2>
           <p class="small text-ink-500">Have your order number and a photo of the item ready.</p>
-          <a class="btn btn-brand btn-sm w-100 mb-2" href="/contact.php?topic=returns">Request a return</a>
-          <a class="btn btn-soft btn-sm w-100" href="/account/orders.php">Find my order</a>
+          <a class="btn btn-brand btn-sm w-100 mb-2" href="<?= Auth::check() ? '/account/returns.php' : '/login.php?next=%2Faccount%2Freturns.php' ?>">Request a return</a>
+          <a class="btn btn-soft btn-sm w-100" href="<?= Auth::check() ? '/account/orders.php' : '/login.php?next=%2Faccount%2Forders.php' ?>">Find my order</a>
+          <p class="small text-ink-500 mt-3 mb-0">Return requests are reviewed by our team. Shipping is arranged manually. Any approved refund or exchange is processed by the store; this website does not automatically reverse a card or bank payment.</p>
         </div>
         <div class="card-soft p-3 p-md-4">
           <h2 class="h6 fw-bold mb-2">Need help now?</h2>

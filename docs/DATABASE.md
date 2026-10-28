@@ -13,7 +13,7 @@ Two deploy-ready variants are generated from it (and kept in sync by
 | [`database/demo-data.sql`](../database/demo-data.sql) | optional demo catalogue: 12 categories, 8 brands, 12 products, 5 coupons |
 
 * Engine: InnoDB, `utf8mb4` / `utf8mb4_unicode_ci`
-* 23 tables, 1 optional configurable prefix (`db.prefix`, empty by default)
+* 26 tables, 1 optional configurable prefix (`db.prefix`, empty by default)
 * All access goes through PDO prepared statements — see
   [SECURITY.md](SECURITY.md#sql-injection)
 
@@ -31,7 +31,7 @@ Both files are self-contained: `SET NAMES utf8mb4`, `SET time_zone '+05:30'` and
 `DEFINER`, no triggers — a restricted shared-hosting user can run them. The last
 statement in each file prints a summary so a failed import is obvious.
 
-Verify afterwards with `php tools/deploy-check.php` or **Admin → Tools**.
+For a database that was installed before the return-request feature, back it up and apply `database/migrations/20261028_returns.sql` once in phpMyAdmin; it creates only the three return tables and does not drop or rewrite existing data. Verify afterwards with `php tools/deploy-check.php` or **Admin → Tools**.
 
 ---
 
@@ -104,6 +104,9 @@ SMM_DB_HOST=127.0.0.1 SMM_DB_NAME=softmymarket_test SMM_DB_USER=root SMM_DB_PASS
 | `payments` | One row per gateway attempt | `order_id`, `gateway` (config key), `amount`, `currency`, `status` VARCHAR (`pending`,`submitted`,`initiated`,`paid`,`failed`,`refunded`), `gateway_reference`, `receipt_url`, `request_payload`/`response_payload` (JSON), `verified_at`, `verified_by` |
 | `coupons` | Discount rules | `code` UNIQUE, `type` ENUM(`percent`,`fixed`,`free_shipping`), `value`, `min_spend`, `max_discount`, `max_uses`, `used_count`, `per_user_limit`, `starts_at`, `expires_at`, `applies_to_category_id` |
 | `coupon_redemptions` | Usage ledger (one row each time a coupon is applied) | `coupon_id`, `user_id`, `order_id`, `amount`, `created_at` |
+| `return_requests` | Customer return/exchange case and financial/restock outcome | `return_number`, `order_id`, `user_id`, `status`, `reason`, `evidence_file`, `refund_amount`, `refund_method`, `restocked_at` |
+| `return_request_items` | Requested quantities with immutable order-line title/SKU/price snapshots | `return_request_id`, `order_item_id`, `quantity`, `unit_price` |
+| `return_events` | Return-specific customer/staff status history | `return_request_id`, `status`, `message`, `actor_type`, `actor_id`, `created_at` |
 
 ### Platform
 
@@ -127,6 +130,14 @@ with `CANCELLED` / `REFUNDED` as terminal branches. `Orders::TRANSITIONS` in
 `orders` row, stamps the matching `*_at` column and appends an `order_events`
 row inside one transaction. That event row is what the customer sees on
 `/track.php` and what the admin/user live boards stream.
+
+Return requests use a separate lifecycle stored in `return_requests` and
+`return_events`: `REQUESTED → APPROVED → IN_TRANSIT → RECEIVED → INSPECTING`,
+then an outcome of `REFUNDED`, `EXCHANGED`, `REJECTED` or `CLOSED` (with
+cancellation before processing). Customers can request return of eligible
+quantities within 7 days of delivery. Refund amounts are recorded for manual
+reconciliation; no payment-provider refund is triggered. Returned inventory is
+added back only when staff explicitly marks it restockable at refund/exchange.
 
 ---
 
@@ -197,7 +208,7 @@ The seeder creates:
 php tests/run.php --db
 ```
 
-Runs read-only integrity checks: all 23 tables exist, no orphaned categories,
+Runs read-only integrity checks: all 26 tables exist, no orphaned categories,
 category depths are consistent, products point at real categories/brands, every
 password is a real hash, order subtotals equal their line items, every order has
 a timeline event, and the pricing engine's arithmetic balances.

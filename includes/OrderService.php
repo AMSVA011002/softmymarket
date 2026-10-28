@@ -428,6 +428,12 @@ final class OrderService
         if ($status === $order['status']) {
             return ['ok' => false, 'message' => 'The order is already ' . order_status_label($status) . '.'];
         }
+        if ($status === 'RETURNED' && Database::exists(
+            "SELECT 1 FROM return_requests WHERE order_id = :id AND status NOT IN ('REJECTED','CANCELLED') LIMIT 1",
+            ['id' => $orderId]
+        )) {
+            return ['ok' => false, 'message' => 'This order has a return case. Complete stock/refund handling through the return request to avoid processing the same items twice.'];
+        }
         $paymentGateway = PaymentManager::get((string) $order['payment_method']);
         if ($paymentGateway !== null && $paymentGateway->requiresRedirect() && strtoupper((string) $order['payment_status']) !== 'PAID') {
             if ($status !== 'CANCELLED') {

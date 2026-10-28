@@ -16,6 +16,9 @@ $payments = Orders::payments((int) $order['id']);
 $trackToken = Security::sign(['order' => (int) $order['id'], 'n' => $order['order_number']], 60 * 60 * 24 * 30);
 $canCancel = in_array($order['status'], ['PENDING', 'CONFIRMED'], true);
 $canReview = $order['status'] === 'DELIVERED';
+$returnOrders = ReturnService::eligibleOrders((int) Auth::id());
+$canRequestReturn = in_array((int) $order['id'], array_map(static fn (array $row): int => (int) $row['id'], $returnOrders), true);
+$myReturns = array_values(array_filter(ReturnService::forUser((int) Auth::id()), static fn (array $row): bool => (int) $row['order_id'] === (int) $order['id']));
 $bankAccounts = (array) Config::get('payments.bank_transfer.accounts', []);
 $accountActive = 'orders';
 
@@ -35,6 +38,8 @@ require INCLUDES_PATH . '/layout/header.php';
       <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-soft btn-sm" href="/invoice.php?order=<?= (int) $order['id'] ?>" target="_blank" rel="noopener"><i class="bi bi-receipt"></i> Invoice</a>
         <a class="btn btn-outline-brand btn-sm" href="/contact.php?topic=order&ref=<?= rawurlencode((string) $order['order_number']) ?>"><i class="bi bi-chat-dots"></i> Get help</a>
+        <?php if ($canRequestReturn): ?><a class="btn btn-soft btn-sm" href="/account/returns.php?order_id=<?= (int) $order['id'] ?>"><i class="bi bi-arrow-counterclockwise"></i> Request return</a><?php endif; ?>
+        <?php if ($myReturns !== []): ?><a class="btn btn-soft btn-sm" href="/account/returns.php">View return<?= count($myReturns) === 1 ? '' : 's' ?> (<?= count($myReturns) ?>)</a><?php endif; ?>
         <?php if ($canCancel): ?>
           <form method="post" action="/actions/account.php" data-confirm="Cancel this order? Stock will be released immediately.">
             <?= Csrf::field() ?>
