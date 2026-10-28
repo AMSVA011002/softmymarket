@@ -56,6 +56,7 @@ require INCLUDES_PATH . '/layout/header.php';
     </form>
 
     <p class="text-center small text-ink-500 mt-3 mb-2">New here? <a class="fw-semibold text-decoration-none" href="/register.php">Create an account</a></p>
+    <p class="text-center small mb-2"><a class="text-decoration-none" href="/verify-email.php">Need a new email confirmation link?</a></p>
     <div class="divider-text"><span>or</span></div>
     <a class="btn btn-soft w-100" href="/track.php"><i class="bi bi-truck me-1"></i> Track an order as a guest</a>
 

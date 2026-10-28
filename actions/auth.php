@@ -71,32 +71,28 @@ switch ($action) {
             redirect('/register.php');
         }
 
-        $userId = Users::create([
-            'name' => $name,
-            'email' => $email,
-            'phone' => normalize_phone($phone),
-            'password_hash' => Auth::hashPassword($password),
-            'role' => 'customer',
-            'status' => 'active',
-            'marketing_opt_in' => (int) (bool) post('marketing'),
-            'email_verified_at' => date('Y-m-d H:i:s'),
-        ]);
-        $user = Users::find($userId);
-        if ($user === null) {
-            flash('danger', 'We could not create the account. Please try again.');
+        try {
+            $userId = Users::create([
+                'name' => $name,
+                'email' => $email,
+                'phone' => normalize_phone($phone),
+                'password_hash' => Auth::hashPassword($password),
+                'role' => 'customer',
+                'status' => 'pending',
+                'marketing_opt_in' => (int) (bool) post('marketing'),
+                'email_verified_at' => null,
+            ]);
+        } catch (Throwable $e) {
+            error_log('Customer registration failed: ' . $e->getMessage());
+            flash('danger', 'We could not create the account. Check the email address or try again.');
             redirect('/register.php');
         }
-        Auth::establish($user, false);
-        Cart::mergeSessionIntoDatabase();
-        Notifier::notify($userId, 'Welcome to ' . Settings::get('store_name'), 'Your account is ready. Browse the catalogue and enjoy island-wide delivery.', 'success', '/shop.php');
-        try {
-            Mailer::welcome($user);
-        } catch (Throwable $e) {
-            error_log('Welcome email failed: ' . $e->getMessage());
-        }
-        Audit::log('auth.register', 'user', $userId, ['email' => $email]);
-        flash('success', 'Your account is ready — happy shopping!');
-        redirect($next);
+        Audit::log('auth.register_pending', 'user', $userId, ['email' => $email]);
+        $sent = EmailVerification::sendToPendingUser($userId);
+        flash($sent ? 'success' : 'warning', $sent
+            ? 'Account created. Check your inbox and click the confirmation link to activate it.'
+            : 'Your account was saved but the confirmation email could not be sent. Check the email settings or request a new link below.');
+        redirect('/verify-email.php?email=' . rawurlencode($email) . ($sent ? '&sent=1' : '&delivery=failed'));
 
     /* ------------------------------------------------------------ logout */
     case 'logout':

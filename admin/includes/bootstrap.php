@@ -142,6 +142,18 @@ function admin_setting_groups(): array
             'google_analytics_id' => ['label' => 'Google Analytics ID', 'type' => 'text', 'default' => ''],
             'meta_pixel_id' => ['label' => 'Meta Pixel ID', 'type' => 'text', 'default' => ''],
         ],
+        'email' => [
+            'mail_transport' => ['label' => 'Email transport', 'type' => 'select', 'default' => 'smtp', 'options' => ['smtp' => 'Authenticated SMTP', 'mail' => 'Server mail()'], 'help' => 'SMTP is recommended. The sender must be permitted by the mail account.'],
+            'mail_from_email' => ['label' => 'From email address', 'type' => 'email', 'default' => '', 'help' => 'Use the mailbox address authorised by your SMTP provider.'],
+            'mail_from_name' => ['label' => 'From name', 'type' => 'text', 'default' => 'SoftMyMarket'],
+            'mail_reply_to' => ['label' => 'Reply-to address', 'type' => 'email', 'default' => ''],
+            'mail_smtp_host' => ['label' => 'SMTP server', 'type' => 'text', 'default' => '', 'help' => 'Enter the outgoing server hostname from your email provider. Do not include a protocol or slash.'],
+            'mail_smtp_port' => ['label' => 'SMTP port', 'type' => 'number', 'default' => 465],
+            'mail_smtp_encryption' => ['label' => 'Connection security', 'type' => 'select', 'default' => 'ssl', 'options' => ['ssl' => 'SSL/TLS (implicit)', 'tls' => 'STARTTLS'], 'help' => 'Use the secure SSL/TLS port recommended by your provider. SMTP authentication is always required.'],
+            'mail_smtp_username' => ['label' => 'SMTP username', 'type' => 'text', 'default' => ''],
+            'mail_smtp_password' => ['label' => 'SMTP password', 'type' => 'password', 'default' => '', 'help' => 'Saved encrypted. Leave blank to keep the existing password.'],
+            'mail_smtp_timeout' => ['label' => 'Connection timeout (seconds)', 'type' => 'number', 'default' => 15],
+        ],
         'commerce' => [
             'default_shipping_fee' => ['label' => 'Default shipping fee', 'type' => 'number', 'default' => 450],
             'free_shipping_threshold' => ['label' => 'Free shipping over', 'type' => 'number', 'default' => 15000],

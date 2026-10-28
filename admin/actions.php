@@ -566,6 +566,17 @@ switch ($action) {
         $values = [];
         foreach ($allowed as $key => $meta) {
             $raw = $_POST['settings'][$key] ?? null;
+            if ($group === 'email' && $key === 'mail_smtp_password') {
+                if (is_string($raw) && trim($raw) !== '') {
+                    try {
+                        $values['mail_smtp_password_enc'] = Security::encrypt($raw);
+                    } catch (Throwable $e) {
+                        error_log('SMTP password encryption failed: ' . $e->getMessage());
+                        $done('danger', 'The SMTP password could not be secured. Check the application key and try again.');
+                    }
+                }
+                continue;
+            }
             if ($meta['type'] === 'bool') {
                 $values[$key] = isset($_POST['settings'][$key]) ? '1' : '0';
                 continue;
@@ -574,8 +585,29 @@ switch ($action) {
                 continue;
             }
             $values[$key] = is_array($raw) ? (string) json_encode($raw, JSON_UNESCAPED_UNICODE) : trim((string) $raw);
-            if ($meta['type'] === 'number' && !is_numeric($values[$key])) {
-                $values[$key] = (string) $meta['default'];
+            if ($meta['type'] === 'number') {
+                if (!is_numeric($values[$key])) {
+                    $done('danger', 'Enter a valid number for ' . strtolower((string) $meta['label']) . '.');
+                }
+                if ($key === 'mail_smtp_port' && ((int) $values[$key] < 1 || (int) $values[$key] > 65535)) {
+                    $done('danger', 'SMTP port must be between 1 and 65535.');
+                }
+                if ($key === 'mail_smtp_timeout' && ((int) $values[$key] < 5 || (int) $values[$key] > 60)) {
+                    $done('danger', 'SMTP timeout must be between 5 and 60 seconds.');
+                }
+            }
+            if ($meta['type'] === 'select' && !array_key_exists($values[$key], (array) ($meta['options'] ?? []))) {
+                $done('danger', 'Choose a valid ' . strtolower((string) $meta['label']) . '.');
+            }
+            if ($meta['type'] === 'email' && $values[$key] !== '' && !filter_var($values[$key], FILTER_VALIDATE_EMAIL)) {
+                $done('danger', 'Enter a valid email address for ' . strtolower((string) $meta['label']) . '.');
+            }
+            if ($group === 'email' && $key === 'mail_smtp_host' && $values[$key] !== ''
+                && (!preg_match('/^[A-Za-z0-9.-]+$/D', $values[$key]) || strlen($values[$key]) > 253)) {
+                $done('danger', 'Enter the SMTP hostname only, without a protocol, port, path or spaces.');
+            }
+            if ($group === 'email' && $key === 'mail_from_name' && preg_match('/[\x0A\x0D]/', $values[$key])) {
+                $done('danger', 'The sender name cannot contain line breaks.');
             }
             if ($meta['type'] === 'image') {
                 // Store one canonical shape: Drive share links become
@@ -586,6 +618,20 @@ switch ($action) {
         Settings::setMany($values);
         Audit::log('settings.updated', 'settings', null, ['group' => $group]);
         $done('success', 'Settings saved.');
+
+    case 'email_test':
+        admin_require('settings.manage');
+        $admin = Auth::user();
+        $sent = $admin !== null && Mailer::send(
+            (string) $admin['email'],
+            'SoftMyMarket email configuration test',
+            Mailer::wrap('Email configuration test', '<p>Your configured transactional email transport can deliver messages to this administrator address.</p>')
+        );
+        if ($sent) {
+            Audit::log('settings.email_test_sent', 'settings', null, ['to' => (string) $admin['email']]);
+            $done('success', 'Test email sent to ' . (string) $admin['email'] . '. Check your inbox and spam folder.');
+        }
+        $done('danger', 'Test email could not be delivered. Check the SMTP/server mail settings and application logs.');
 
     case 'hero_slides_save':
         admin_require('settings.manage');

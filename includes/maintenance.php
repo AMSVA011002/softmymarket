@@ -31,6 +31,8 @@ function smm_maintenance_exempt(string $path, array $exempt = []): bool
         '/logout.php',
         '/forgot-password.php',
         '/reset-password.php',
+        '/verify-email.php',
+        '/actions/email-verification.php',
         '/maintenance.php',
         '/assets/',
         '/image.php',

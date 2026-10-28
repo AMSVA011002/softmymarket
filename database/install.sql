@@ -4,7 +4,7 @@
 --
 -- WHAT THIS FILE DOES
 --   1. Drops any previous SoftMyMarket tables (safe on a fresh database).
---   2. Creates all 26 tables, indexes and foreign keys.
+--   2. Creates all 27 tables, indexes and foreign keys.
 --   3. Inserts the default settings (store name, shipping, tax, gateways).
 --   4. Creates the first administrator account.
 --
@@ -65,6 +65,7 @@ DROP TABLE IF EXISTS `products`;
 DROP TABLE IF EXISTS `brands`;
 DROP TABLE IF EXISTS `categories`;
 DROP TABLE IF EXISTS `user_addresses`;
+DROP TABLE IF EXISTS `email_verifications`;
 DROP TABLE IF EXISTS `password_resets`;
 DROP TABLE IF EXISTS `users`;
 
@@ -109,6 +110,21 @@ CREATE TABLE `password_resets` (
   KEY `idx_resets_user` (`user_id`),
   KEY `idx_resets_expiry` (`expires_at`),
   CONSTRAINT `fk_resets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `email_verifications` (
+  `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id`    BIGINT UNSIGNED NOT NULL,
+  `token_hash` CHAR(64) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `used_at`    DATETIME DEFAULT NULL,
+  `ip_address` VARCHAR(45) DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_email_verification_token` (`token_hash`),
+  KEY `idx_email_verifications_user` (`user_id`,`created_at`),
+  KEY `idx_email_verifications_expiry` (`expires_at`),
+  CONSTRAINT `fk_email_verifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `user_addresses` (

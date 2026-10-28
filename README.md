@@ -27,6 +27,7 @@ HTML/CSS/JS/PHP/MySQL stack.
 * **Live order tracking** — public tracking by order number, customer timeline,
   admin live board streaming new orders
 * Invoice (print/PDF-ready), order emails, saved addresses, account dashboard
+* Customer registration requires a 24-hour email confirmation link before sign-in; the link’s Continue button verifies the account, signs the customer in and returns to the storefront
 * Customer return requests within 7 days of delivery, with item quantities, reason, optional evidence, staff review and status timeline
 * Google Drive / external image URLs proxied through `/image.php` with caching
 
@@ -40,7 +41,7 @@ HTML/CSS/JS/PHP/MySQL stack.
 * Coupons, reviews moderation, customers, staff team, messages
 * Payments ledger with bank-slip verification
 * Reports (sales, categories, gateways, coupons, top products/customers) + CSV
-* Settings (general, commerce, content, payments, hero slides), audit log
+* Settings (general, commerce, content, authenticated SMTP/email delivery, payments, hero slides), audit log
   — hero slides, the store logo and the favicon all take a Google Drive share link
   or any image URL, and hero slides can be added or removed
 * Team accounts: add, edit, suspend, reactivate and delete — a suspended member
@@ -96,7 +97,7 @@ the newest lines of `storage/logs/error-*.log`.
    `config/config.example.php`.
 2. phpMyAdmin → select the database → **Import** →
    [`database/install.sql`](database/install.sql)
-   (26 tables + settings + the first admin).
+   (27 tables + settings + the first admin).
    Optional: [`database/demo-data.sql`](database/demo-data.sql) for 12 demo
    products, 12 categories, 8 brands and 5 coupons.
 3. Open the site, sign in at `/login.php`, change the password, then
@@ -151,8 +152,9 @@ tests/            CLI test suite
   limits, backups
 * [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — generic shared-hosting deployment, HTTPS,
   cron, gateways, mail, post-deploy checklist, Nginx notes
-* [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 26 tables,
+* [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 27 tables,
   status pipeline, category tree, seeding, maintenance SQL
+* [docs/EMAIL.md](docs/EMAIL.md) — SMTP setup in Admin settings, encrypted credentials, test delivery and verification workflow
 * [docs/SECURITY.md](docs/SECURITY.md) — threat model and every control
   (prepared statements, CSRF, rate limits, sessions, permissions, uploads,
   payment callbacks), plus the pre-launch hardening checklist

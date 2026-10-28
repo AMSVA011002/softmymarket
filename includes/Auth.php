@@ -180,6 +180,9 @@ final class Auth
             return ['ok' => false, 'error' => 'Email or password is incorrect.'];
         }
 
+        if ($user['status'] === 'pending') {
+            return ['ok' => false, 'error' => 'Please confirm your email address using the link we sent before signing in.'];
+        }
         if ($user['status'] !== 'active') {
             return ['ok' => false, 'error' => 'This account is suspended. Contact support for help.'];
         }
