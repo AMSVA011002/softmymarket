@@ -44,26 +44,41 @@ if (!is_file($configFile)) {
         // hosts where install/ is blocked by .htaccess a redirect would loop.
         http_response_code(503);
         header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
         $hasInstaller = is_file(ROOT_PATH . '/install/index.php');
+        $secureFirstLoad = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+            || strtolower((string) ($_SERVER['REQUEST_SCHEME'] ?? '')) === 'https';
+        try {
+            $firstLoadKey = $secureFirstLoad ? bin2hex(random_bytes(32)) : '';
+        } catch (Throwable) {
+            $firstLoadKey = '';
+        }
+        $safeFirstLoadKey = htmlspecialchars($firstLoadKey, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<meta name="robots" content="noindex,nofollow,noarchive">'
             . '<title>YourMarket is not configured</title>'
             . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
-            . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:640px">'
+            . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:720px">'
             . '<div class="card shadow-sm"><div class="card-body p-4">'
             . '<h1 class="h4 fw-bold mb-3">YourMarket is not configured yet</h1>'
-            . '<p class="text-secondary">The application could not find <code>config/config.php</code>, '
-            . 'which holds the database credentials.</p>'
-            . '<ol class="small text-secondary">'
-            . '<li>Copy <code>config/config.example.php</code> to <code>config/config.php</code>.</li>'
-            . '<li>Fill in <code>db.host</code>, <code>db.name</code>, <code>db.user</code>, <code>db.pass</code> '
-            . 'and a 64-character <code>app.key</code>.</li>'
-            . '<li>Create a database in your hosting panel, then import <code>database/schema.sql</code> in phpMyAdmin.</li>'
-            . '<li>Open the registration page: the first account becomes the administrator.</li>'
-            . ($hasInstaller ? '<li>Or run the guided installer at <a href="/install/index.php">/install/</a>.</li>' : '')
+            . '<p class="text-secondary">The application could not find <code>config/config.php</code>. Finish setup in your hosting File Manager; do not leave this setup page exposed after configuration.</p>'
+            . ($firstLoadKey !== ''
+                ? '<h2 class="h6 mt-4">Step 1 — copy your one-time app key</h2><p class="small text-secondary">This 64-character key was generated securely for this page load. Copy it now. Reloading this page generates a different key, so update <code>config/config.php</code> with the key shown on the same load.</p><div class="input-group mb-2"><input id="first-load-key" class="form-control font-monospace" type="text" value="' . $safeFirstLoadKey . '" readonly aria-label="Generated app key"><button class="btn btn-outline-success" type="button" onclick="copyFirstLoadKey()">Copy key</button></div><div id="copy-status" class="small text-success" aria-live="polite"></div>'
+                : '<div class="alert alert-danger">' . ($secureFirstLoad ? 'Secure key generation is unavailable on this server. Ask your host to enable PHP random_bytes support or use the guided installer.' : 'For your security, open this page over HTTPS before generating or copying the app key.') . '</div>')
+            . '<h2 class="h6 mt-4">Step 2 — create config/config.php</h2><ol class="small text-secondary">'
+            . '<li>In your hosting control panel’s File Manager, copy <code>config/config.example.php</code> to <code>config/config.php</code>.</li>'
+            . '<li>Open <code>config/config.php</code>, replace the example value on the <code>app.key</code> line with the copied key, and enter your database host, name, username and password. Save the file; set permissions to <code>0640</code> if your host permits.</li>'
+            . '<li>Create the database in your hosting panel and import <code>database/schema.sql</code> in phpMyAdmin.</li>'
+            . '<li>Open the storefront and register the first account; it becomes the administrator.</li>'
             . '</ol>'
-            . '<p class="small text-secondary mb-0">Full instructions: <code>docs/AEONFREE.md</code>.</p>'
-            . '</div></div></div></body></html>';
+            . ($hasInstaller ? '<p class="small">If the guided installer is enabled by your host, it generates and writes a random app key automatically: <a href="/install/index.php">open installer</a>.</p>' : '')
+            . '<div class="alert alert-warning small mb-0"><strong>Keep the key private.</strong> Do not publish it in a key.txt or leave a genkey.php script on the website. This setup page is not cached, but anyone who can view it before config.php is created can see the key displayed on that request.</div>'
+            . '<p class="small text-secondary mt-3 mb-0">Full instructions: <code>docs/DEPLOYMENT.md</code>.</p>'
+            . '</div></div></div>'
+            . '<script>function copyFirstLoadKey(){const field=document.getElementById("first-load-key");const status=document.getElementById("copy-status");field.select();field.setSelectionRange(0,field.value.length);if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(field.value).then(()=>status.textContent="Copied. Paste it into the app.key value in config/config.php.").catch(()=>status.textContent="Key selected. Copy it with your browser copy command.");}else{try{document.execCommand("copy");status.textContent="Copied. Paste it into config/config.php.";}catch(e){status.textContent="Key selected. Copy it with your browser copy command.";}}</script>'
+            . '</body></html>';
         exit;
     }
     // The installer needs the defaults to render its own form.

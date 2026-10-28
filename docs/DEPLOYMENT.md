@@ -42,7 +42,7 @@ next step until they pass.
 
 ## 3. Create the database
 
-In cPanel → **MySQL Databases**:
+In your hosting control panel’s database manager (for example, cPanel → **MySQL Databases**):
 
 1. Create a database, e.g. `softmymarket`.
 2. Create a user with a strong password (20+ random characters).
@@ -54,8 +54,8 @@ Write the details down — the installer asks for them:
 ```
 DB host      : localhost
 DB port      : 3306
-DB name      : cpaneluser_softmymarket
-DB user      : cpaneluser_smm
+DB name      : <account-prefix>_softmymarket (if your host adds one)
+DB user      : <database-user>
 DB password  : <generated>
 Table prefix : (leave empty)
 ```
@@ -66,7 +66,7 @@ A full credentials checklist lives in [DATABASE.md](DATABASE.md).
 
 ## 4. Create the database and first administrator
 
-Create the database and its user manually in the hosting control panel, then select that database in phpMyAdmin and import the single SQL file `database/schema.sql`. Configure `config/config.php` with the correct database details and open the storefront. Register the first account immediately: the first public registration becomes the administrator; later registrations are customer accounts and require email confirmation.
+Create the database and its user manually in the hosting control panel, then select that database in phpMyAdmin and import the single SQL file `database/schema.sql`. Configure `config/config.php` with the correct database details and open the storefront. If the config file is missing, the first-load setup page generates a 64-character app key over HTTPS and provides a copy button; paste it into `app.key` while creating `config/config.php` from the example. The displayed key changes after a page reload. The web installer generates and writes its own key automatically. Register the first account immediately: the first public registration becomes the administrator; later registrations are customer accounts and require email confirmation.
 
 The schema creates missing tables and defaults without dropping existing data. For an existing database, back it up first, then import the same `schema.sql`; it adds the current missing structures and preserves customized settings.
 
@@ -118,8 +118,7 @@ Each has a `.gitkeep` file so the folders survive version control.
 
 The site checks for overdue bank-transfer receipts during normal traffic, but a
 scheduled task ensures cancellation happens even when nobody is browsing the
-store. Add this job in **cPanel → Cron Jobs** (adjust the PHP binary and path to
-your hosting account):
+store. Add this job in your hosting panel’s scheduled-task/cron interface (for example, cPanel → Cron Jobs); adjust the PHP binary and path to your account:
 
 ```cron
 */5 * * * * /usr/bin/php /home/USER/public_html/tools/expire-orders.php >> /home/USER/public_html/storage/logs/order-expiry.log 2>&1
@@ -187,7 +186,7 @@ order status becomes `PAID` and the admin ledger shows the transaction.
 
 `config/config.php → mail.transport`:
 
-* `mail` — uses the host's sendmail binary (works on almost every cPanel box).
+* `mail` — uses the host's sendmail binary (available on many shared PHP hosts).
 * `smtp` — SMTPS 465 or STARTTLS 587 with username/password.
 
 Set `from_email` to an address on your own domain (SPF/DKIM aligned) or mail
@@ -248,7 +247,7 @@ Add the same security headers the `.htaccess` sets (`X-Content-Type-Options`,
 
 ## 13. Backups
 
-* **Database:** cPanel → phpMyAdmin → Export (SQL, structure + data) or
+* **Database:** your control panel’s phpMyAdmin → Export (SQL, structure + data) or
   `mysqldump -u USER -p DB > backup.sql`. Schedule it daily; orders and
   customers cannot be regenerated.
 * **Files:** archive the whole web root. `config/config.php` is the only

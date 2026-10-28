@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Transactional email.
  *
  * Transports:
- *   mail — the host's sendmail binary (typical cPanel setup)
+ *   mail — the host's sendmail binary (common on shared PHP hosting)
  *   smtp — direct SMTP client (SSL on 465 or STARTTLS on 587)
  *   log  — write the message to storage/logs/mail.log only (staging/demo)
  *

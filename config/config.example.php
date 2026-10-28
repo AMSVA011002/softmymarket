@@ -61,7 +61,7 @@ return [
     ],
 
     'mail' => [
-        // 'mail' uses the host's sendmail binary (typical cPanel setup).
+        // 'mail' uses the host's sendmail binary (common on shared PHP hosting).
         // 'smtp' uses the socket client in includes/Mailer.php (SMTPS port 465
         // or STARTTLS port 587).
         'transport'   => 'smtp',

@@ -673,7 +673,7 @@ UPDATE `settings` SET `setting_value` = 'YourMarket'
 
 UPDATE `settings` SET `setting_value` = 'hello@yourmarket.example'
  WHERE `setting_key` = 'support_email'
-   AND `setting_value` IN ('hello@softmymarket.lk', 'hello@softmymarket.hstn.me');
+   AND `setting_value` = 'hello@softmymarket.lk';
 
 UPDATE `settings` SET `setting_value` = 'orders@yourmarket.example'
  WHERE `setting_key` = 'orders_email' AND `setting_value` = 'orders@softmymarket.lk';

@@ -44,10 +44,7 @@ translate the application interface. The country code is ISO 3166-1 alpha-2.
 
 The public application URL, database credentials, encryption key, PHP timezone,
 and session/security settings remain in `config/config.php` because they affect
-routing and security. Set the exact deployed HTTPS URL there. The existing
-`softmymarket.hstn.me` address and database identifiers in the aeonfree-specific
-deployment notes are provider details for that deployment, not the YourMarket
-brand; keep them only if you are still using that host.
+routing and security. Set the exact deployed HTTPS URL there. Set the actual public HTTPS URL and database credentials provided by your hosting provider. These vary by deployment and must not be copied from sample values in documentation.
 
 ## Schema and brand defaults
 

@@ -3,8 +3,7 @@
 A production-ready, single-vendor marketplace for Sri Lanka — **PHP 8.1 + MySQL +
 Bootstrap 5**, no Composer, no build step.
 
-**Live deployment:** `softmymarket.hstn.me` (aeonfree free plan) — see
-[docs/AEONFREE.md](docs/AEONFREE.md) for the step-by-step install.
+Deploy on standard PHP/MySQL hosting using the generic [deployment guide](docs/DEPLOYMENT.md).
 
 The UI/UX and database design mirror the `softdealz` reference store
 (same brand palette `#0c800f` / `#0a57a0`, LKR pricing, order-status pipeline,
@@ -93,7 +92,7 @@ the newest lines of `storage/logs/error-*.log`.
 
 1. Create a MySQL/MariaDB database and database user in your hosting panel.
 2. Import only [`database/schema.sql`](database/schema.sql) into that database with phpMyAdmin. It creates tables and defaults, but no accounts.
-3. Copy `config/config.example.php` to `config/config.php` and enter the actual database credentials and app key.
+3. On the first unconfigured HTTPS page load, copy the generated 64-character app key. In File Manager, copy `config/config.example.php` to `config/config.php`, paste the key into the `app.key` value, and enter the actual database credentials. The setup-page key is generated per page load and is not stored, so finish the copy before refreshing. If using the guided installer instead, it generates and writes the key automatically.
 4. Open the storefront registration page and create the first account. The first registration is made administrator; every later public registration is a customer and must verify its email.
 5. Sign in to the dashboard, configure email delivery, and invite any team members from **Admin → Team**. The invitation email contains a temporary password that must be changed at first sign-in.
 
@@ -135,11 +134,7 @@ tests/            CLI test suite
 
 ## Documentation
 
-* [docs/AEONFREE.md](docs/AEONFREE.md) — the live deployment on aeonfree
-  (`softmymarket.hstn.me`): upload, SQL import, first-run checklist, free-plan
-  limits, backups
-* [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — generic shared-hosting deployment, HTTPS,
-  cron, gateways, mail, post-deploy checklist, Nginx notes
+* [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — generic PHP hosting deployment, upload, database setup, HTTPS, cron, mail and backups
 * [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 27 tables,
   status pipeline, category tree, seeding, maintenance SQL
 * [docs/EMAIL.md](docs/EMAIL.md) — SMTP setup in Admin settings, encrypted credentials, test delivery and verification workflow
@@ -147,6 +142,24 @@ tests/            CLI test suite
 * [docs/SECURITY.md](docs/SECURITY.md) — threat model and every control
   (prepared statements, CSRF, rate limits, sessions, permissions, uploads,
   payment callbacks), plus the pre-launch hardening checklist
+
+---
+
+## Image preparation guide
+
+Prepare these as public Google Drive links (set sharing to **Anyone with the link**) or HTTPS image URLs. These are source-image recommendations; the storefront resizes assets for different screens.
+
+| Image | Used for | Recommended source size |
+| --- | --- | ---: |
+| Homepage hero slide | Rotating home-page artwork; desktop frame is 4:3, while mobile uses a 16:9 container with the full image contained (not cropped). Keep key content centered; slide text is separate. | **1600 × 1200 px** (4:3) |
+| Product image/gallery | Product cards, product detail gallery, cart, checkout, search and order thumbnails. Product cards crop to 4:3; detail view is square. | **1600 × 1600 px** (square) |
+| Category image | Small square category tile, displayed about 48 × 48 px. | **512 × 512 px** |
+| Store logo | Store header, footer, dashboard, invoices and shipping labels; generally displayed 38–48 px high, up to about 240 × 78 px on invoices. | **600 × 180 px**, transparent |
+| Brand logo | Home brand strip and brand listings; larger display is about 120 × 40 px. | **480 × 160 px**, transparent |
+| Favicon/app icon | Browser icon (32 × 32 px) and touch icon (180 × 180 px). | **512 × 512 px**, square PNG |
+| Social-share image | Open Graph/social link preview; the current bundled default is 1200 × 630 px. | **1200 × 630 px** |
+
+Small thumbnails reuse the relevant product, category or logo source; no extra image files are needed for those sizes. PNG is the safest format for transparent logos and icons, and JPG/PNG/WebP are recommended for Drive-hosted photos. The image proxy does not currently serve remote SVG files reliably. The custom favicon setting controls browser/touch icons; installable-app manifest icons still use bundled assets.
 
 ---
 
@@ -187,15 +200,6 @@ product saves).
 
 ---
 
-## Status of the live deployment
+## Deployment checklist
 
-| Item | State |
-| --- | --- |
-| Database credentials | configured (`sql306.hstn.me` / `mseet_43261025_softmymarket`) |
-| SQL script | `database/schema.sql` — create/import the database schema |
-| Domain | `softmymarket.hstn.me` — set `app.url` once SSL is active |
-| Payment gateways | COD + bank transfer enabled; Seylan / PayHere / KOKO / Payzy / Mintpay await merchant credentials |
-| SMTP | not configured — mail uses the host's sendmail |
-| Demo data | optional, use Admin → Tools after setup |
-
-Rotate the database password that was shared during setup. The first administrator account is created during the first public registration; there is no seeded administrator password.
+Use host-specific database credentials and the canonical HTTPS URL in `config/config.php`. Import `database/schema.sql` into the manually created database. Keep payment gateways disabled until genuine merchant credentials are configured, and configure email delivery in **Admin → Settings → Email**. Demo data is optional and can be added from **Admin → Tools**. The first public registration creates the administrator; there is no seeded administrator password.

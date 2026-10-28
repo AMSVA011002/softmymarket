@@ -262,9 +262,8 @@ the deny rules from [DEPLOYMENT.md §12](DEPLOYMENT.md#12-nginx-vps-notes).
 - [ ] All `payments.*.simulate` set to `false`; sandbox `mode` switched to `live`
       only after merchant approval
 - [ ] Seeded demo customers/orders removed or passwords rotated
-- [ ] `storage/installed.lock` exists; `/install/` returns 404 or is deleted
-      (the shipped `.htaccess` already returns 404 for `install/index.php`, and
-      **Admin → Tools → Lock the installer** writes the lock file)
+- [ ] `storage/installed.lock` exists; then delete `/install/` or restrict it at the web server
+      (the install lock prevents POST actions; **Admin → Tools → Lock the installer** writes the lock file)
 - [ ] Database password rotated after setup (it was shared in plain text) and
       `config/config.php` is 0640 — it is git-ignored on purpose
 - [ ] First administrator was registered immediately after importing the schema

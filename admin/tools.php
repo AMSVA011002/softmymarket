@@ -2,7 +2,7 @@
 /**
  * Deployment tools — runtime diagnostics and the web data seeder.
  *
- * Created for hosts without SSH/cron (free shared hosting): everything that
+ * Created for hosts without SSH/cron (shared hosting): everything that
  * would normally be a CLI command is available here behind `settings.manage`.
  */
 declare(strict_types=1);
