@@ -295,8 +295,8 @@ if (!IS_CLI) {
  * Maintenance mode gate.
  *
  * Settings → Commerce → Maintenance mode swaps the storefront for a holding
- * page. Runs after the session and Auth boot so the team keeps full access to
- * the dashboard (and can preview the storefront while it is hidden).
+ * page. Runs after session/Auth boot so team members can still sign in; only
+ * explicitly exempt dashboard, authentication and integration routes bypass it.
  *
  * Exempt: the dashboard, login/logout, assets, the image proxy, payment
  * callbacks, the installer, the deploy check and the holding page itself.
@@ -313,8 +313,10 @@ if (!IS_CLI && !defined('SMM_MAINTENANCE_PAGE')) {
             require_once INCLUDES_PATH . '/maintenance.php';
         }
         $path = current_path();
+        $maintenanceLogin = function_exists('smm_maintenance_login_allowed')
+            && smm_maintenance_login_allowed($path, (string) ($_SERVER['REQUEST_METHOD'] ?? ''), (string) ($_POST['action'] ?? ''));
         if (is_file(INCLUDES_PATH . '/maintenance.php') && function_exists('smm_maintenance_page')
-            && !smm_maintenance_exempt($path) && !Auth::isTeam()) {
+            && !smm_maintenance_exempt($path) && !$maintenanceLogin) {
             // JSON callers (cart, wishlist, live search) get a usable answer
             // instead of an HTML holding page.
             if (wants_json()) {

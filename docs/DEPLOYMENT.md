@@ -67,13 +67,13 @@ A full credentials checklist lives in [DATABASE.md](DATABASE.md).
 ## 4. Install the schema
 
 **Fastest path (no SSH, works on every host):** phpMyAdmin → select the
-database → **Import** → `database/install.sql` → Import. That creates all 23
+database → **Import** → `database/install.sql` → Import. That creates all 26
 tables, the default settings and the first administrator
 (`admin@softmymarket.hstn.me` / `SoftMy@Admin2026` — change it after signing in).
 Then optionally import `database/demo-data.sql` for a small demo catalogue.
 
 Verify the result in **Admin → Tools** (row counts, extensions, writable folders)
-or with `php tools/deploy-check.php`.
+or with `php tools/deploy-check.php`. For an already populated database, do not import `install.sql` because it begins by dropping application tables. Back up first and apply the applicable non-destructive migration; `database/migrations/20261028_returns.sql` adds the return tables.
 
 **Alternative — the web installer.** Open `https://your-domain.lk/install/` and
 complete the three steps:
@@ -81,7 +81,7 @@ complete the three steps:
 1. **Requirements + configuration** — server checks, app URL, database details.
    The installer writes `config/config.php` and generates a 64-character
    `app.key` (used to sign reset tokens and encrypt gateway references).
-2. **Schema** — imports `database/schema.sql` (23 tables, indexes and foreign
+2. **Schema** — imports `database/schema.sql` (26 tables, indexes and foreign
    keys) and shows progress.
 3. **Administrator account** — name, email and a strong password, plus an
    optional **demo catalogue** (120 products, 40 customers, 25 orders).

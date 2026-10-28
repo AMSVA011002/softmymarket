@@ -10,10 +10,10 @@ declare(strict_types=1);
  * the catalogue, cart or any other subsystem is touched.
  *
  * What stays reachable while maintenance is on:
- *   - the dashboard (/admin/*) and the team signed into it, so the store can be
- *     switched back on and previewed
+ *   - the dashboard (/admin/*), where the team can switch the store back on
+ *   - login/logout; only the login POST is allowed through the shared auth
+ *     action (registration and password changes remain blocked)
  *   - static assets, the image proxy and payment callbacks
- *   - login/logout, so staff can sign in to turn it off
  *   - this page itself
  */
 
@@ -49,6 +49,18 @@ function smm_maintenance_exempt(string $path, array $exempt = []): bool
     // Exact-file prefixes (e.g. /login.php) also need a plain equality check,
     // which the first condition above already covers.
     return false;
+}
+
+/**
+ * Allow only the login mutation through the maintenance gate. The shared auth
+ * action also handles registration and password changes, which remain closed.
+ */
+function smm_maintenance_login_allowed(string $path, string $method, string $action): bool
+{
+    $path = '/' . ltrim(parse_url($path, PHP_URL_PATH) ?: '/', '/');
+    return $path === '/actions/auth.php'
+        && strtoupper($method) === 'POST'
+        && $action === 'login';
 }
 
 /**
@@ -276,7 +288,7 @@ function smm_maintenance_page(): never
     </div>
 
     <p class="mnt-foot">
-      Store team? <a href="/login.php">Sign in to the dashboard</a>
+      Store team? <a href="/login.php?next=%2Fadmin%2Fsettings.php%3Ftab%3Dcommerce">Sign in to turn the store back on</a>
     </p>
   </main>
 </body>

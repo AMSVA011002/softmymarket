@@ -51,6 +51,7 @@ function admin_nav_counts(): array
     }
     $counts = [
         'orders' => Database::int("SELECT COUNT(*) FROM orders WHERE status IN ('PENDING', 'CONFIRMED', 'PACKED')"),
+        'returns' => Database::int("SELECT COUNT(*) FROM return_requests WHERE status IN ('REQUESTED','APPROVED','IN_TRANSIT','RECEIVED','INSPECTING')"),
         'payments' => Database::int("SELECT COUNT(*) FROM payments WHERE status = 'pending' AND gateway = 'BANK_TRANSFER'"),
         'reviews' => Database::int('SELECT COUNT(*) FROM reviews WHERE status = :s', ['s' => 'pending']),
         'messages' => Database::int("SELECT COUNT(*) FROM contact_messages WHERE status = 'new'"),
@@ -67,6 +68,7 @@ function admin_nav_groups(): array
             ['Dashboard', 'index.php', 'bi-grid-1x2', 'dashboard.view', null],
             ['Live orders', 'live.php', 'bi-broadcast-pin', 'liveboard.view', null],
             ['Orders', 'orders.php', 'bi-box-seam', 'orders.view', 'orders'],
+            ['Returns', 'returns.php', 'bi-arrow-counterclockwise', 'orders.view', 'returns'],
             ['Payments', 'payments.php', 'bi-credit-card', 'payments.verify', 'payments'],
         ],
         'Catalogue' => [
@@ -152,7 +154,7 @@ function admin_setting_groups(): array
                 'label' => 'Maintenance mode',
                 'type' => 'bool',
                 'default' => 0,
-                'help' => 'Closes the storefront with a holding page (HTTP 503). Signed-in staff and the dashboard keep working, and payment callbacks still arrive.',
+                'help' => 'Shows the holding page to all storefront visitors, including signed-in staff (HTTP 503). The admin dashboard remains reachable so the team can turn the store back on; login is available while registration remains blocked.'
             ],
             'live_tracking_refresh' => ['label' => 'Live tracking refresh (seconds)', 'type' => 'number', 'default' => 15],
             'gift_wrap_fee' => ['label' => 'Gift wrap fee', 'type' => 'number', 'default' => 0],

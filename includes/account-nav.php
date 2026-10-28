@@ -4,6 +4,7 @@ $accountActive = $accountActive ?? '';
 $accountItems = [
     ['index', '/account/index.php', 'bi-speedometer2', 'Overview'],
     ['orders', '/account/orders.php', 'bi-box-seam', 'My orders'],
+    ['returns', '/account/returns.php', 'bi-arrow-counterclockwise', 'Returns'],
     ['wishlist', '/account/wishlist.php', 'bi-heart', 'Wishlist'],
     ['addresses', '/account/addresses.php', 'bi-geo-alt', 'Addresses'],
     ['reviews', '/account/reviews.php', 'bi-star', 'My reviews'],

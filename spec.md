@@ -85,9 +85,9 @@ Separate stale online-gateway payment attempts are cleaned up by the order/payme
 
 ## 4. Customer account and communications
 
-Account pages cover profile/settings, saved delivery addresses, order list/details, wishlist, notifications, and password-reset flows. Notification records are in-app notifications; they are not mobile push notifications or SMS. Welcome/reset email and other mail-dependent messages require a correctly configured SMTP or host mail transport.
+Account pages cover profile/settings, saved delivery addresses, order list/details, wishlist, notifications, password-reset flows, and customer return requests. A signed-in customer can select eligible order lines and quantities, choose a reason, describe the issue, optionally attach photo/PDF evidence, cancel an unprocessed request, add return-shipment tracking after approval, and follow the return timeline. Notification records are in-app notifications; they are not mobile push notifications or SMS. Welcome/reset email and other mail-dependent messages require a correctly configured SMTP or host mail transport.
 
-The application includes contact/message intake and newsletter subscription capture. It does not include a full email campaign platform or automated marketing-delivery service. Reviews are moderated before display. Customer support handling, delivery arrangements, returns and refunds remain merchant-operated processes.
+The application includes contact/message intake and newsletter subscription capture. It does not include a full email campaign platform or automated marketing-delivery service. Reviews are moderated before display. Customer support handling, delivery arrangements, return parcel booking, physical inspection, and the actual movement of refund money remain merchant-operated processes. Return requests are account-only and currently limited to seven days after an order is marked delivered; damaged/wrong-item reports additionally require a photo and must be filed within 48 hours. Return quantities are validated against order lines and other active/completed returns; rejected or cancelled requests release those quantities for a new request. Product-category exclusions and item condition are not encoded as per-product database rules, so staff must apply the published policy during review. Evidence is stored in protected application storage and served only to the owning customer or authorised store staff.
 
 ## 5. Administration and store operations
 
@@ -96,6 +96,7 @@ The admin area contains source-supported modules for:
 - Dashboard and order queue/live order board.
 - Product, category, brand and inventory management, including product activation/status and stock edits.
 - Order search/filtering, status transitions, customer/order notes, payment records and manual bank-transfer receipt verification.
+- Return-request queue and case workspace: approve/reject requests, record receipt/inspection, add customer-facing updates, record a manually processed refund or exchange, and optionally restock received units with an inventory movement entry. Refund/exchange outcomes do not initiate external payment or replacement delivery.
 - Manual tracking details and public/internal order events.
 - Coupon creation and eligibility/usage management.
 - Review moderation and customer management/status actions.
@@ -118,9 +119,9 @@ Role-based restrictions apply; a module appearing in the admin application does 
 
 ### 6.2 Database
 
-The current documented schema contains 23 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the canonical schema. `database/install.sql` is the deploy/import-oriented SQL file supplied for creating the database tables and initial setup data; inspect the exact file for the current import contents before deployment.
+The current documented schema contains 26 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, return requests/items/events, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the canonical schema. `database/install.sql` is the deploy/import-oriented SQL file supplied for creating the database tables and initial setup data; inspect the exact file for the current import contents before deployment.
 
-Install the schema into a new database or take a verified backup and follow the project's upgrade guidance before applying schema changes to an existing store. Do not assume importing an install script into a populated database is non-destructive.
+Install the schema into a new database or take a verified backup and follow the project's upgrade guidance before applying schema changes to an existing store. Do not assume importing an install script into a populated database is non-destructive. Existing installations predating return requests can apply `database/migrations/20261028_returns.sql` once; it creates only the three new return tables.
 
 ## 7. Configuration and deployment requirements
 
@@ -171,7 +172,7 @@ Automated tests are not a substitute for deployment acceptance testing. At minim
 - Single-store catalogue, categories/brands, product pages, search/filtering, customer cart/wishlist and coupons.
 - Guest/account checkout, address and order records, order lifecycle/tracking events, printable invoice, inventory checks and stock restoration paths.
 - COD and manual bank-transfer workflows; one-hour cancellation for bank-transfer orders without a receipt.
-- Customer accounts, password reset, saved addresses, in-app notifications and moderated reviews.
+- Customer accounts, password reset, saved addresses, in-app notifications, moderated reviews, and a 7-day customer return request/review lifecycle.
 - Staff/admin workflows for store operations, reports, content/settings, audit and maintenance.
 
 ### Requires merchant credentials or operational setup
@@ -186,7 +187,7 @@ Automated tests are not a substitute for deployment acceptance testing. At minim
 
 - Multi-vendor/seller marketplace, seller onboarding/portals, commissions, seller payouts, or split settlements.
 - Carrier rate-shopping, label purchase/printing, dispatch booking, or automatic carrier tracking. Shipment tracking is entered/maintained manually.
-- Automated gateway refunds, chargeback/dispute management, or a customer RMA/returns authorization workflow. Admin status changes do not send money or arrange a return.
+- Automated gateway refunds, chargeback/dispute management, carrier booking for return parcels, or automatic replacement-order fulfilment. The app now provides a customer RMA request and staff review/inspection workflow, but staff must arrange return shipping, process refunds outside the app, and fulfil exchanges separately. Recording a refund or exchange does not itself send money or create a replacement order.
 - ERP, accounting, procurement/supplier purchasing, POS, warehouse management, barcode/serial/lot tracking, or external inventory synchronization.
 - Product option/variant matrix management, subscriptions/recurring billing, stored payment methods, or multi-currency conversion.
 - Dynamic zone-based shipping quotes or tax jurisdiction/VAT calculation and filing.

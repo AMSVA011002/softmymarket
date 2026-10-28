@@ -27,12 +27,14 @@ HTML/CSS/JS/PHP/MySQL stack.
 * **Live order tracking** — public tracking by order number, customer timeline,
   admin live board streaming new orders
 * Invoice (print/PDF-ready), order emails, saved addresses, account dashboard
+* Customer return requests within 7 days of delivery, with item quantities, reason, optional evidence, staff review and status timeline
 * Google Drive / external image URLs proxied through `/image.php` with caching
 
 **Admin dashboard**
 
 * KPIs, sales chart, low-stock and pending-payment queues
-* Orders: filter, status pipeline, tracking numbers, notes, refunds, timeline
+* Orders: filter, status pipeline, tracking numbers, notes, payment records, timeline
+* Returns: approve/reject, receive and inspect items, record manual refund/exchange outcomes, optionally restock
 * Live orders board with auto-refresh
 * Products, categories (tree, computed depth, manual ordering), brands, inventory ledger
 * Coupons, reviews moderation, customers, staff team, messages
@@ -44,8 +46,9 @@ HTML/CSS/JS/PHP/MySQL stack.
 * Team accounts: add, edit, suspend, reactivate and delete — a suspended member
   keeps their history and can be switched back on, deleting is confirmed and audited
 * Maintenance mode: one switch closes the storefront behind a branded holding page
-  (HTTP 503 + `Retry-After`); the dashboard stays reachable, signed-in staff can
-  preview the store, and JSON endpoints answer with a 503 payload instead of HTML
+  (HTTP 503 + `Retry-After`); a store-team sign-in link leads directly to the
+  commerce settings, login submissions remain available while registration stays
+  blocked, the dashboard stays reachable, and JSON endpoints return a 503 payload
 * Role-based access: **Admin**, **User** (store staff), **Customer**
 
 ---
@@ -93,7 +96,7 @@ the newest lines of `storage/logs/error-*.log`.
    `config/config.example.php`.
 2. phpMyAdmin → select the database → **Import** →
    [`database/install.sql`](database/install.sql)
-   (23 tables + settings + the first admin).
+   (26 tables + settings + the first admin).
    Optional: [`database/demo-data.sql`](database/demo-data.sql) for 12 demo
    products, 12 categories, 8 brands and 5 coupons.
 3. Open the site, sign in at `/login.php`, change the password, then
@@ -124,9 +127,9 @@ Demo logins after seeding (change before going live):
 ```
 index.php  shop.php  category.php  product.php  cart.php  checkout.php
 track.php  invoice.php  deals.php  brands.php  login.php  register.php …
-admin/            dashboard (orders, products, payments, settings, reports, tools …)
-account/          customer account pages
-actions/          POST handlers (auth, cart, checkout, account, review …)
+admin/            dashboard (orders, returns, products, payments, settings, reports, tools …)
+account/          customer account pages, including return requests and tracking
+actions/          POST handlers (auth, cart, checkout, account, returns, review …)
 api/              JSON endpoints (cart, wishlist, live-orders, search-suggest)
 payment/          start / return / notify / simulate / proof
 includes/         core: Database, Auth, Security, Csrf, models, services
@@ -148,7 +151,7 @@ tests/            CLI test suite
   limits, backups
 * [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — generic shared-hosting deployment, HTTPS,
   cron, gateways, mail, post-deploy checklist, Nginx notes
-* [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 23 tables,
+* [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 26 tables,
   status pipeline, category tree, seeding, maintenance SQL
 * [docs/SECURITY.md](docs/SECURITY.md) — threat model and every control
   (prepared statements, CSRF, rate limits, sessions, permissions, uploads,

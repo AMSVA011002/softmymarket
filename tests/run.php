@@ -19,6 +19,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require_once dirname(__DIR__) . '/includes/bootstrap.php';
+require_once dirname(__DIR__) . '/includes/maintenance.php';
 
 /* ------------------------------------------------------------------ harness */
 
@@ -513,6 +514,30 @@ T::case('catalog: rating and flags are clamped', function (): void {
     T::same(1, Catalog::parseFilters(['rating' => '0'])['rating']);
 });
 
+/* ----------------------------------------------------------- maintenance */
+
+T::case('maintenance: only the login POST may reach the shared auth action', function (): void {
+    T::true(smm_maintenance_login_allowed('/actions/auth.php', 'POST', 'login'));
+    T::true(smm_maintenance_login_allowed('/actions/auth.php?source=store', 'post', 'login'));
+    T::false(smm_maintenance_login_allowed('/actions/auth.php', 'POST', 'register'));
+    T::false(smm_maintenance_login_allowed('/actions/auth.php', 'POST', 'forgot'));
+    T::false(smm_maintenance_login_allowed('/actions/account.php', 'POST', 'login'));
+    T::false(smm_maintenance_login_allowed('/actions/auth.php', 'GET', 'login'));
+});
+
+/* -------------------------------------------------------------- return cases */
+
+T::case('returns: lifecycle only allows valid next steps', function (): void {
+    T::same(['APPROVED', 'REJECTED', 'CANCELLED'], ReturnService::TRANSITIONS['REQUESTED']);
+    T::same(['IN_TRANSIT', 'RECEIVED', 'CANCELLED'], ReturnService::TRANSITIONS['APPROVED']);
+    T::same(['REFUNDED', 'EXCHANGED', 'REJECTED', 'CLOSED'], ReturnService::TRANSITIONS['INSPECTING']);
+    T::same([], ReturnService::TRANSITIONS['REFUNDED']);
+    T::true(isset(ReturnService::REASONS['DAMAGED'], ReturnService::REASONS['WRONG_ITEM']));
+    T::same(95.0, ReturnService::calculateRefundCap(100, 200, 20, 10, 250, 0));
+    T::same(50.0, ReturnService::calculateRefundCap(100, 200, 20, 10, 250, 200));
+    T::same(0.0, ReturnService::calculateRefundCap(100, 200, 20, 10, 250, 250));
+});
+
 /* ---------------------------------------------------------------- sql files */
 
 T::case('sql: database/install.sql creates every table in schema.sql', function (): void {
@@ -522,7 +547,11 @@ T::case('sql: database/install.sql creates every table in schema.sql', function 
 
     preg_match_all('/CREATE TABLE `(\w+)`/', $schema, $matches);
     $expected = $matches[1];
-    T::true(count($expected) >= 23, 'expected at least 23 tables in schema.sql, found ' . count($expected));
+    T::true(count($expected) >= 26, 'expected at least 26 tables in schema.sql, found ' . count($expected));
+    foreach (['return_requests', 'return_request_items', 'return_events'] as $table) {
+        T::contains('CREATE TABLE `' . $table . '`', $schema, "schema.sql is missing return table {$table}");
+    }
+    T::contains('CREATE TABLE `return_requests`', (string) file_get_contents($root . '/database/migrations/20261028_returns.sql'), 'upgrade migration must add return requests without dropping existing data');
 
     foreach ($expected as $table) {
         T::contains('CREATE TABLE `' . $table . '`', $install, "install.sql is missing table {$table}");

@@ -110,6 +110,31 @@ switch ($action) {
         Payments::markFailed((int) $payment['id'], ['manual' => true, 'reason' => (string) post('reason', '')]);
         $done('success', 'Payment marked as failed.');
 
+    /* ------------------------------------------------------------ returns */
+    case 'return_status':
+        admin_require('orders.manage');
+        $returnId = post_int('return_id');
+        $result = ReturnService::transition($returnId, (string) post('status', ''), (string) post('message', ''), (string) Auth::role(), Auth::id());
+        $done($result['ok'] ? 'success' : 'danger', $result['message']);
+
+    case 'return_refund':
+        admin_require('payments.verify');
+        $result = ReturnService::refund(
+            post_int('return_id'),
+            (float) post('amount', '0'),
+            (string) post('method', ''),
+            (string) post('reference', ''),
+            (bool) post('restock'),
+            (string) post('message', ''),
+            (int) Auth::id()
+        );
+        $done($result['ok'] ? 'success' : 'danger', $result['message']);
+
+    case 'return_exchange':
+        admin_require('orders.manage');
+        $result = ReturnService::exchange(post_int('return_id'), (bool) post('restock'), (string) post('message', ''), (int) Auth::id());
+        $done($result['ok'] ? 'success' : 'danger', $result['message']);
+
     /* ---------------------------------------------------------- catalogue */
     case 'product_save':
         admin_require('products.manage');
