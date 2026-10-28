@@ -15,6 +15,8 @@ $coupons = Coupons::active(3);
 $heroSlides = View::heroSlides();
 $homeReviews = Catalog::recentReviews(3);
 $homeReviewStats = Catalog::storeReviewSummary();
+$returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
+$deliveryPromise = Settings::get('delivery_promise', '1–4 working days');
 $homeStats = [
     'products' => Catalog::productCount('active'),
     'brands'   => Database::int('SELECT COUNT(*) FROM brands'),
@@ -81,8 +83,8 @@ require INCLUDES_PATH . '/layout/header.php';
                   </div>
                   <dl class="hero-stats">
                     <div><dt>Products</dt><dd><?= e(compact_number(Catalog::productCount('active'))) ?>+</dd></div>
-                    <div><dt>Delivery</dt><dd>1–4 days</dd></div>
-                    <div><dt>Returns</dt><dd>7 days</dd></div>
+                    <div><dt>Delivery</dt><dd><?= e($deliveryPromise) ?></dd></div>
+                    <div><dt>Returns</dt><dd><?= (int) $returnWindowDays ?> days</dd></div>
                   </dl>
                 </div>
                 <?php if ($heroImage !== ''): ?>
@@ -130,12 +132,12 @@ require INCLUDES_PATH . '/layout/header.php';
     <div class="row g-2 g-lg-3">
       <?php
       $props = [
-          ['bi-truck', 'Free delivery', 'On orders over ' . money(Settings::float('free_shipping_threshold', 15000))],
-          ['bi-cash-coin', 'Cash on delivery', 'Pay when it arrives'],
-          ['bi-shield-check', 'Genuine products', 'Warranty on every item'],
-          ['bi-arrow-repeat', '7-day returns', 'No-hassle exchanges'],
+          ['bi-truck', Settings::get('trust_delivery_title'), Settings::get('trust_delivery_text')],
+          ['bi-cash-coin', Settings::get('trust_payment_title'), Settings::get('trust_payment_text')],
+          ['bi-shield-check', Settings::get('trust_quality_title'), Settings::get('trust_quality_text')],
+          ['bi-chat-dots', Settings::get('trust_returns_title'), Settings::get('trust_returns_text')],
       ];
-      foreach ($props as [$icon, $title, $text]): ?>
+      foreach ($props as [$icon, $title, $text]): if ($title === '' && $text === '') continue; ?>
         <div class="col-6 col-lg-3">
           <div class="value-prop">
             <span class="icon"><i class="bi <?= e($icon) ?>" aria-hidden="true"></i></span>
@@ -388,7 +390,7 @@ require INCLUDES_PATH . '/layout/header.php';
       <div class="col-lg-7">
         <div class="card-soft p-3 p-lg-4 h-100">
           <p class="eyebrow">Social proof</p>
-          <h2 class="fw-bold mb-1">Shoppers across Sri Lanka trust us</h2>
+          <h2 class="fw-bold mb-1">Shoppers choose <?= e(Settings::get('store_name')) ?></h2>
           <p class="small text-ink-600 mb-3">Real customers, real orders, real reviews.</p>
 
           <div class="trust-strip mb-3">
@@ -403,8 +405,8 @@ require INCLUDES_PATH . '/layout/header.php';
               </div>
             <?php else: ?>
               <div class="trust-stat">
-                <strong>7 days</strong>
-                <span>Easy returns</span>
+                <strong><?= (int) $returnWindowDays ?> days</strong>
+                <span>Return request window</span>
               </div>
               <div class="trust-stat">
                 <strong>COD</strong>
@@ -441,7 +443,7 @@ require INCLUDES_PATH . '/layout/header.php';
               <i class="bi bi-patch-check-fill text-brand"></i>
               <div>
                 <strong>Every order is covered</strong>
-                <p class="small text-ink-600 mb-0">Genuine products with local warranty, 7-day returns and island-wide delivery — pay cash on delivery if you prefer.</p>
+                <p class="small text-ink-600 mb-0"><?= e(Settings::get('store_description')) ?></p>
               </div>
             </div>
           <?php endif; ?>
@@ -455,7 +457,7 @@ require INCLUDES_PATH . '/layout/header.php';
           <input type="hidden" name="subject" value="Home page enquiry">
           <p class="eyebrow">Talk to a human</p>
           <h2 class="h4 fw-bold mb-1">Ask us anything</h2>
-          <p class="small text-ink-600 mb-3">A real person replies within one business day — English, Sinhala or Tamil.</p>
+          <p class="small text-ink-600 mb-3">Our team typically replies <?= e(Settings::get('support_response_time')) ?>.</p>
           <div class="mb-2">
             <label class="form-label small" for="ask-name">Your name</label>
             <input class="form-control" id="ask-name" type="text" name="name" maxlength="120" autocomplete="name" required>

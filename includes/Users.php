@@ -9,12 +9,12 @@ declare(strict_types=1);
  */
 final class Users
 {
-    private const SELECT = 'SELECT id, uuid, name, email, phone, password_hash, role, status, avatar_url,
+    private const SELECT = 'SELECT id, uuid, name, email, phone, password_hash, role, status, must_change_password, avatar_url,
                                    marketing_opt_in, email_verified_at, last_login_at, last_login_ip,
                                    notes, created_at, updated_at FROM users';
 
     private const WRITABLE = [
-        'name', 'email', 'phone', 'password_hash', 'role', 'status', 'avatar_url',
+        'name', 'email', 'phone', 'password_hash', 'role', 'status', 'must_change_password', 'avatar_url',
         'marketing_opt_in', 'email_verified_at', 'last_login_at', 'last_login_ip', 'notes',
     ];
 
@@ -58,6 +58,7 @@ final class Users
             'password_hash' => (string) ($data['password_hash'] ?? Auth::hashPassword(Security::randomToken(12))),
             'role'       => in_array($data['role'] ?? '', ['admin', 'staff', 'customer'], true) ? $data['role'] : 'customer',
             'status'     => in_array($data['status'] ?? '', ['active', 'suspended', 'pending'], true) ? $data['status'] : 'active',
+            'must_change_password' => (int) (bool) ($data['must_change_password'] ?? false),
             'avatar_url' => $data['avatar_url'] ?? null,
             'marketing_opt_in' => (int) ($data['marketing_opt_in'] ?? 0),
             'email_verified_at' => $data['email_verified_at'] ?? null,
@@ -231,7 +232,7 @@ final class Users
         // Customers are soft-anonymised: orders must keep their financial record.
         Database::run('UPDATE users SET status = :status, email = :email, name = :name, phone = NULL WHERE id = :id', [
             'status' => 'suspended',
-            'email' => 'deleted+' . $id . '@softmymarket.invalid',
+            'email' => 'deleted+' . $id . '@yourmarket.invalid',
             'name' => 'Deleted customer',
             'id' => $id,
         ]);

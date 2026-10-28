@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/bootstrap.php';
 Auth::requireLogin();
 
 $user = Auth::user();
+$mustChangePassword = !empty($user['must_change_password']);
 $accountActive = 'settings';
 
 $pageTitle = 'Account settings';
@@ -13,12 +14,16 @@ require INCLUDES_PATH . '/layout/header.php';
 ?>
 <section class="section">
   <div class="container-page">
-    <h1 class="h4 fw-bold mb-3">Account settings</h1>
+    <h1 class="h4 fw-bold mb-3"><?= $mustChangePassword ? 'Set your new password' : 'Account settings' ?></h1>
+    <?php if ($mustChangePassword): ?>
+      <div class="alert alert-warning"><strong>First sign-in security check.</strong> Change the temporary password emailed to you before continuing to the store dashboard.</div>
+    <?php endif; ?>
     <div class="row g-4">
-      <div class="col-lg-3"><?php require INCLUDES_PATH . '/account-nav.php'; ?></div>
-      <div class="col-lg-9">
+      <?php if (!$mustChangePassword): ?><div class="col-lg-3"><?php require INCLUDES_PATH . '/account-nav.php'; ?></div><?php endif; ?>
+      <div class="<?= $mustChangePassword ? 'col-12' : 'col-lg-9' ?>">
         <div class="row g-4">
-          <div class="col-xl-7">
+          <div class="<?= $mustChangePassword ? 'col-lg-6 mx-auto' : 'col-xl-7' ?>">
+            <?php if (!$mustChangePassword): ?>
             <div class="card-soft p-3 p-md-4 mb-3">
               <h2 class="h6 fw-bold mb-3">Profile</h2>
               <form method="post" action="/actions/account.php" class="row g-2" data-disable-on-submit>
@@ -45,13 +50,14 @@ require INCLUDES_PATH . '/layout/header.php';
                 <div class="col-12"><button class="btn btn-brand" type="submit">Save profile</button></div>
               </form>
             </div>
+            <?php endif; ?>
 
             <div class="card-soft p-3 p-md-4">
-              <h2 class="h6 fw-bold mb-3">Password</h2>
+              <h2 class="h6 fw-bold mb-3"><?= $mustChangePassword ? 'Choose your new password' : 'Password' ?></h2>
               <form method="post" action="/actions/account.php" class="row g-2" data-disable-on-submit>
                 <?= Csrf::field() ?><input type="hidden" name="action" value="password">
                 <div class="col-12">
-                  <label class="form-label" for="current_password">Current password</label>
+                  <label class="form-label" for="current_password"><?= $mustChangePassword ? 'Temporary password from your invitation email' : 'Current password' ?></label>
                   <input class="form-control" id="current_password" type="password" name="current_password" required autocomplete="current-password">
                 </div>
                 <div class="col-12">
@@ -62,11 +68,12 @@ require INCLUDES_PATH . '/layout/header.php';
                   <label class="form-label" for="new_password_confirm">Confirm new password</label>
                   <input class="form-control" id="new_password_confirm" type="password" name="new_password_confirm" required minlength="8" autocomplete="new-password">
                 </div>
-                <div class="col-12"><button class="btn btn-brand" type="submit">Update password</button></div>
+                <div class="col-12"><button class="btn btn-brand" type="submit"><?= $mustChangePassword ? 'Set password and continue' : 'Update password' ?></button></div>
               </form>
             </div>
           </div>
 
+          <?php if (!$mustChangePassword): ?>
           <div class="col-xl-5">
             <div class="card-soft p-3 mb-3">
               <h2 class="h6 fw-bold mb-2">Account details</h2>
@@ -91,6 +98,7 @@ require INCLUDES_PATH . '/layout/header.php';
               <a class="btn btn-outline-brand btn-sm" href="/contact.php?topic=privacy"><i class="bi bi-envelope me-1"></i> Contact privacy team</a>
             </div>
           </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>

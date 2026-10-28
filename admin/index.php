@@ -26,7 +26,7 @@ foreach ($series as $point) {
 }
 
 $adminTitle = 'Dashboard';
-$adminSubtitle = 'Today, ' . date('l j F Y') . ' · ' . Settings::get('store_name', 'SoftMyMarket');
+$adminSubtitle = 'Today, ' . date('l j F Y') . ' · ' . Settings::get('store_name', 'YourMarket');
 $adminActions = '<a class="btn btn-sm btn-brand" href="' . e(admin_url('product-form.php')) . '"><i class="bi bi-plus-lg me-1"></i> Add product</a>'
     . '<a class="btn btn-sm btn-soft" href="' . e(admin_url('reports.php')) . '"><i class="bi bi-graph-up-arrow me-1"></i> Reports</a>';
 require __DIR__ . '/includes/layout-top.php';

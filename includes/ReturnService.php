@@ -46,12 +46,13 @@ final class ReturnService
     /** @return list<array<string,mixed>> */
     public static function eligibleOrders(int $userId): array
     {
+        $returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
         $rows = Database::all(
             "SELECT o.*, COALESCE(o.delivered_at, (SELECT MAX(oe.created_at) FROM order_events oe WHERE oe.order_id = o.id AND oe.status = 'DELIVERED')) AS delivered_on
                FROM orders o
               WHERE o.user_id = :uid
                 AND o.status = 'DELIVERED'
-                AND COALESCE(o.delivered_at, (SELECT MAX(oe.created_at) FROM order_events oe WHERE oe.order_id = o.id AND oe.status = 'DELIVERED')) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                AND COALESCE(o.delivered_at, (SELECT MAX(oe.created_at) FROM order_events oe WHERE oe.order_id = o.id AND oe.status = 'DELIVERED')) >= DATE_SUB(NOW(), INTERVAL {$returnWindowDays} DAY)
                 AND EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.quantity > COALESCE((
                     SELECT SUM(ri.quantity) FROM return_request_items ri
                     JOIN return_requests rr ON rr.id = ri.return_request_id
@@ -151,8 +152,9 @@ final class ReturnService
             return ['ok' => false, 'error' => 'Select at least one item (up to 20 lines) to return.'];
         }
 
+        $returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
         try {
-            $id = Database::tx(static function () use ($userId, $orderId, $quantities, $reason, $details, $evidenceFile, $evidenceMime): int {
+            $id = Database::tx(static function () use ($userId, $orderId, $quantities, $reason, $details, $evidenceFile, $evidenceMime, $returnWindowDays): int {
                 $order = Database::one('SELECT * FROM orders WHERE id = :id AND user_id = :uid FOR UPDATE', ['id' => $orderId, 'uid' => $userId]);
                 if ($order === null) {
                     throw new RuntimeException('That order was not found in your account.');
@@ -166,8 +168,8 @@ final class ReturnService
                     $deliveredAt = (string) ($event['created_at'] ?? '');
                 }
                 $deliveryTime = $deliveredAt !== '' ? strtotime($deliveredAt) : false;
-                if ($deliveryTime === false || $deliveryTime < time() - 7 * 86400) {
-                    throw new RuntimeException('The return window is 7 days from delivery and has expired.');
+                if ($deliveryTime === false || $deliveryTime < time() - $returnWindowDays * 86400) {
+                    throw new RuntimeException('The return window is ' . $returnWindowDays . ' days from delivery and has expired.');
                 }
                 if (in_array($reason, ['DAMAGED', 'WRONG_ITEM'], true)) {
                     if ($deliveryTime < time() - 48 * 3600) {

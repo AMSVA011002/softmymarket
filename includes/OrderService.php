@@ -136,7 +136,7 @@ final class OrderService
                     'updated_at' => $now,
                 ]);
 
-                $prefix = Settings::get('order_prefix', 'SMM');
+                $prefix = Settings::get('order_prefix', 'YM');
                 $orderNumber = $prefix . '-' . date('Y') . '-' . str_pad((string) $orderId, 6, '0', STR_PAD_LEFT);
                 Database::run('UPDATE orders SET order_number = :n WHERE id = :id', ['n' => $orderNumber, 'id' => $orderId]);
 

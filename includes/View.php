@@ -215,12 +215,16 @@ final class View
 /** ------------------------------------------------------------------ hero */
 function smm_hero_slides(): array
 {
+    $availablePayments = array_map('payment_method_label', array_keys(PaymentManager::available(1)));
+    $paymentDescription = $availablePayments !== []
+        ? 'Choose from ' . implode(', ', $availablePayments) . ' at checkout.'
+        : 'Available payment methods are shown at checkout.';
     $fallback = [
         [
-            'eyebrow' => 'Mega week',
+            'eyebrow' => 'Welcome to ' . Settings::get('store_name'),
             'title' => 'Everything you need,',
             'highlight' => 'one trusted seller',
-            'description' => 'From the latest 4K TVs to Ceylon tea — 10,000+ products with island-wide delivery and cash on delivery.',
+            'description' => Settings::get('store_description'),
             'cta_label' => 'Shop the catalogue',
             'cta_url' => '/shop.php',
             'secondary_label' => 'Today\'s deals',
@@ -230,9 +234,9 @@ function smm_hero_slides(): array
         ],
         [
             'eyebrow' => 'Pay your way',
-            'title' => 'Cards, wallets and',
-            'highlight' => 'pay in 3',
-            'description' => 'PayHere and Seylan Bank cards, bank transfer, KOKO, Payzy and Mintpay — plus good old cash on delivery.',
+            'title' => 'Payment options',
+            'highlight' => 'for your order',
+            'description' => $paymentDescription,
             'cta_label' => 'See payment options',
             'cta_url' => '/help.php#payments',
             'secondary_label' => 'Start shopping',
@@ -241,10 +245,10 @@ function smm_hero_slides(): array
             'image' => '',
         ],
         [
-            'eyebrow' => 'Free delivery',
-            'title' => 'Free island-wide shipping',
-            'highlight' => 'over Rs 15,000',
-            'description' => 'Order before 2pm on weekdays and we dispatch the same day from our Colombo warehouse.',
+            'eyebrow' => 'Delivery information',
+            'title' => 'Know when your order will',
+            'highlight' => 'arrive',
+            'description' => 'Typical delivery: ' . Settings::get('delivery_promise') . '. Final charges and estimates are shown at checkout.',
             'cta_label' => 'Browse best sellers',
             'cta_url' => '/shop.php?sort=popular',
             'secondary_label' => 'Delivery details',

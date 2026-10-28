@@ -170,7 +170,7 @@ function smm_sql_reserved_audit(string $root, string $filter = ''): array
 if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
     $rootPath = dirname(__DIR__);
     $filter = (string) ($argv[1] ?? '');
-    echo "SoftMyMarket SQL audit · " . date('d M Y H:i') . "\n\n";
+    echo "YourMarket SQL audit · " . date('d M Y H:i') . "\n\n";
 
     $findings = smm_sql_reserved_audit($rootPath, $filter);
     if ($findings === []) {

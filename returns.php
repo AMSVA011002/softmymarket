@@ -3,21 +3,25 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
+$returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
 $pageTitle = 'Returns & refunds';
-$pageDescription = 'Our 7-day returns policy, refund timelines and how to start a return.';
+$pageDescription = 'Our ' . $returnWindowDays . '-day returns policy, refund timelines and how to start a return.';
 $heroTitle = 'Returns & refunds';
-$heroSubtitle = 'Seven days to change your mind, and a real person to sort it out.';
+$heroSubtitle = 'Clear return terms and a real person to help.';
 $heroIcon = 'bi-arrow-counterclockwise';
 require INCLUDES_PATH . '/layout/header.php';
 require INCLUDES_PATH . '/partials/page-hero.php';
 ?>
+<?php if (Settings::get('returns_text') !== ''): ?>
+<section class="section"><div class="container-page"><div class="row g-3"><div class="col-lg-8"><div class="card-soft p-3 p-md-4 mb-3" style="white-space:pre-line"><?= e(Settings::get('returns_text')) ?></div></div><div class="col-lg-4"><div class="card-soft p-3 p-md-4"><h2 class="h6 fw-bold mb-2">Need help?</h2><a class="btn btn-brand btn-sm w-100 mb-2" href="<?= Auth::check() ? '/account/returns.php' : '/login.php?next=%2Faccount%2Freturns.php' ?>">Request a return</a><a class="btn btn-soft btn-sm w-100" href="mailto:<?= e(Settings::get('support_email')) ?>">Contact support</a></div></div></div></div></section>
+<?php else: ?>
 <section class="section">
   <div class="container-page">
     <div class="row g-4">
       <div class="col-lg-8">
         <div class="card-soft p-3 p-md-4 mb-3">
-          <h2 class="h6 fw-bold mb-2">The 7-day promise</h2>
-          <p class="small text-ink-600">You may return most items within <strong>7 days of delivery</strong> for a refund or exchange, provided they are unused, undamaged and in their original packaging with all accessories and manuals.</p>
+          <h2 class="h6 fw-bold mb-2">Our return window</h2>
+          <p class="small text-ink-600">You may return most items within <strong><?= (int) $returnWindowDays ?> days of delivery</strong> for a refund or exchange, provided they are unused, undamaged and in their original packaging with all accessories and manuals.</p>
           <ul class="small text-ink-600 mb-0" style="line-height:1.9">
             <li>Damaged or wrong item? Report within 48 hours with photos and we cover return shipping.</li>
             <li>Change of mind? Return shipping is on you, unless the item is faulty.</li>
@@ -66,4 +70,4 @@ require INCLUDES_PATH . '/partials/page-hero.php';
     </div>
   </div>
 </section>
-<?php require INCLUDES_PATH . '/layout/footer.php'; ?>
+<?php endif; require INCLUDES_PATH . '/layout/footer.php'; ?>

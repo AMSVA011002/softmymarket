@@ -56,7 +56,7 @@ final class Pricing
         $tax = $taxPercent > 0 ? round($taxable * ($taxPercent / 100), 2) : 0.0;
 
         if ($paymentMethod === 'COD') {
-            $codFee = Settings::float('cod_fee', 0);
+            $codFee = (float) Config::get('payments.cod.fee', 0);
             $shipping += max(0.0, $codFee);
         }
 

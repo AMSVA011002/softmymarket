@@ -1,6 +1,6 @@
 <?php
 /**
- * SoftMyMarket deployment self-check.
+ * YourMarket deployment self-check.
  *
  *   php tools/deploy-check.php
  *
@@ -39,7 +39,7 @@ function check(string $label, bool $ok, string $fix = '', bool $blocking = true,
     }
 }
 
-echo "SoftMyMarket deployment check\n";
+echo "YourMarket deployment check\n";
 echo "PHP " . PHP_VERSION . " · " . PHP_SAPI . " · " . date('d M Y H:i') . "\n\n";
 
 /* -------------------------------------------------------------- environment */
@@ -107,23 +107,23 @@ foreach (Database::all('SHOW TABLES') as $row) {
 }
 $missing = array_values(array_diff($expectedTables, $existing));
 check('schema imported (27 tables)', $missing === [],
-    'Import database/install.sql in phpMyAdmin. Missing: ' . implode(', ', array_slice($missing, 0, 6)),
+    'Create the database, then import database/schema.sql in phpMyAdmin. Missing: ' . implode(', ', array_slice($missing, 0, 6)),
     true, count($existing) . ' tables found');
 
 if ($missing === []) {
     $admins = Database::int("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'");
-    check('administrator account', $admins > 0, 'Import database/install.sql, or create an admin in the database.', true, $admins . ' active');
+    check('administrator account', $admins > 0, 'Register the first account through the storefront; it becomes the administrator.', true, $admins . ' active');
 
     $plain = Database::int("SELECT COUNT(*) FROM users WHERE password_hash NOT LIKE '\\$2y\\$%' AND password_hash NOT LIKE '\\$2a\\$%'");
     check('all passwords hashed (bcrypt)', $plain === 0, "{$plain} account(s) do not look like bcrypt hashes.");
 
     $products = Database::int('SELECT COUNT(*) FROM products');
     check('catalogue has products', $products > 0,
-        'Import database/demo-data.sql, or Admin → Tools → "Seed demo data".', false, number_format($products) . ' products');
+        'Optionally add products with Admin → Tools → "Seed demo data".', false, number_format($products) . ' products');
 
     $categories = Database::int('SELECT COUNT(*) FROM categories');
     check('categories exist', $categories > 0,
-        'Import database/demo-data.sql, or Admin → Tools → "Seed demo data".', false, number_format($categories) . ' categories');
+        'Optionally add products with Admin → Tools → "Seed demo data".', false, number_format($categories) . ' categories');
 
     $orphans = Database::int(
         'SELECT COUNT(*) FROM categories c LEFT JOIN categories p ON p.id = c.parent_id
@@ -132,7 +132,7 @@ if ($missing === []) {
     check('no orphaned categories', $orphans === 0, "{$orphans} category row(s) point at a missing parent.");
 
     $settings = Database::int('SELECT COUNT(*) FROM settings');
-    check('settings seeded', $settings > 0, 'Re-import database/install.sql (the settings block).', false, $settings . ' keys');
+    check('settings seeded', $settings > 0, 'Import database/schema.sql to add missing default settings.', false, $settings . ' keys');
 
     // Write privileges are what shared hosts usually forget.
     $canWrite = true;
@@ -145,7 +145,7 @@ if ($missing === []) {
         $writeError = $e->getMessage();
     }
     check('CREATE TEMPORARY TABLE privilege', $canWrite,
-        'Attach the MySQL user to the database with full privileges, or import the *.sql files in phpMyAdmin.' . ($writeError !== '' ? ' (' . $writeError . ')' : ''), false);
+        'Attach the MySQL user to the database with full privileges, or import database/schema.sql in phpMyAdmin.' . ($writeError !== '' ? ' (' . $writeError . ')' : ''), false);
 }
 
 /* ------------------------------------------------------------------- runtime */
@@ -288,7 +288,7 @@ if ($logFiles === []) {
 echo "\n" . str_repeat('-', 70) . "\n";
 if ($blocking === 0) {
     printf("\033[32mReady.\033[0m %d warning(s).\n", $warnings);
-    echo "Sign in at /login.php and change the seeded administrator password.\n";
+    echo "Sign in using the administrator credentials chosen during first registration.\n";
     exit(0);
 }
 printf("\033[31m%d blocking problem(s)\033[0m and %d warning(s).\n", $blocking, $warnings);

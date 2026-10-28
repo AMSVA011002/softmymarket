@@ -5,15 +5,18 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 $freeShip = Settings::float('free_shipping_threshold', 15000);
 $flat = Settings::float('default_shipping_fee', 450);
-$codFee = Settings::float('cod_fee', 0);
+$codFee = (float) Config::get('payments.cod.fee', 0);
 $pageTitle = 'Shipping & delivery';
 $pageDescription = 'Delivery rates, timelines and courier partners.';
 $heroTitle = 'Shipping & delivery';
-$heroSubtitle = 'Transparent rates, island-wide coverage and tracking on every parcel.';
+$heroSubtitle = 'Delivery estimates: ' . Settings::get('delivery_promise') . '. See the rates and terms below.';
 $heroIcon = 'bi-truck';
 require INCLUDES_PATH . '/layout/header.php';
 require INCLUDES_PATH . '/partials/page-hero.php';
 ?>
+<?php if (Settings::get('shipping_text') !== ''): ?>
+<section class="section"><div class="container-page"><div class="card-soft p-3 p-md-4" style="white-space:pre-line"><?= e(Settings::get('shipping_text')) ?></div></div></section>
+<?php else: ?>
 <section class="section">
   <div class="container-page">
     <div class="row g-4">
@@ -65,4 +68,4 @@ require INCLUDES_PATH . '/partials/page-hero.php';
     </div>
   </div>
 </section>
-<?php require INCLUDES_PATH . '/layout/footer.php'; ?>
+<?php endif; require INCLUDES_PATH . '/layout/footer.php'; ?>

@@ -32,6 +32,10 @@ switch ($action) {
             remember_input(['email' => $email]);
             redirect('/login.php?next=' . rawurlencode($next));
         }
+        if (!empty($result['user']['must_change_password'])) {
+            flash('warning', 'For your security, set a new password before using your team account.');
+            redirect('/account/settings.php?force_password=1');
+        }
         Cart::mergeSessionIntoDatabase();
         flash('success', 'Welcome back, ' . explode(' ', (string) $result['user']['name'])[0] . '!');
         $role = (string) $result['user']['role'];
@@ -71,22 +75,49 @@ switch ($action) {
             redirect('/register.php');
         }
 
+        $lockName = 'ym_first_admin_' . substr(hash('sha256', (string) Config::get('db.name', 'yourmarket')), 0, 24);
         try {
-            $userId = Users::create([
-                'name' => $name,
-                'email' => $email,
-                'phone' => normalize_phone($phone),
-                'password_hash' => Auth::hashPassword($password),
-                'role' => 'customer',
-                'status' => 'pending',
-                'marketing_opt_in' => (int) (bool) post('marketing'),
-                'email_verified_at' => null,
-            ]);
+            if ((int) Database::value('SELECT GET_LOCK(:lock_name, 10)', ['lock_name' => $lockName], 0) !== 1) {
+                throw new RuntimeException('Could not safely determine the first account role. Please try again.');
+            }
+            try {
+                $created = Database::tx(static function () use ($name, $email, $phone, $password): array {
+                    $isFirstAccount = Database::int('SELECT COUNT(*) FROM users') === 0;
+                    $userId = Users::create([
+                        'name' => $name,
+                        'email' => $email,
+                        'phone' => normalize_phone($phone),
+                        'password_hash' => Auth::hashPassword($password),
+                        'role' => $isFirstAccount ? 'admin' : 'customer',
+                        'status' => $isFirstAccount ? 'active' : 'pending',
+                        'email_verified_at' => $isFirstAccount ? date('Y-m-d H:i:s') : null,
+                        'marketing_opt_in' => (int) (bool) post('marketing'),
+                    ]);
+                    return ['id' => $userId, 'is_admin' => $isFirstAccount];
+                });
+            } finally {
+                Database::value('SELECT RELEASE_LOCK(:lock_name)', ['lock_name' => $lockName]);
+            }
         } catch (Throwable $e) {
-            error_log('Customer registration failed: ' . $e->getMessage());
+            error_log('Account registration failed: ' . $e->getMessage());
             flash('danger', 'We could not create the account. Check the email address or try again.');
             redirect('/register.php');
         }
+
+        $userId = (int) $created['id'];
+        if ($created['is_admin']) {
+            Audit::log('auth.first_admin_registered', 'user', $userId, ['email' => $email]);
+            $lockData = json_encode(['installed_at' => date('c'), 'version' => SMM_VERSION, 'admin' => $email], JSON_UNESCAPED_SLASHES);
+            $lockPath = STORAGE_PATH . '/installed.lock';
+            if (!is_string($lockData) || @file_put_contents($lockPath, $lockData, LOCK_EX) === false) {
+                error_log('Could not write installed.lock after first administrator registration. Lock the installer from Admin → Tools.');
+            } else {
+                @chmod($lockPath, 0640);
+            }
+            flash('success', 'Your administrator account is ready. Sign in to manage your store.');
+            redirect('/login.php?next=' . rawurlencode('/admin/index.php'));
+        }
+
         Audit::log('auth.register_pending', 'user', $userId, ['email' => $email]);
         $sent = EmailVerification::sendToPendingUser($userId);
         flash($sent ? 'success' : 'warning', $sent

@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 $topic = (string) query('topic', 'general');
 $pageTitle = 'Contact us';
-$pageDescription = 'Talk to the SoftMyMarket team about orders, deliveries, returns or trade enquiries.';
+$pageDescription = 'Talk to the ' . Settings::get('store_name') . ' team about orders, deliveries, returns or trade enquiries.';
 $heroTitle = 'Contact us';
 $heroSubtitle = 'We reply within one business day — usually much faster.';
 $heroIcon = 'bi-chat-dots';

@@ -1,4 +1,4 @@
-# Deploying SoftMyMarket on aeonfree (softmymarket.hstn.me)
+# Deploying YourMarket on aeonfree (softmymarket.hstn.me)
 
 Everything in this document is specific to the free aeonfree plan used for the
 first deployment. The generic guide is [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -10,7 +10,6 @@ first deployment. The generic guide is [DEPLOYMENT.md](DEPLOYMENT.md).
 | Database | `mseet_43261025_softmymarket` |
 | DB user | `mseet_43261025` |
 | Table prefix | *(empty)* |
-| Admin login | `admin@softmymarket.hstn.me` / `SoftMy@Admin2026` → **change on first login** |
 | PHP needed | 8.1+ (8.2/8.3 recommended) |
 
 ---
@@ -47,30 +46,11 @@ session.secure = true   ← already relaxed automatically when the site is on ht
 
 ## 2. Import the database
 
-The project ships two SQL files. Both are plain MySQL 5.7 / MariaDB compatible —
-no `DEFINER`, no routines, no `SUPER` privileges.
+The project ships one SQL file, `database/schema.sql`, compatible with MySQL/MariaDB and shared hosting. Create the database and database user in the hosting control panel first, select the database in phpMyAdmin, and import this schema. It creates tables and YourMarket defaults only; it does not seed an admin account or demo catalogue.
 
-| File | What it does |
-| --- | --- |
-| `database/install.sql` | 27 tables + indexes + foreign keys + default settings + the first administrator |
-| `database/demo-data.sql` | *(optional)* 12 categories, 8 brands, 12 products, 5 coupons |
+Immediately after import, register the first account through the storefront. That first account becomes the administrator. All later public registrations become customers and must confirm their email. Configure transactional email, then add team members from **Admin → Team**; each receives their role and temporary password by email and is required to replace it on first sign-in.
 
-**phpMyAdmin → select `mseet_43261025_softmymarket` → Import → choose
-`database/install.sql` → Import.** Then repeat for `database/demo-data.sql` if
-you want a populated storefront.
-
-Notes
-
-* `install.sql` starts with `DROP TABLE IF EXISTS` for every table, so it is
-  safe to re-run; it never touches other databases.
-* `SET NAMES utf8mb4` and `SET time_zone = '+05:30'` are inside the file, so do
-  not change the phpMyAdmin defaults.
-* No `CREATE DATABASE` / `USE` statements are included — the free plan only lets
-  you import into a database you already own. Pick it in phpMyAdmin first.
-* The last `SELECT` in each file prints a summary (`tables_created`, row counts)
-  so you can confirm the import succeeded.
-* If phpMyAdmin rejects the upload size, import from the SQL tab with
-  "Import from URL" disabled, or split at the comments — the file is only 31 KB.
+The schema is re-import-safe and does not drop existing tables or custom settings. It includes an idempotent upgrade for the new password-change flag. It contains no `CREATE DATABASE`/`USE` statements: select the already-created database in phpMyAdmin before importing. If phpMyAdmin imposes an upload limit, use its SQL import options or split at section comments.
 
 Verify from the dashboard afterwards: **Admin → Tools** shows the table row
 counts, PHP extensions, writable folders and MySQL version.
@@ -79,17 +59,13 @@ counts, PHP extensions, writable folders and MySQL version.
 
 ## 3. First run checklist
 
-1. Open `http://softmymarket.hstn.me/` — the storefront loads with the demo
-   products (or an empty state if you skipped `demo-data.sql`).
-2. Sign in at `/login.php` with `admin@softmymarket.hstn.me` / `SoftMy@Admin2026`.
-3. **Change the password**: Admin → My account.
-4. **Admin → Tools → "Lock the installer"** — writes `storage/installed.lock`.
-   (`install/` is also blocked by `.htaccess` on this plan.)
-5. **Admin → Settings** — store name, support email/phone, shipping fee, tax,
-   bank-transfer accounts, gateway credentials.
-6. **Admin → Tools → "Seed demo data"** — safe web seeder for the free plan
-   (no SSH): 120 products / 50 customers per run, repeat a few times, or upload
-   the SQL import of a locally generated dump.
+1. Open `http://softmymarket.hstn.me/` after configuring `config/config.php`.
+2. Register the first account immediately; it becomes the administrator using the password you choose.
+3. Sign in and configure **Admin → Settings → Email** so customer confirmations and team invitations can be delivered.
+4. Use **Admin → Team → Send invitation** to add staff or another administrator. The invite email contains the assigned role and a temporary password; the account is restricted to the password-change screen until the team member replaces it.
+5. Review **Admin → Settings** and set the actual store identity, contact, shipping, tax, payment and policy details.
+6. Optionally add catalogue data using **Admin → Tools → Seed demo data**.
+
 
 ### 3a. If something does go wrong
 

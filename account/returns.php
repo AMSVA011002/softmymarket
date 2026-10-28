@@ -6,6 +6,7 @@ Auth::requireLogin();
 $userId = (int) Auth::id();
 $requests = ReturnService::forUser($userId);
 $eligibleOrders = ReturnService::eligibleOrders($userId);
+$returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
 $selectedId = query_int('order_id');
 $selectedOrder = null;
 foreach ($eligibleOrders as $candidate) {
@@ -28,11 +29,11 @@ require INCLUDES_PATH . '/layout/header.php';
       <div class="col-lg-9">
         <div class="card-soft p-3 p-md-4 mb-4">
           <div class="d-flex justify-content-between align-items-start gap-3">
-            <div><h2 class="h6 fw-bold mb-1">Request a return</h2><p class="small text-ink-500 mb-0">Submit within 7 days of delivery. Our team will review your request and update its status here.</p></div>
+            <div><h2 class="h6 fw-bold mb-1">Request a return</h2><p class="small text-ink-500 mb-0">Submit within <?= (int) $returnWindowDays ?> days of delivery. Our team will review your request and update its status here.</p></div>
             <i class="bi bi-arrow-counterclockwise fs-3 text-brand"></i>
           </div>
           <?php if ($eligibleOrders === []): ?>
-            <div class="alert alert-light small mt-3 mb-0">There are no delivered orders currently eligible for a return request. Return requests must be made within 7 days of delivery.</div>
+            <div class="alert alert-light small mt-3 mb-0">There are no delivered orders currently eligible for a return request. Return requests must be made within <?= (int) $returnWindowDays ?> days of delivery.</div>
           <?php else: ?>
             <form method="get" class="row g-2 align-items-end mt-2">
               <div class="col-md-9"><label class="form-label small" for="return-order">Choose a delivered order</label>

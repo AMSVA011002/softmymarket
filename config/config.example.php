@@ -1,6 +1,6 @@
 <?php
 /**
- * SoftMyMarket — example configuration.
+ * YourMarket — example configuration.
  *
  * Copy this file to config/config.php and fill in the values for the host.
  * The installer (install/) can generate it for you and will never overwrite an
@@ -12,9 +12,9 @@
 
 return [
     'app' => [
-        'name'            => 'SoftMyMarket',
+        'name'            => 'YourMarket',
         'tagline'         => 'Sri Lanka\'s trusted online marketplace',
-        'url'             => 'https://www.softmymarket.lk',  // no trailing slash
+        'url'             => 'https://yourmarket.example',  // no trailing slash
         'env'             => 'production',                    // production | local
         'debug'           => false,                            // never true in production
         'timezone'        => 'Asia/Colombo',
@@ -24,7 +24,7 @@ return [
         // 32-byte secret used for signed tokens (password resets, tracking links).
         // Generate with: php -r "echo bin2hex(random_bytes(32));"
         'key'             => 'CHANGE-ME-TO-A-64-CHARACTER-RANDOM-HEX-STRING-0000000000000000',
-        'support_email'   => 'hello@softmymarket.lk',
+        'support_email'   => 'hello@yourmarket.example',
         'support_phone'   => '+94 11 234 5678',
         'orders_per_page' => 20,
         'products_per_page' => 24,
@@ -33,8 +33,8 @@ return [
     'db' => [
         'host'    => 'localhost',
         'port'    => 3306,
-        'name'    => 'softmymarket',
-        'user'    => 'softmymarket',
+        'name'    => 'yourmarket',
+        'user'    => 'yourmarket',
         'pass'    => '',
         'charset' => 'utf8mb4',
         // Reserved. Table names are quoted directly in the SQL, so keep this
@@ -43,7 +43,7 @@ return [
     ],
 
     'session' => [
-        'name'     => 'smm_session',
+        'name'     => 'yourmarket_session',
         'lifetime' => 60 * 60 * 24 * 14,   // remember-me window (seconds)
         'idle'     => 60 * 60 * 2,         // idle timeout (seconds)
         'secure'   => true,                // set true once HTTPS is live
@@ -65,9 +65,9 @@ return [
         // 'smtp' uses the socket client in includes/Mailer.php (SMTPS port 465
         // or STARTTLS port 587).
         'transport'   => 'smtp',
-        'from_email'  => 'no-reply@softmymarket.lk',
-        'from_name'   => 'SoftMyMarket',
-        'reply_to'    => 'support@softmymarket.lk',
+        'from_email'  => 'no-reply@yourmarket.example',
+        'from_name'   => '',
+        'reply_to'    => 'support@yourmarket.example',
         'smtp' => [
             'host'       => '',
             'port'       => 465,
@@ -91,8 +91,8 @@ return [
         'bank_transfer' => [
             'enabled' => true,
             'accounts' => [
-                ['bank' => 'Seylan Bank', 'branch' => 'Colombo 03', 'name' => 'SoftMyMarket (Pvt) Ltd', 'number' => '0152 1234 5678', 'swift' => 'SEYBLKLX'],
-                ['bank' => 'Commercial Bank', 'branch' => 'Nugegoda', 'name' => 'SoftMyMarket (Pvt) Ltd', 'number' => '8001 2345 6789', 'swift' => 'CCEYLKLX'],
+                ['bank' => 'Seylan Bank', 'branch' => 'Colombo 03', 'name' => 'YourMarket (Pvt) Ltd', 'number' => '0152 1234 5678', 'swift' => 'SEYBLKLX'],
+                ['bank' => 'Commercial Bank', 'branch' => 'Nugegoda', 'name' => 'YourMarket (Pvt) Ltd', 'number' => '8001 2345 6789', 'swift' => 'CCEYLKLX'],
             ],
             'instructions' => 'Transfer the exact order total, then upload the deposit slip or enter the reference number. Orders are released as soon as the finance team verifies the payment.',
         ],

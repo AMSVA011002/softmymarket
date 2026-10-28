@@ -1,4 +1,4 @@
-# Security model — SoftMyMarket
+# Security model — YourMarket
 
 The store handles customer accounts, addresses and payment proofs, so the app
 treats every request as untrusted until it proves otherwise. This page documents
@@ -124,6 +124,14 @@ public static function verifyRequest(): void         // 419 page on failure
 * Idle timeout: 2 hours (`session.idle`), absolute lifetime 14 days.
 * Staff and customers are separated by role, not by separate tables:
   `Auth::isTeam()` guards `/admin/`; `Auth::requireLogin()` guards `/account/`.
+* The first public registration is granted administrator access under a MySQL
+  advisory lock so concurrent sign-ups cannot create multiple first admins.
+  Register that account immediately after importing `database/schema.sql`;
+  registration automatically writes `storage/installed.lock` when possible.
+* Team invitations receive random temporary passwords by email. A
+  `must_change_password` flag gates every request except the password-change
+  screen and logout until the team member replaces it. Initial login does not
+  create a remember-me cookie.
 
 ---
 
@@ -259,7 +267,8 @@ the deny rules from [DEPLOYMENT.md §12](DEPLOYMENT.md#12-nginx-vps-notes).
       **Admin → Tools → Lock the installer** writes the lock file)
 - [ ] Database password rotated after setup (it was shared in plain text) and
       `config/config.php` is 0640 — it is git-ignored on purpose
-- [ ] Seeded administrator password changed on first sign-in
+- [ ] First administrator was registered immediately after importing the schema
+- [ ] Team invite temporary passwords are changed at first sign-in
 - [ ] `robots.txt` disallows `/admin/`, `/account/`, `/payment/` (shipped)
 - [ ] `curl -I https://site/config/config.php` → 403/404
 - [ ] Cron/backup job configured; restore tested once
@@ -269,7 +278,7 @@ the deny rules from [DEPLOYMENT.md §12](DEPLOYMENT.md#12-nginx-vps-notes).
 
 ## 14. Reporting a vulnerability
 
-Email `security@softmymarket.lk` with reproduction steps and impact. Please do not
+Email `security@yourmarket.example` with reproduction steps and impact. Please do not
 open a public issue for a live vulnerability. Rotate `app.key` and all gateway
 secrets immediately if you suspect a credential leak.
 

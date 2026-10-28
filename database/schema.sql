@@ -1,17 +1,14 @@
 -- ---------------------------------------------------------------------------
--- SoftMyMarket — MySQL schema
+-- YourMarket — MySQL schema
 --
 -- Target: MySQL 5.7+/8.0 and MariaDB 10.3+, shared hosting friendly.
 --
--- TWO WAYS TO INSTALL
---   * Deployment (recommended, no SSH needed): import database/install.sql,
---     which is this file plus the default settings and the first administrator,
---     then optionally database/demo-data.sql. Import both in phpMyAdmin.
---   * Web installer: open /install/ — it imports THIS file and then asks for the
---     administrator account. (Blocked by .htaccess on the aeonfree deployment.)
+-- Setup: create an empty database in your hosting panel, then import this file
+-- once in phpMyAdmin. It creates the tables and default settings without any
+-- administrator or customer rows. The first public registration becomes admin;
+-- all later public registrations are customers.
 --
--- This file is canonical: every table definition lives here and nowhere else.
--- tests/run.php fails if install.sql ever drifts from it.
+-- CREATE TABLE IF NOT EXISTS and guarded column upgrades make re-importing safe.
 --
 -- Conventions
 --   * InnoDB everywhere, utf8mb4_unicode_ci so Sinhala/Tamil text is safe.
@@ -24,40 +21,9 @@
 
 SET NAMES utf8mb4;
 SET time_zone = '+05:30';
-SET FOREIGN_KEY_CHECKS = 0;
-
-DROP TABLE IF EXISTS `return_events`;
-DROP TABLE IF EXISTS `return_request_items`;
-DROP TABLE IF EXISTS `return_requests`;
-DROP TABLE IF EXISTS `search_log`;
-DROP TABLE IF EXISTS `contact_messages`;
-DROP TABLE IF EXISTS `newsletter_subscribers`;
-DROP TABLE IF EXISTS `audit_log`;
-DROP TABLE IF EXISTS `rate_limits`;
-DROP TABLE IF EXISTS `settings`;
-DROP TABLE IF EXISTS `notifications`;
-DROP TABLE IF EXISTS `inventory_movements`;
-DROP TABLE IF EXISTS `coupon_redemptions`;
-DROP TABLE IF EXISTS `coupons`;
-DROP TABLE IF EXISTS `payments`;
-DROP TABLE IF EXISTS `order_events`;
-DROP TABLE IF EXISTS `order_items`;
-DROP TABLE IF EXISTS `orders`;
-DROP TABLE IF EXISTS `wishlist_items`;
-DROP TABLE IF EXISTS `cart_items`;
-DROP TABLE IF EXISTS `reviews`;
-DROP TABLE IF EXISTS `products`;
-DROP TABLE IF EXISTS `brands`;
-DROP TABLE IF EXISTS `categories`;
-DROP TABLE IF EXISTS `user_addresses`;
-DROP TABLE IF EXISTS `email_verifications`;
-DROP TABLE IF EXISTS `password_resets`;
-DROP TABLE IF EXISTS `users`;
-
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- --------------------------------------------------------------------- users
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `uuid`              CHAR(36)        NOT NULL,
   `name`              VARCHAR(120)    NOT NULL,
@@ -66,6 +32,7 @@ CREATE TABLE `users` (
   `password_hash`     VARCHAR(255)    NOT NULL,
   `role`              ENUM('admin','staff','customer') NOT NULL DEFAULT 'customer',
   `status`            ENUM('active','suspended','pending') NOT NULL DEFAULT 'active',
+  `must_change_password` TINYINT(1) NOT NULL DEFAULT 0,
   `avatar_url`        VARCHAR(500)    DEFAULT NULL,
   `marketing_opt_in`  TINYINT(1)      NOT NULL DEFAULT 0,
   `email_verified_at` DATETIME        DEFAULT NULL,
@@ -82,7 +49,22 @@ CREATE TABLE `users` (
   KEY `idx_users_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `password_resets` (
+-- Re-import-safe upgrade for databases created before forced first-login changes.
+SET @ym_has_password_change_flag = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+     AND COLUMN_NAME = 'must_change_password'
+);
+SET @ym_password_change_ddl = IF(
+  @ym_has_password_change_flag = 0,
+  'ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`',
+  'SELECT 1'
+);
+PREPARE ym_password_change_stmt FROM @ym_password_change_ddl;
+EXECUTE ym_password_change_stmt;
+DEALLOCATE PREPARE ym_password_change_stmt;
+
+CREATE TABLE IF NOT EXISTS `password_resets` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED NOT NULL,
   `token_hash` CHAR(64)        NOT NULL,
@@ -97,7 +79,7 @@ CREATE TABLE `password_resets` (
   CONSTRAINT `fk_resets_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `email_verifications` (
+CREATE TABLE IF NOT EXISTS `email_verifications` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED NOT NULL,
   `token_hash` CHAR(64) NOT NULL,
@@ -112,7 +94,7 @@ CREATE TABLE `email_verifications` (
   CONSTRAINT `fk_email_verifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `user_addresses` (
+CREATE TABLE IF NOT EXISTS `user_addresses` (
   `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`     BIGINT UNSIGNED NOT NULL,
   `label`       VARCHAR(40)     NOT NULL DEFAULT 'Home',
@@ -135,7 +117,7 @@ CREATE TABLE `user_addresses` (
 -- ---------------------------------------------------------------- categories
 -- Adjacency list: unlimited depth. `path` is materialised as /1/5/12/ so a
 -- subtree query is a single indexed LIKE instead of recursion.
-CREATE TABLE `categories` (
+CREATE TABLE IF NOT EXISTS `categories` (
   `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `parent_id`        BIGINT UNSIGNED DEFAULT NULL,
   `name`             VARCHAR(120)    NOT NULL,
@@ -161,7 +143,7 @@ CREATE TABLE `categories` (
   CONSTRAINT `fk_categories_parent` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `brands` (
+CREATE TABLE IF NOT EXISTS `brands` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name`       VARCHAR(120)    NOT NULL,
   `slug`       VARCHAR(160)    NOT NULL,
@@ -173,7 +155,7 @@ CREATE TABLE `brands` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------ products
-CREATE TABLE `products` (
+CREATE TABLE IF NOT EXISTS `products` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `uuid`              CHAR(36)        NOT NULL,
   `title`             VARCHAR(200)    NOT NULL,
@@ -227,7 +209,7 @@ CREATE TABLE `products` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------- reviews
-CREATE TABLE `reviews` (
+CREATE TABLE IF NOT EXISTS `reviews` (
   `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `product_id`    BIGINT UNSIGNED NOT NULL,
   `user_id`       BIGINT UNSIGNED DEFAULT NULL,
@@ -250,7 +232,7 @@ CREATE TABLE `reviews` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------- cart
-CREATE TABLE `cart_items` (
+CREATE TABLE IF NOT EXISTS `cart_items` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED NOT NULL,
   `product_id` BIGINT UNSIGNED NOT NULL,
@@ -264,7 +246,7 @@ CREATE TABLE `cart_items` (
   CONSTRAINT `fk_cart_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `wishlist_items` (
+CREATE TABLE IF NOT EXISTS `wishlist_items` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED NOT NULL,
   `product_id` BIGINT UNSIGNED NOT NULL,
@@ -277,7 +259,7 @@ CREATE TABLE `wishlist_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------------- orders
-CREATE TABLE `orders` (
+CREATE TABLE IF NOT EXISTS `orders` (
   `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `uuid`             CHAR(36)        NOT NULL,
   `order_number`     VARCHAR(40)     NOT NULL,
@@ -327,7 +309,7 @@ CREATE TABLE `orders` (
   CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `order_items` (
+CREATE TABLE IF NOT EXISTS `order_items` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id`   BIGINT UNSIGNED NOT NULL,
   `product_id` BIGINT UNSIGNED DEFAULT NULL,
@@ -346,7 +328,7 @@ CREATE TABLE `order_items` (
   CONSTRAINT `fk_order_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `order_events` (
+CREATE TABLE IF NOT EXISTS `order_events` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id`   BIGINT UNSIGNED NOT NULL,
   `status`     VARCHAR(30)     NOT NULL,
@@ -362,7 +344,7 @@ CREATE TABLE `order_events` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------- customer returns
-CREATE TABLE `return_requests` (
+CREATE TABLE IF NOT EXISTS `return_requests` (
   `id`               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id`         BIGINT UNSIGNED NOT NULL,
   `user_id`          BIGINT UNSIGNED NOT NULL,
@@ -392,7 +374,7 @@ CREATE TABLE `return_requests` (
   CONSTRAINT `fk_returns_reviewer` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `return_request_items` (
+CREATE TABLE IF NOT EXISTS `return_request_items` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `return_request_id` BIGINT UNSIGNED NOT NULL,
   `order_item_id`     BIGINT UNSIGNED NOT NULL,
@@ -407,7 +389,7 @@ CREATE TABLE `return_request_items` (
   CONSTRAINT `fk_return_items_order_item` FOREIGN KEY (`order_item_id`) REFERENCES `order_items` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `return_events` (
+CREATE TABLE IF NOT EXISTS `return_events` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `return_request_id` BIGINT UNSIGNED NOT NULL,
   `status`            VARCHAR(20) NOT NULL,
@@ -422,7 +404,7 @@ CREATE TABLE `return_events` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------ payments
-CREATE TABLE `payments` (
+CREATE TABLE IF NOT EXISTS `payments` (
   `id`                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id`          BIGINT UNSIGNED NOT NULL,
   `gateway`           VARCHAR(30)     NOT NULL,
@@ -447,7 +429,7 @@ CREATE TABLE `payments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------- coupons
-CREATE TABLE `coupons` (
+CREATE TABLE IF NOT EXISTS `coupons` (
   `id`                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `code`                   VARCHAR(40)     NOT NULL,
   `description`            VARCHAR(190)    NOT NULL DEFAULT '',
@@ -470,7 +452,7 @@ CREATE TABLE `coupons` (
   CONSTRAINT `fk_coupons_category` FOREIGN KEY (`applies_to_category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `coupon_redemptions` (
+CREATE TABLE IF NOT EXISTS `coupon_redemptions` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `coupon_id`  BIGINT UNSIGNED NOT NULL,
   `user_id`    BIGINT UNSIGNED DEFAULT NULL,
@@ -487,7 +469,7 @@ CREATE TABLE `coupon_redemptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------ stock log
-CREATE TABLE `inventory_movements` (
+CREATE TABLE IF NOT EXISTS `inventory_movements` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `product_id` BIGINT UNSIGNED NOT NULL,
   `change_qty` INT             NOT NULL,
@@ -504,7 +486,7 @@ CREATE TABLE `inventory_movements` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------ notifications
-CREATE TABLE `notifications` (
+CREATE TABLE IF NOT EXISTS `notifications` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED NOT NULL,
   `title`      VARCHAR(160)    NOT NULL,
@@ -519,7 +501,7 @@ CREATE TABLE `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------ settings
-CREATE TABLE `settings` (
+CREATE TABLE IF NOT EXISTS `settings` (
   `setting_key`   VARCHAR(80) NOT NULL,
   `setting_value` TEXT        DEFAULT NULL,
   `updated_at`    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -527,7 +509,7 @@ CREATE TABLE `settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------------- rate limits
-CREATE TABLE `rate_limits` (
+CREATE TABLE IF NOT EXISTS `rate_limits` (
   `bucket`       VARCHAR(40) NOT NULL,
   `identifier`   VARCHAR(64) NOT NULL,
   `hits`         INT         NOT NULL DEFAULT 0,
@@ -538,7 +520,7 @@ CREATE TABLE `rate_limits` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------- audit trail
-CREATE TABLE `audit_log` (
+CREATE TABLE IF NOT EXISTS `audit_log` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id`    BIGINT UNSIGNED DEFAULT NULL,
   `action`     VARCHAR(80)     NOT NULL,
@@ -556,7 +538,7 @@ CREATE TABLE `audit_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------- newsletter
-CREATE TABLE `newsletter_subscribers` (
+CREATE TABLE IF NOT EXISTS `newsletter_subscribers` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `email`      VARCHAR(160)    NOT NULL,
   `source`     VARCHAR(40)     NOT NULL DEFAULT 'footer',
@@ -566,7 +548,7 @@ CREATE TABLE `newsletter_subscribers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------ contact inbox
-CREATE TABLE `contact_messages` (
+CREATE TABLE IF NOT EXISTS `contact_messages` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name`       VARCHAR(120)    NOT NULL,
   `email`      VARCHAR(160)    NOT NULL,
@@ -583,7 +565,7 @@ CREATE TABLE `contact_messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------- search terms
-CREATE TABLE `search_log` (
+CREATE TABLE IF NOT EXISTS `search_log` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `term`       VARCHAR(120)    NOT NULL,
   `results`    INT             NOT NULL DEFAULT 0,
@@ -601,24 +583,130 @@ CREATE TABLE `search_log` (
 -- having rows means the admin settings screen opens with real values.
 -- ---------------------------------------------------------------------------
 INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
-  ('store_name', 'SoftMyMarket'),
+  ('store_name', 'YourMarket'),
   ('store_tagline', 'Sri Lanka''s friendliest online store'),
-  ('store_description', 'Genuine products, honest prices and delivery you can track — island-wide.'),
-  ('support_email', 'hello@softmymarket.lk'),
+  ('store_description', 'Shop quality products from one trusted local store, with reliable delivery and helpful customer support.'),
+  ('store_language', 'en-LK'),
+  ('store_locality', 'Colombo'),
+  ('store_country', 'Sri Lanka'),
+  ('store_country_code', 'LK'),
+  ('store_hours', ''),
+  ('delivery_promise', '1–4 working days'),
+  ('support_response_time', 'within one business day'),
+  ('social_image_url', ''),
+  ('faq_items', ''),
+  ('return_window_days', '7'),
+  ('trust_delivery_title', 'Island-wide delivery'),
+  ('trust_delivery_text', 'Delivery times are shown at checkout'),
+  ('trust_payment_title', 'Flexible payments'),
+  ('trust_payment_text', 'Available methods appear at checkout'),
+  ('trust_quality_title', 'Carefully selected products'),
+  ('trust_quality_text', 'Product details shown on each listing'),
+  ('trust_returns_title', 'Customer care'),
+  ('trust_returns_text', 'Contact our team if you need help'),
+  ('support_email', 'hello@yourmarket.example'),
+  ('orders_email', 'orders@yourmarket.example'),
   ('support_phone', '+94 11 234 5678'),
   ('support_whatsapp', '+94 77 234 5678'),
   ('address', '128 Galle Road, Colombo 03, Sri Lanka'),
   ('currency', 'LKR'),
   ('currency_symbol', 'Rs'),
-  ('order_prefix', 'SMM'),
+  ('order_prefix', 'YM'),
   ('default_shipping_fee', '450'),
   ('free_shipping_threshold', '15000'),
-  ('cod_fee', '0'),
   ('tax_percent', '0'),
   ('low_stock_threshold', '5'),
   ('allow_guest_checkout', '1'),
   ('live_tracking_refresh', '30'),
   ('tracking_note', 'Tracking updates often. Keep this page open and it will refresh by itself.'),
-  ('bank_transfer_note', 'Transfer to Seylan Bank · 0123456789 · SoftMyMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.'),
-  ('default_meta_description', 'Shop electronics, fashion, home and grocery with cash on delivery, card payments and island-wide tracking.')
+  ('bank_transfer_note', 'Transfer to Seylan Bank · 0123456789 · YourMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.'),
+  ('default_meta_description', '')
 ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
+
+
+-- Seed missing settings only; existing admin-customized values are preserved.
+INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`) VALUES
+  ('store_name', 'YourMarket'),
+  ('store_tagline', 'Sri Lanka''s friendliest online store'),
+  ('store_description', 'Shop quality products from one trusted local store, with reliable delivery and helpful customer support.'),
+  ('store_language', 'en-LK'),
+  ('store_locality', 'Colombo'),
+  ('store_country', 'Sri Lanka'),
+  ('store_country_code', 'LK'),
+  ('store_hours', ''),
+  ('delivery_promise', '1–4 working days'),
+  ('support_response_time', 'within one business day'),
+  ('social_image_url', ''),
+  ('faq_items', ''),
+  ('return_window_days', '7'),
+  ('trust_delivery_title', 'Island-wide delivery'),
+  ('trust_delivery_text', 'Delivery times are shown at checkout'),
+  ('trust_payment_title', 'Flexible payments'),
+  ('trust_payment_text', 'Available methods appear at checkout'),
+  ('trust_quality_title', 'Carefully selected products'),
+  ('trust_quality_text', 'Product details shown on each listing'),
+  ('trust_returns_title', 'Customer care'),
+  ('trust_returns_text', 'Contact our team if you need help'),
+  ('support_email', 'hello@yourmarket.example'),
+  ('orders_email', 'orders@yourmarket.example'),
+  ('support_phone', '+94 11 234 5678'),
+  ('support_whatsapp', '+94 77 234 5678'),
+  ('address', '128 Galle Road, Colombo 03, Sri Lanka'),
+  ('currency', 'LKR'),
+  ('currency_symbol', 'Rs'),
+  ('order_prefix', 'YM'),
+  ('default_shipping_fee', '450'),
+  ('free_shipping_threshold', '15000'),
+  ('tax_percent', '0'),
+  ('low_stock_threshold', '5'),
+  ('allow_guest_checkout', '1'),
+  ('live_tracking_refresh', '30'),
+  ('tracking_note', 'Tracking updates often. Keep this page open and it will refresh by itself.'),
+  ('bank_transfer_note', 'Transfer to Seylan Bank · 0123456789 · YourMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.'),
+  ('default_meta_description', '');
+
+-- Convert only untouched legacy defaults on existing installations.
+-- Replace only untouched former product defaults with the YourMarket defaults.
+-- Existing custom values are deliberately preserved. Back up before applying.
+UPDATE `settings` SET `setting_value` = 'YourMarket'
+ WHERE `setting_key` = 'store_name' AND `setting_value` = 'SoftMyMarket';
+
+UPDATE `settings` SET `setting_value` = 'hello@yourmarket.example'
+ WHERE `setting_key` = 'support_email'
+   AND `setting_value` IN ('hello@softmymarket.lk', 'hello@softmymarket.hstn.me');
+
+UPDATE `settings` SET `setting_value` = 'orders@yourmarket.example'
+ WHERE `setting_key` = 'orders_email' AND `setting_value` = 'orders@softmymarket.lk';
+
+UPDATE `settings` SET `setting_value` = ''
+ WHERE `setting_key` = 'mail_from_name' AND `setting_value` = 'SoftMyMarket';
+
+UPDATE `settings` SET `setting_value` = 'Welcome — delivery options and order details are shown at checkout.'
+ WHERE `setting_key` = 'announcement'
+   AND `setting_value` IN ('Free delivery on orders over Rs 15,000 — cash on delivery island-wide.', 'Island-wide delivery in 1–4 days · Free shipping over Rs 15,000');
+
+UPDATE `settings` SET `setting_value` = 'Thank you for shopping with us.'
+ WHERE `setting_key` = 'footer_note'
+   AND `setting_value` = 'SoftMyMarket is a single-vendor marketplace operated in Colombo, Sri Lanka.';
+
+UPDATE `settings` SET `setting_value` = ''
+ WHERE `setting_key` = 'default_meta_title'
+   AND `setting_value` = 'SoftMyMarket — online shopping in Sri Lanka';
+
+UPDATE `settings` SET `setting_value` = ''
+ WHERE `setting_key` = 'default_meta_description'
+   AND `setting_value` = 'Shop electronics, fashion, home and grocery with cash on delivery, card payments and island-wide tracking.';
+
+UPDATE `settings` SET `setting_value` = 'YM'
+ WHERE `setting_key` = 'order_prefix' AND `setting_value` = 'SMM';
+
+-- Existing store text may use the old brand in this exact shipped default note.
+UPDATE `settings`
+   SET `setting_value` = 'Transfer to Seylan Bank · 0123456789 · YourMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.'
+ WHERE `setting_key` = 'bank_transfer_note'
+   AND `setting_value` = 'Transfer to Seylan Bank · 0123456789 · SoftMyMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.';
+
+-- Remove legacy brand-specific social defaults only if they are still untouched.
+UPDATE `settings` SET `setting_value` = ''
+ WHERE (`setting_key` = 'facebook_url' AND `setting_value` = 'https://facebook.com/softmymarket')
+    OR (`setting_key` = 'instagram_url' AND `setting_value` = 'https://instagram.com/softmymarket');

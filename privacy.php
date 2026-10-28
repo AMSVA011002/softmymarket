@@ -4,13 +4,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/bootstrap.php';
 
 $pageTitle = 'Privacy policy';
-$pageDescription = 'What personal data SoftMyMarket collects, why, and how we protect it.';
+$pageDescription = 'What personal data ' . Settings::get('store_name') . ' collects, why, and how we protect it.';
 $heroTitle = 'Privacy policy';
 $heroSubtitle = 'What we collect, why we collect it, and how to exercise your rights.';
 $heroIcon = 'bi-shield-lock';
 require INCLUDES_PATH . '/layout/header.php';
 require INCLUDES_PATH . '/partials/page-hero.php';
 ?>
+<?php if (Settings::get('privacy_text') !== ''): ?>
+<section class="section"><div class="container-page"><div class="row justify-content-center"><div class="col-lg-9"><div class="card-soft p-3 p-md-4" style="white-space:pre-line"><?= e(Settings::get('privacy_text')) ?></div><p class="small text-ink-500 mt-3">Privacy questions? <a href="mailto:<?= e(Settings::get('support_email')) ?>"><?= e(Settings::get('support_email')) ?></a></p></div></div></div></section>
+<?php else: ?>
 <section class="section">
   <div class="container-page">
     <div class="row g-4 justify-content-center">
@@ -33,7 +36,7 @@ require INCLUDES_PATH . '/partials/page-hero.php';
           <p>Couriers (name, address, phone for delivery), payment providers (amount and reference for settlement), and our email/SMS delivery provider. We do not sell personal data.</p>
 
           <h2 class="h6 fw-bold mt-3">Cookies</h2>
-          <p>We use a session cookie to keep you signed in and remember your cart, plus a long-lived cookie when you tick "remember me". These are strictly necessary for the store to work; there is no third-party advertising tracker on this site.</p>
+          <p>We use session and authentication cookies needed for the store to work. Optional analytics or advertising scripts may run only when the store administrator configures them; review the policy with your privacy adviser and obtain any consent required by local law before enabling those services.</p>
 
           <h2 class="h6 fw-bold mt-3">How we protect it</h2>
           <ul>
@@ -56,4 +59,4 @@ require INCLUDES_PATH . '/partials/page-hero.php';
     </div>
   </div>
 </section>
-<?php require INCLUDES_PATH . '/layout/footer.php'; ?>
+<?php endif; require INCLUDES_PATH . '/layout/footer.php'; ?>

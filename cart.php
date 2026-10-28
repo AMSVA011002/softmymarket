@@ -40,7 +40,7 @@ require INCLUDES_PATH . '/layout/header.php';
     </div>
 
     <?php if ($cart['items'] === [] && $cart['unavailable'] === []): ?>
-      <?= View::emptyState('bi-bag', 'Your cart is empty', 'Find something you love — over 10,000 products with island-wide delivery.', 'Browse products', '/shop.php') ?>
+      <?= View::emptyState('bi-bag', 'Your cart is empty', 'Browse the catalogue to find products for your needs.', 'Browse products', '/shop.php') ?>
     <?php else: ?>
       <div class="row g-4">
         <div class="col-lg-8">
@@ -172,8 +172,8 @@ require INCLUDES_PATH . '/layout/header.php';
             </div>
             <ul class="list-unstyled small text-ink-500 mt-3 mb-0">
               <li class="mb-1"><i class="bi bi-shield-check text-brand me-1"></i> Secure checkout, encrypted end to end</li>
-              <li class="mb-1"><i class="bi bi-truck text-brand me-1"></i> Dispatch within 24 hours on weekdays</li>
-              <li><i class="bi bi-arrow-repeat text-brand me-1"></i> 7-day returns on most items</li>
+              <li class="mb-1"><i class="bi bi-truck text-brand me-1"></i> Typical delivery: <?= e(Settings::get('delivery_promise')) ?></li>
+              <li><i class="bi bi-arrow-repeat text-brand me-1"></i> <?= (int) max(1, min(90, Settings::int('return_window_days', 7))) ?>-day return request window</li>
             </ul>
             <div class="d-flex flex-wrap gap-1 mt-3">
               <?php foreach (array_keys(PaymentManager::gateways()) as $code): ?>

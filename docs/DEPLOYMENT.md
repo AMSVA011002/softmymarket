@@ -1,6 +1,6 @@
-# Deployment guide — SoftMyMarket
+# Deployment guide — YourMarket
 
-SoftMyMarket is a plain PHP 8.1+ / MySQL application. It runs on any shared
+YourMarket is a plain PHP 8.1+ / MySQL application. It runs on any shared
 hosting account (cPanel, Plesk, DirectAdmin) and on a VPS — no Composer, Node or
 build step is required in production.
 
@@ -64,33 +64,15 @@ A full credentials checklist lives in [DATABASE.md](DATABASE.md).
 
 ---
 
-## 4. Install the schema
+## 4. Create the database and first administrator
 
-**Fastest path (no SSH, works on every host):** phpMyAdmin → select the
-database → **Import** → `database/install.sql` → Import. That creates all 27
-tables, the default settings and the first administrator
-(`admin@softmymarket.hstn.me` / `SoftMy@Admin2026` — change it after signing in).
-Then optionally import `database/demo-data.sql` for a small demo catalogue.
+Create the database and its user manually in the hosting control panel, then select that database in phpMyAdmin and import the single SQL file `database/schema.sql`. Configure `config/config.php` with the correct database details and open the storefront. Register the first account immediately: the first public registration becomes the administrator; later registrations are customer accounts and require email confirmation.
 
-Verify the result in **Admin → Tools** (row counts, extensions, writable folders)
-or with `php tools/deploy-check.php`. For an already populated database, do not import `install.sql` because it begins by dropping application tables. Back up first and apply the applicable non-destructive migrations: `database/migrations/20261028_returns.sql` adds the return tables and `database/migrations/20261028_email_verification.sql` adds the verification table.
+The schema creates missing tables and defaults without dropping existing data. For an existing database, back it up first, then import the same `schema.sql`; it adds the current missing structures and preserves customized settings.
 
-**Alternative — the web installer.** Open `https://your-domain.lk/install/` and
-complete the three steps:
+After signing in as the first administrator, configure email delivery and invite team members via **Admin → Team**. Each invite contains the selected role and a generated temporary password; the team member must change it at first sign-in before accessing other pages.
 
-1. **Requirements + configuration** — server checks, app URL, database details.
-   The installer writes `config/config.php` and generates a 64-character
-   `app.key` (used to sign reset tokens and encrypt gateway references).
-2. **Schema** — imports `database/schema.sql` (27 tables, indexes and foreign
-   keys) and shows progress.
-3. **Administrator account** — name, email and a strong password, plus an
-   optional **demo catalogue** (120 products, 40 customers, 25 orders).
-
-When it finishes the installer writes `storage/installed.lock` and refuses to run
-again. `install/` stays useful for diagnostics; if you want it gone, delete the
-folder (the app does not depend on it). The shipped `.htaccess` already returns
-404 for `install/index.php`, and **Admin → Tools → Lock the installer** creates
-the same lock file without touching `.htaccess`.
+**Alternative — the web installer.** `/install/` uses the same `database/schema.sql` and can also create the first administrator interactively. It does not require or use a separate installation SQL file.
 
 ### Manual alternative
 
@@ -280,6 +262,7 @@ Add the same security headers the `.htaccess` sets (`X-Content-Type-Options`,
 
 1. Back up the database and `config/config.php`.
 2. Upload the new files over the old ones — never overwrite `config/config.php`.
-3. If `database/schema.sql` changed, apply the delta manually (the installer only
-   runs on an empty database).
+3. If `database/schema.sql` changed, back up the database and re-import it. It
+   adds missing tables and upgrades the first-login password flag without
+   dropping existing data or overwriting customized settings.
 4. Clear `storage/cache/` and reload the storefront.

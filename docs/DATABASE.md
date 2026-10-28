@@ -1,16 +1,13 @@
-# Database reference — SoftMyMarket
+# Database reference — YourMarket
 
-Authoritative source: [`database/schema.sql`](../database/schema.sql) — the only
-schema definition. The installer imports it verbatim and the seeder
-(`tools/seed.php`) writes through the same models the app uses.
-
-Two deploy-ready variants are generated from it (and kept in sync by
-`tests/run.php`, which fails if a table is missing from them):
-
-| File | Contents |
-| --- | --- |
-| [`database/install.sql`](../database/install.sql) | schema + default settings + the first administrator — import this on a fresh database |
-| [`database/demo-data.sql`](../database/demo-data.sql) | optional demo catalogue: 12 categories, 8 brands, 12 products, 5 coupons |
+The project ships one SQL file: [`database/schema.sql`](../database/schema.sql).
+Create the database and database user manually in your hosting panel, then import
+this file through phpMyAdmin. It contains the full table definitions and default
+store settings, but no administrator, customer, demo product, or seeded login.
+The first public registration becomes the administrator; later registrations
+are customers and require email verification. The web installer also imports
+this same schema. Optional demo records can be generated from **Admin → Tools**
+or `tools/seed.php`.
 
 * Engine: InnoDB, `utf8mb4` / `utf8mb4_unicode_ci`
 * 27 tables, 1 optional configurable prefix (`db.prefix`, empty by default)
@@ -19,19 +16,16 @@ Two deploy-ready variants are generated from it (and kept in sync by
 
 ---
 
-## 0. Importing the SQL files
+## 0. Creating and importing the database
 
-```text
-phpMyAdmin → select the database → Import → install.sql → Import
-                              (optional) → demo-data.sql → Import
-```
+1. In the hosting control panel, create a MySQL/MariaDB database and a dedicated user with privileges on that database.
+2. Select the database in phpMyAdmin and import `database/schema.sql`.
+3. Configure `config/config.php` with the actual database connection details.
+4. Open the storefront registration page and immediately create the first account. That account is granted the administrator role; later self-registrations are customers.
 
-Both files are self-contained: `SET NAMES utf8mb4`, `SET time_zone '+05:30'` and
-`SET FOREIGN_KEY_CHECKS` handling are inside them. No `CREATE DATABASE`/`USE`, no
-`DEFINER`, no triggers — a restricted shared-hosting user can run them. The last
-statement in each file prints a summary so a failed import is obvious.
+`schema.sql` is safe to re-import: it creates missing tables, adds the required first-login password flag when upgrading older `users` tables, seeds only missing setting rows, and updates only exact untouched legacy brand defaults. Existing custom setting values and user rows are preserved. Back up before importing into a database already containing data.
 
-For databases installed before these features, take a backup and apply the appropriate non-destructive migration once in phpMyAdmin: `database/migrations/20261028_returns.sql` for customer returns, then `database/migrations/20261028_email_verification.sql` for email confirmation. The latter creates only the verification-token table and does not rewrite existing user records. Verify afterwards with `php tools/deploy-check.php` or **Admin → Tools**.
+The SQL is compatible with MySQL 5.7/MariaDB, includes its charset and time-zone setup, and does not create the database itself or use `DEFINER`, routines, or `SUPER` privileges.
 
 ---
 
@@ -179,8 +173,7 @@ id 9  Gaming Laptops     parent 4     depth 2  path /1/4/
 ## 6. Seeding
 
 On a host without SSH, use **Admin → Tools → Seed demo data** (the same
-generator, batched to survive a 30-second execution limit) or import
-`database/demo-data.sql`.
+generator, batched to survive a 30-second execution limit) or use **Admin → Tools → Seed demo data** after the first administrator account has been created.
 
 
 ```bash

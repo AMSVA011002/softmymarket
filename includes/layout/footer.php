@@ -13,10 +13,14 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
   <div class="footer-trust">
     <div class="container-page">
       <div class="row g-3">
-        <div class="col-6 col-lg-3"><i class="bi bi-truck"></i><div><strong>Island-wide delivery</strong><span>1–4 working days</span></div></div>
-        <div class="col-6 col-lg-3"><i class="bi bi-cash-coin"></i><div><strong>Cash on delivery</strong><span>Pay when it arrives</span></div></div>
-        <div class="col-6 col-lg-3"><i class="bi bi-shield-check"></i><div><strong>Genuine products</strong><span>Local warranty</span></div></div>
-        <div class="col-6 col-lg-3"><i class="bi bi-arrow-repeat"></i><div><strong>7-day returns</strong><span>No-hassle exchanges</span></div></div>
+        <?php foreach ([
+            ['bi-truck', 'trust_delivery_title', 'trust_delivery_text'],
+            ['bi-cash-coin', 'trust_payment_title', 'trust_payment_text'],
+            ['bi-shield-check', 'trust_quality_title', 'trust_quality_text'],
+            ['bi-chat-dots', 'trust_returns_title', 'trust_returns_text'],
+        ] as [$icon, $titleKey, $textKey]): ?>
+          <div class="col-6 col-lg-3"><i class="bi <?= e($icon) ?>"></i><div><strong><?= e(Settings::get($titleKey)) ?></strong><span><?= e(Settings::get($textKey)) ?></span></div></div>
+        <?php endforeach; ?>
       </div>
     </div>
   </div>
@@ -38,7 +42,7 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
           <li class="mb-1"><i class="bi bi-envelope me-2 text-brand"></i><a class="text-decoration-none text-ink-600" href="mailto:<?= e(Settings::get('support_email')) ?>"><?= e(Settings::get('support_email')) ?></a></li>
         </ul>
         <div class="d-flex gap-2">
-          <?php foreach (['facebook_url' => 'facebook', 'instagram_url' => 'instagram', 'tiktok_url' => 'tiktok', 'youtube_url' => 'youtube'] as $key => $network):
+          <?php foreach (['facebook_url' => 'facebook', 'instagram_url' => 'instagram', 'tiktok_url' => 'tiktok', 'youtube_url' => 'youtube', 'twitter_url' => 'twitter-x', 'whatsapp_url' => 'whatsapp'] as $key => $network):
               $link = trim(Settings::get($key));
               if ($link === '') continue; ?>
             <a class="social-link" href="<?= e($link) ?>" rel="noopener nofollow" target="_blank" aria-label="<?= e(ucfirst($network)) ?>"><i class="bi bi-<?= e($network) ?>"></i></a>
@@ -246,13 +250,19 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
 
 <script src="<?= e(asset('assets/vendor/bootstrap/bootstrap.bundle.min.js')) ?>" defer></script>
 <script src="<?= e(asset('assets/js/app.js')) ?>" defer></script>
-<?php if (Settings::get('google_analytics_id') !== ''): ?>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e(Settings::get('google_analytics_id')) ?>"></script>
+<?php $analyticsId = Settings::get('google_analytics_id'); if (preg_match('/^(?:G-[A-Z0-9]+|UA-[0-9]+-[0-9]+)$/iD', $analyticsId)): ?>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e($analyticsId) ?>"></script>
   <script nonce="<?= e(Security::nonce()) ?>">
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', '<?= e(Settings::get('google_analytics_id')) ?>');
+    gtag('config', <?= json_encode($analyticsId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+  </script>
+<?php endif; ?>
+<?php $metaPixelId = Settings::get('meta_pixel_id'); if (preg_match('/^[0-9]{5,30}$/D', $metaPixelId)): ?>
+  <script nonce="<?= e(Security::nonce()) ?>">
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init','<?= e($metaPixelId) ?>');fbq('track','PageView');
   </script>
 <?php endif; ?>
 </body>

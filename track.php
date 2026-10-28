@@ -22,7 +22,7 @@ if ($orderNumber !== '' && $contact !== '') {
 }
 
 $pageTitle = 'Track your order';
-$pageDescription = 'Follow your SoftMyMarket order from confirmation to delivery.';
+$pageDescription = 'Follow your ' . Settings::get('store_name') . ' order from confirmation to delivery.';
 $noindex = true;
 require INCLUDES_PATH . '/layout/header.php';
 ?>

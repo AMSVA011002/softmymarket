@@ -1,6 +1,6 @@
 <?php
 /**
- * SoftMyMarket data seeder.
+ * YourMarket data seeder.
  *
  * CLI (recommended for a full-size catalogue):
  *   php tools/seed.php --products=10000 --customers=10000 --orders=250
@@ -382,7 +382,7 @@ function seed_products(int $count, array $categoryIds, array $brands): int
         $categoryName = $categoryNames[$categoryId] ?? 'General';
         $words = seed_defaults_for_category($categoryName);
         $brandId = $brandIds !== [] && mt_rand(0, 4) > 0 ? $brandIds[mt_rand(0, count($brandIds) - 1)] : null;
-        $brandName = $brandId !== null ? $brands[$brandId] : 'SoftMyMarket';
+        $brandName = $brandId !== null ? $brands[$brandId] : 'YourMarket';
         $title = $brandName . ' ' . seed_pick($words['prefix']) . ' ' . seed_pick($words['noun']) . ' ' . strtoupper(substr(md5((string) $index), 0, 3));
         $price = mt_rand($words['price'][0], $words['price'][1]);
         // Round to a believable retail price.
@@ -677,7 +677,7 @@ function seed_cli(array $argv): int
         }
     }
 
-    echo "SoftMyMarket seeder\n";
+    echo "YourMarket seeder\n";
     $started = microtime(true);
 
     $categories = seed_catalog_tree();

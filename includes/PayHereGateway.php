@@ -195,7 +195,7 @@ final class PayHereGateway extends Gateway
             'cancel_url' => $this->callbackUrl('/payment/return.php', $returnQuery + ['cancelled' => 1]),
             'notify_url' => $this->callbackUrl('/payment/notify.php', ['gateway' => $this->key]),
             'order_id' => $orderId,
-            'items' => 'SoftMyMarket order ' . $orderId,
+            'items' => Settings::get('store_name') . ' order ' . $orderId,
             'currency' => $currency,
             'amount' => $amount,
             'first_name' => $firstName,

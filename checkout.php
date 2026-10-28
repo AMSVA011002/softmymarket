@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
+$returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
 
 // "Buy now" adds a single product and continues straight to checkout.
 $buyNow = query_int('buy');
@@ -56,7 +57,7 @@ $districts = [
 $gateways = PaymentManager::available($quote['total']);
 
 $pageTitle = 'Checkout';
-$pageDescription = 'Secure checkout with cash on delivery, cards, bank transfer and pay-later options.';
+$pageDescription = 'Complete your order at ' . Settings::get('store_name') . ' using the payment methods available for your order.';
 $noindex = true;
 require INCLUDES_PATH . '/layout/header.php';
 ?>
@@ -277,9 +278,9 @@ require INCLUDES_PATH . '/layout/header.php';
           </div>
 
           <ul class="list-unstyled small text-ink-500 mt-3 mb-0">
-            <li class="mb-1"><i class="bi bi-truck text-brand me-1"></i> Estimated delivery: <?= e(fmt_date(date('Y-m-d', strtotime('+3 days')), 'D j M')) ?> – <?= e(fmt_date(date('Y-m-d', strtotime('+5 days')), 'D j M')) ?></li>
-            <li class="mb-1"><i class="bi bi-box-seam text-brand me-1"></i> Dispatch within 24 hours on weekdays</li>
-            <li><i class="bi bi-arrow-repeat text-brand me-1"></i> 7-day easy returns</li>
+            <li class="mb-1"><i class="bi bi-truck text-brand me-1"></i> Typical delivery: <?= e(Settings::get('delivery_promise')) ?></li>
+            <li class="mb-1"><i class="bi bi-box-seam text-brand me-1"></i> Delivery estimates are confirmed before you place your order</li>
+            <li><i class="bi bi-arrow-repeat text-brand me-1"></i> <?= (int) $returnWindowDays ?>-day return request window</li>
           </ul>
         </div>
       </div>

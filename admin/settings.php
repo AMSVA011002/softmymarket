@@ -22,6 +22,9 @@ if (isset($storeUrlParts['port'])) {
 /** Render one settings input. */
 $renderField = static function (string $key, array $meta): string {
     $value = Settings::get($key, (string) $meta['default']);
+    if ($key === 'mail_from_name' && $value === '') {
+        $value = Settings::get('store_name');
+    }
     $id = 'set-' . preg_replace('/[^a-z0-9_-]/i', '-', $key);
     $label = '<label class="form-label small mb-1" for="' . e($id) . '">' . e($meta['label']) . '</label>';
     $help = !empty($meta['help']) ? '<div class="form-text">' . e($meta['help']) . '</div>' : '';
@@ -60,6 +63,7 @@ $renderField = static function (string $key, array $meta): string {
         'number' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="number" step="0.01" value="' . e($value) . '">',
         'color' => '<input class="form-control form-control-sm form-control-color" id="' . e($id) . '" name="' . e($name) . '" type="color" value="' . e($value) . '">',
         'email' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="email" value="' . e($value) . '">',
+        'url' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="url" value="' . e($value) . '" placeholder="https://">',
         default => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" value="' . e($value) . '">',
     };
     return $label . $control . $help;
