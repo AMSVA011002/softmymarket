@@ -10,5 +10,5 @@
     <path d="M250 210h140l-12 86a22 22 0 0 1-22 19h-72a22 22 0 0 1-22-19l-12-86Z"/>
     <path d="M290 214v-18a30 30 0 0 1 60 0v18"/>
   </g>
-  <text x="320" y="380" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#0a6510">SoftMyMarket</text>
+  <text x="320" y="380" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#0a6510">YourMarket</text>
 </svg>

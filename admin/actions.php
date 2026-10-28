@@ -458,7 +458,6 @@ switch ($action) {
         $name = trim((string) post('name', ''));
         $email = strtolower(trim((string) post('email', '')));
         $role = (string) post('role', 'staff');
-        $password = (string) post('password', '');
         if (mb_strlen($name) < 2 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $done('danger', 'Enter a name and a valid email address.');
         }
@@ -473,31 +472,39 @@ switch ($action) {
                 // Editing must not quietly un-suspend someone: the status only
                 // changes through the explicit suspend/reactivate buttons.
                 $existing = Users::find($targetId);
-                $status = $existing !== null && $existing['status'] === 'suspended' ? 'suspended' : 'active';
-                $fields = ['name' => $name, 'email' => $email, 'role' => $role, 'status' => $status];
-                if ($password !== '') {
-                    $errors = Auth::passwordErrors($password);
-                    if ($errors !== []) {
-                        $done('danger', implode(' ', $errors));
-                    }
-                    $fields['password_hash'] = Auth::hashPassword($password);
+                if ($existing === null || !in_array((string) $existing['role'], ['admin', 'staff'], true)) {
+                    $done('danger', 'That team member no longer exists.');
                 }
-                Users::update($targetId, $fields);
-            } else {
-                $errors = Auth::passwordErrors($password);
-                if ($errors !== []) {
-                    $done('danger', implode(' ', $errors));
-                }
-                Users::create([
-                    'name' => $name, 'email' => $email, 'role' => $role,
-                    'password_hash' => Auth::hashPassword($password), 'status' => 'active',
-                ]);
+                $status = $existing['status'] === 'suspended' ? 'suspended' : 'active';
+                Users::update($targetId, ['name' => $name, 'email' => $email, 'role' => $role, 'status' => $status]);
+                Audit::log('team.saved', 'user', $targetId);
+                $done('success', 'Team member details saved.');
             }
+
+            do {
+                $temporaryPassword = Security::randomToken(18);
+            } while (Auth::passwordErrors($temporaryPassword) !== []);
+            $targetId = Users::create([
+                'name' => $name,
+                'email' => $email,
+                'role' => $role,
+                'status' => 'active',
+                'email_verified_at' => date('Y-m-d H:i:s'),
+                'must_change_password' => 1,
+                'password_hash' => Auth::hashPassword($temporaryPassword),
+            ]);
+            $inviteUser = Users::find($targetId);
+            if ($inviteUser === null || !Mailer::teamInvitation($inviteUser, $temporaryPassword)) {
+                Users::purge($targetId);
+                Audit::log('team.invitation_failed', 'user', null, ['email' => $email, 'role' => $role]);
+                $done('danger', 'The invitation email could not be sent, so no team account was created. Check Admin → Settings → Email and try again.');
+            }
+            Audit::log('team.invited', 'user', $targetId, ['email' => $email, 'role' => $role]);
+            $done('success', 'Invitation sent to ' . $email . '. The team member must change the temporary password at first sign-in.');
         } catch (Throwable $e) {
-            $done('danger', $e->getMessage());
+            error_log('Team account update failed: ' . $e->getMessage());
+            $done('danger', 'The team account could not be saved. Check the email address and try again.');
         }
-        Audit::log('team.saved', 'user', $targetId);
-        $done('success', 'Team member saved.');
 
     case 'team_suspend':
         admin_require('users.manage');
@@ -585,16 +592,62 @@ switch ($action) {
                 continue;
             }
             $values[$key] = is_array($raw) ? (string) json_encode($raw, JSON_UNESCAPED_UNICODE) : trim((string) $raw);
+            if (strlen($values[$key]) > 4000) {
+                $done('danger', strtolower((string) $meta['label']) . ' is too long.');
+            }
             if ($meta['type'] === 'number') {
                 if (!is_numeric($values[$key])) {
                     $done('danger', 'Enter a valid number for ' . strtolower((string) $meta['label']) . '.');
                 }
-                if ($key === 'mail_smtp_port' && ((int) $values[$key] < 1 || (int) $values[$key] > 65535)) {
+                $number = (float) $values[$key];
+                if ($number < 0) {
+                    $done('danger', strtolower((string) $meta['label']) . ' cannot be negative.');
+                }
+                if ($key === 'tax_percent' && $number > 100) {
+                    $done('danger', 'Tax / VAT percent must be between 0 and 100.');
+                }
+                if ($key === 'live_tracking_refresh' && ($number < 5 || $number > 120)) {
+                    $done('danger', 'Live tracking refresh must be between 5 and 120 seconds.');
+                }
+                if ($key === 'return_window_days' && ($number < 1 || $number > 90 || floor($number) !== $number)) {
+                    $done('danger', 'The return request window must be a whole number from 1 to 90 days.');
+                }
+                if ($key === 'mail_smtp_port' && ((int) $number < 1 || (int) $number > 65535)) {
                     $done('danger', 'SMTP port must be between 1 and 65535.');
                 }
-                if ($key === 'mail_smtp_timeout' && ((int) $values[$key] < 5 || (int) $values[$key] > 60)) {
+                if ($key === 'mail_smtp_timeout' && ($number < 5 || $number > 60)) {
                     $done('danger', 'SMTP timeout must be between 5 and 60 seconds.');
                 }
+            }
+            if ($meta['type'] === 'url' && $values[$key] !== '') {
+                $parts = parse_url($values[$key]);
+                if (!filter_var($values[$key], FILTER_VALIDATE_URL) || !is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+                    $done('danger', strtolower((string) $meta['label']) . ' must be a valid https URL.');
+                }
+            }
+            if ($key === 'currency' && $values[$key] !== '') {
+                if (!preg_match('/^[A-Za-z]{3}$/D', $values[$key])) {
+                    $done('danger', 'Currency code must contain exactly three letters (for example LKR or USD).');
+                }
+                $values[$key] = strtoupper($values[$key]);
+            }
+            if ($key === 'store_country_code' && $values[$key] !== '') {
+                if (!preg_match('/^[A-Za-z]{2}$/D', $values[$key])) {
+                    $done('danger', 'Country code must contain two letters (ISO 3166-1 alpha-2).');
+                }
+                $values[$key] = strtoupper($values[$key]);
+            }
+            if ($key === 'store_language' && !preg_match('/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/D', $values[$key])) {
+                $done('danger', 'Enter a valid language tag such as en-LK or si-LK.');
+            }
+            if ($key === 'google_analytics_id' && $values[$key] !== '' && !preg_match('/^(?:G-[A-Z0-9]+|UA-[0-9]+-[0-9]+)$/iD', $values[$key])) {
+                $done('danger', 'Enter a valid Google Analytics measurement ID.');
+            }
+            if ($key === 'meta_pixel_id' && $values[$key] !== '' && !preg_match('/^[0-9]{5,30}$/D', $values[$key])) {
+                $done('danger', 'Meta Pixel ID must contain 5 to 30 digits.');
+            }
+            if ($meta['type'] === 'color' && !preg_match('/^#[0-9a-f]{6}$/iD', $values[$key])) {
+                $done('danger', 'Choose a valid six-digit hexadecimal colour.');
             }
             if ($meta['type'] === 'select' && !array_key_exists($values[$key], (array) ($meta['options'] ?? []))) {
                 $done('danger', 'Choose a valid ' . strtolower((string) $meta['label']) . '.');
@@ -624,7 +677,7 @@ switch ($action) {
         $admin = Auth::user();
         $sent = $admin !== null && Mailer::send(
             (string) $admin['email'],
-            'SoftMyMarket email configuration test',
+            Settings::get('store_name') . ' email configuration test',
             Mailer::wrap('Email configuration test', '<p>Your configured transactional email transport can deliver messages to this administrator address.</p>')
         );
         if ($sent) {

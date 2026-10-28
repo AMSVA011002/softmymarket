@@ -1,4 +1,4 @@
-# SoftMyMarket
+# YourMarket
 
 A production-ready, single-vendor marketplace for Sri Lanka — **PHP 8.1 + MySQL +
 Bootstrap 5**, no Composer, no build step.
@@ -44,8 +44,7 @@ HTML/CSS/JS/PHP/MySQL stack.
 * Settings (general, commerce, content, authenticated SMTP/email delivery, payments, hero slides), audit log
   — hero slides, the store logo and the favicon all take a Google Drive share link
   or any image URL, and hero slides can be added or removed
-* Team accounts: add, edit, suspend, reactivate and delete — a suspended member
-  keeps their history and can be switched back on, deleting is confirmed and audited
+* Team accounts: invite by email with the assigned role and temporary password; require a password change before first use, then edit, suspend, reactivate or delete accounts with audited history
 * Maintenance mode: one switch closes the storefront behind a branded holding page
   (HTTP 503 + `Retry-After`); a store-team sign-in link leads directly to the
   commerce settings, login submissions remain available while registration stays
@@ -92,18 +91,12 @@ the newest lines of `storage/logs/error-*.log`.
 
 ## Quick start (shared hosting, no SSH)
 
-1. Upload every folder to the web root — **including `config/config.php`**
-   (git-ignored, it holds the DB password) or create it from
-   `config/config.example.php`.
-2. phpMyAdmin → select the database → **Import** →
-   [`database/install.sql`](database/install.sql)
-   (27 tables + settings + the first admin).
-   Optional: [`database/demo-data.sql`](database/demo-data.sql) for 12 demo
-   products, 12 categories, 8 brands and 5 coupons.
-3. Open the site, sign in at `/login.php`, change the password, then
-   **Admin → Tools → Lock the installer**.
-4. Add the rest of the catalogue in **Admin → Tools → Seed demo data** (works
-   without SSH, batched for free-plan time limits) or from the product screens.
+1. Create a MySQL/MariaDB database and database user in your hosting panel.
+2. Import only [`database/schema.sql`](database/schema.sql) into that database with phpMyAdmin. It creates tables and defaults, but no accounts.
+3. Copy `config/config.example.php` to `config/config.php` and enter the actual database credentials and app key.
+4. Open the storefront registration page and create the first account. The first registration is made administrator; every later public registration is a customer and must verify its email.
+5. Sign in to the dashboard, configure email delivery, and invite any team members from **Admin → Team**. The invitation email contains a temporary password that must be changed at first sign-in.
+
 
 ### Command line (VPS / local)
 
@@ -114,12 +107,7 @@ php tests/run.php            # unit tests, no DB writes
 php tests/run.php --db       # + database integrity checks
 ```
 
-Demo logins after seeding (change before going live):
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin (from `install.sql`) | `admin@softmymarket.hstn.me` | `SoftMy@Admin2026` |
-| Customer (any seeded account) | see **Admin → Customers** | `Password123!` |
+Optional demo customers can be added later with **Admin → Tools → Seed demo data**. There is no seeded administrator or default admin password; the first administrator chooses their own password during registration.
 
 ---
 
@@ -135,7 +123,7 @@ api/              JSON endpoints (cart, wishlist, live-orders, search-suggest)
 payment/          start / return / notify / simulate / proof
 includes/         core: Database, Auth, Security, Csrf, models, services
 assets/           Bootstrap, Icons, app CSS/JS (vendored, no CDN)
-database/         schema.sql (canonical), install.sql (deploy), demo-data.sql
+database/         schema.sql (only SQL file; tables and default settings)
 tools/            seed.php, deploy-check.php (CLI diagnostics)
 install/          three-step web installer
 storage/          logs, cache, uploads, sessions, backups (not web-readable)
@@ -155,6 +143,7 @@ tests/            CLI test suite
 * [docs/DATABASE.md](docs/DATABASE.md) — credentials checklist, all 27 tables,
   status pipeline, category tree, seeding, maintenance SQL
 * [docs/EMAIL.md](docs/EMAIL.md) — SMTP setup in Admin settings, encrypted credentials, test delivery and verification workflow
+* [docs/SETTINGS.md](docs/SETTINGS.md) — YourMarket branding, customizable store settings, existing-install schema upgrade and currency/locale caveats
 * [docs/SECURITY.md](docs/SECURITY.md) — threat model and every control
   (prepared statements, CSRF, rate limits, sessions, permissions, uploads,
   payment callbacks), plus the pre-launch hardening checklist
@@ -203,11 +192,10 @@ product saves).
 | Item | State |
 | --- | --- |
 | Database credentials | configured (`sql306.hstn.me` / `mseet_43261025_softmymarket`) |
-| SQL scripts | ready — `database/install.sql` + `database/demo-data.sql` |
+| SQL script | `database/schema.sql` — create/import the database schema |
 | Domain | `softmymarket.hstn.me` — set `app.url` once SSL is active |
 | Payment gateways | COD + bank transfer enabled; Seylan / PayHere / KOKO / Payzy / Mintpay await merchant credentials |
 | SMTP | not configured — mail uses the host's sendmail |
-| Demo data | import `demo-data.sql` or use Admin → Tools |
+| Demo data | optional, use Admin → Tools after setup |
 
-Rotate the database password that was shared during setup, and change the
-seeded administrator password on first sign-in.
+Rotate the database password that was shared during setup. The first administrator account is created during the first public registration; there is no seeded administrator password.

@@ -5,6 +5,31 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 $pageTitle = 'Help centre';
 $pageDescription = 'Answers about orders, delivery, payments and returns.';
+$customFaqs = trim(Settings::get('faq_items'));
+$topics = [];
+if ($customFaqs !== '') {
+    foreach (preg_split('/\\R/u', $customFaqs) ?: [] as $line) {
+        $pair = explode('|', trim($line), 2);
+        if (count($pair) === 2 && trim($pair[0]) !== '' && trim($pair[1]) !== '') {
+            $topics[] = [trim($pair[0]), trim($pair[1])];
+            if (count($topics) >= 20) break;
+        }
+    }
+}
+if ($topics === []) {
+    $methods = array_map('payment_method_label', array_keys(PaymentManager::available(1)));
+    $returnDays = max(1, min(90, Settings::int('return_window_days', 7)));
+    $topics = [
+        ['How long does delivery take?', 'Typical delivery time: ' . Settings::get('delivery_promise') . '. See the Shipping & delivery page for the current rates and details.'],
+        ['Which payment methods do you accept?', $methods !== [] ? 'Currently available at checkout: ' . implode(', ', $methods) . '.' : 'Payment methods are shown at checkout.'],
+        ['Is cash on delivery available?', isset(PaymentManager::available(1)['COD']) ? 'Cash on delivery is available for eligible orders; the checkout page shows whether it applies to your order.' : 'Cash on delivery is not currently enabled. Other available methods appear at checkout.'],
+        ['How do I return an item?', 'Submit a return request within ' . $returnDays . ' days of delivery from your account. See the Returns & refunds page for the terms.'],
+        ['Can I change my delivery address after ordering?', 'Contact support as soon as possible with your order number. Address changes may not be possible after dispatch.'],
+        ['Do products include a warranty?', 'Warranty information is shown on individual product listings where applicable. Contact support if you need help.'],
+        ['Do I need an account to order?', Settings::bool('allow_guest_checkout', true) ? 'No, guest checkout is available. An account also lets you save addresses and manage orders.' : 'Yes. Sign in or create an account before checkout.'],
+        ['How do I use a coupon?', 'Enter your code in the coupon field on the cart or checkout page. Coupon conditions are shown when you apply it.'],
+    ];
+}
 $heroTitle = 'Help centre';
 $heroSubtitle = 'Everything you need to know about ordering, paying and getting your parcel.';
 $heroIcon = 'bi-life-preserver';
@@ -16,18 +41,7 @@ require INCLUDES_PATH . '/partials/page-hero.php';
     <div class="row g-4">
       <div class="col-lg-8">
         <div class="accordion" id="helpAccordion">
-          <?php
-          $topics = [
-              ['How long does delivery take?', 'In-stock orders placed before 2pm on a weekday are dispatched the same day. Colombo and Gampaha usually arrive in 1–2 working days, other districts in 2–4, and remote areas in 4–6. You can follow every step from the tracking page.'],
-              ['Which payment methods do you accept?', 'Cash on delivery, Visa/Mastercard/Amex via Seylan Bank, direct bank transfer to Seylan Bank or Commercial Bank, and buy-now-pay-later with KOKO, Payzy and Mintpay.'],
-              ['Is cash on delivery available everywhere?', 'Yes — island-wide, up to an order value of Rs 150,000. Please have the exact amount ready for the rider.'],
-              ['How do I return an item?', 'Contact us within 7 days of delivery with your order number. Items must be unused and in original packaging. We arrange a pickup or ask you to drop the parcel at our Colombo office.'],
-              ['Can I change my delivery address after ordering?', 'If the order has not shipped yet, message us with the order number and we will update it. Once dispatched, changes go through the courier and may add a day.'],
-              ['Do you offer warranties?', 'Products that carry a local warranty show it on the product page. Keep your invoice — it is your warranty proof and can be downloaded from your account.'],
-              ['Do I need an account to order?', 'No, guest checkout is enabled. An account lets you save addresses, track orders in one place and collect wishlist items.'],
-              ['How do I use a coupon?', 'Enter the code in the coupon box on the cart or checkout page and press Apply. One coupon per order; some codes have a minimum spend.'],
-          ];
-          foreach ($topics as $index => [$question, $answer]): ?>
+          <?php foreach ($topics as $index => [$question, $answer]): ?>
             <div class="accordion-item border-0 border-bottom">
               <h2 class="accordion-header">
                 <button class="accordion-button <?= $index === 0 ? '' : 'collapsed' ?> px-0 shadow-none bg-transparent fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#help-<?= $index ?>" aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>">

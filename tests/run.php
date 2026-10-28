@@ -1,6 +1,6 @@
 <?php
 /**
- * SoftMyMarket test runner.
+ * YourMarket test runner.
  *
  *   php tests/run.php            # fast, read-only unit tests (no database writes)
  *   php tests/run.php --db       # also run database-backed checks
@@ -119,7 +119,7 @@ $options = getopt('', ['db', 'filter::']);
 $withDb = array_key_exists('db', $options);
 T::$filter = (string) ($options['filter'] ?? '');
 
-echo "SoftMyMarket test suite — PHP " . PHP_VERSION . "\n";
+echo "YourMarket test suite — PHP " . PHP_VERSION . "\n";
 echo 'Mode: ' . ($withDb ? "unit + database" : 'unit only') . "\n\n";
 
 /* ------------------------------------------------------------------ helpers */
@@ -540,48 +540,58 @@ T::case('returns: lifecycle only allows valid next steps', function (): void {
 
 /* ---------------------------------------------------------------- sql files */
 
-T::case('sql: database/install.sql creates every table in schema.sql', function (): void {
+T::case('sql: one additive schema file contains the complete database structure', function (): void {
     $root = dirname(__DIR__);
     $schema = (string) file_get_contents($root . '/database/schema.sql');
-    $install = (string) file_get_contents($root . '/database/install.sql');
 
-    preg_match_all('/CREATE TABLE `(\w+)`/', $schema, $matches);
-    $expected = $matches[1];
-    T::true(count($expected) >= 27, 'expected at least 27 tables in schema.sql, found ' . count($expected));
+    preg_match_all('/CREATE TABLE IF NOT EXISTS `(\w+)`/', $schema, $matches);
+    $tables = $matches[1];
+    T::same(27, count($tables), 'expected exactly 27 tables in schema.sql');
+    T::same(count($tables), count(array_unique($tables)), 'schema table names must be unique');
     foreach (['return_requests', 'return_request_items', 'return_events', 'email_verifications'] as $table) {
-        T::contains('CREATE TABLE `' . $table . '`', $schema, "schema.sql is missing required table {$table}");
+        T::contains('CREATE TABLE IF NOT EXISTS `' . $table . '`', $schema, "schema.sql is missing required table {$table}");
     }
-    T::contains('CREATE TABLE `return_requests`', (string) file_get_contents($root . '/database/migrations/20261028_returns.sql'), 'upgrade migration must add return requests without dropping existing data');
-    $emailMigration = (string) file_get_contents($root . '/database/migrations/20261028_email_verification.sql');
-    T::contains('CREATE TABLE `email_verifications`', $emailMigration, 'email verification upgrade migration must create the token table');
-    T::false(str_contains($emailMigration, 'DROP TABLE'), 'email verification migration must not drop existing data');
-
-    foreach ($expected as $table) {
-        T::contains('CREATE TABLE `' . $table . '`', $install, "install.sql is missing table {$table}");
-    }
-    T::contains('DROP TABLE IF EXISTS `users`', $install, 'install.sql must be re-runnable');
-
-    // The production script must not carry the demo catalogue.
-    T::false(str_contains($install, "INSERT INTO `products`"), 'install.sql should stay schema + admin only');
+    T::false(str_contains($schema, 'DROP TABLE'), 'schema.sql must preserve existing tables');
+    T::contains('must_change_password', $schema, 'schema needs the forced first-login password flag');
+    T::contains('PREPARE ym_password_change_stmt', $schema, 'schema needs a re-import-safe password flag upgrade');
+    T::contains('INSERT IGNORE INTO `settings`', $schema, 'schema should add only missing default settings');
+    T::contains("`setting_value` = 'SoftMyMarket'", $schema, 'schema should normalize exact old brand defaults');
+    T::false(is_file($root . '/database/install.sql'), 'schema.sql must be the only SQL file');
 });
 
-T::case('sql: install.sql seeds an administrator and the store settings', function (): void {
-    $install = (string) file_get_contents(dirname(__DIR__) . '/database/install.sql');
-    T::contains("INSERT INTO `users`", $install, 'no administrator insert');
-    T::contains("'admin'", $install, 'the inserted user must have the admin role');
-    T::true((bool) preg_match('/\$2y\$12\$[.\/A-Za-z0-9]{53}/', $install), 'admin password must be a bcrypt cost-12 hash');
-    T::contains("('store_name', 'SoftMyMarket')", $install, 'store settings are missing');
+T::case('registration grants admin once and customer thereafter', function (): void {
+    $registration = (string) file_get_contents(dirname(__DIR__) . '/actions/auth.php');
+    T::contains('GET_LOCK(:lock_name, 10)', $registration, 'first registration role assignment must be serialized');
+    T::contains("'role' => \$isFirstAccount ? 'admin' : 'customer'", $registration, 'only first registrant becomes admin');
+    T::contains("'status' => \$isFirstAccount ? 'active' : 'pending'", $registration, 'first admin is active, later customers verify email');
 });
 
-T::case('sql: demo-data.sql only touches catalogue tables', function (): void {
-    $demo = (string) file_get_contents(dirname(__DIR__) . '/database/demo-data.sql');
-    preg_match_all('/INSERT IGNORE INTO `(\w+)`/', $demo, $matches);
-    T::true($matches[1] !== [], 'demo-data.sql has no inserts');
-    foreach (array_unique($matches[1]) as $table) {
-        T::true(in_array($table, ['categories', 'brands', 'products', 'coupons'], true),
-            "demo-data.sql must not insert into {$table}");
+T::case('team invitations email a temporary password and force a first-login change', function (): void {
+    $teamActions = (string) file_get_contents(dirname(__DIR__) . '/admin/actions.php');
+    $mailer = (string) file_get_contents(dirname(__DIR__) . '/includes/Mailer.php');
+    $bootstrap = (string) file_get_contents(dirname(__DIR__) . '/includes/bootstrap.php');
+    $accountAction = (string) file_get_contents(dirname(__DIR__) . '/actions/account.php');
+    T::contains('Mailer::teamInvitation', $teamActions, 'creating a team account must send its invitation');
+    T::contains('must_change_password', $teamActions, 'new team account must require a password change');
+    T::contains('Temporary password:', $mailer, 'invitation email must contain the temporary password');
+    T::contains("redirect('/account/settings.php?force_password=1')", $bootstrap, 'forced-password users must be routed to settings');
+    T::contains("'must_change_password' => 0", $accountAction, 'changing the password must clear the forced-change flag');
+});
+
+T::case('settings: YourMarket defaults and dashboard customization fields are available', function (): void {
+    $root = dirname(__DIR__);
+    T::same('YourMarket', Settings::DEFAULTS['store_name'], 'brand default');
+    foreach (['store_description', 'orders_email', 'store_language', 'store_locality', 'store_country_code', 'social_image_url', 'twitter_url', 'meta_pixel_id', 'return_window_days', 'delivery_promise', 'faq_items', 'trust_delivery_text'] as $key) {
+        T::true(array_key_exists($key, Settings::DEFAULTS), 'missing setting default: ' . $key);
     }
-    T::contains('/assets/img/demo/product-01.svg', $demo, 'demo products should use the bundled artwork');
+    $adminSettings = (string) file_get_contents($root . '/admin/includes/bootstrap.php');
+    foreach (['store_description', 'orders_email', 'social_image_url', 'twitter_url', 'trust_delivery_text', 'return_window_days', 'faq_items'] as $key) {
+        T::contains("'" . $key . "' =>", $adminSettings, 'missing Admin setting field ' . $key);
+    }
+    T::contains("Settings::get('currency_symbol'", (string) file_get_contents($root . '/includes/helpers.php'), 'money formatting should honor the dashboard currency symbol');
+    T::contains("Settings::get('meta_pixel_id')", (string) file_get_contents($root . '/includes/layout/footer.php'), 'configured Meta Pixel should be included on storefront pages');
+
+    T::contains("`setting_value` = 'SoftMyMarket'", (string) file_get_contents($root . '/database/schema.sql'), 'schema should update only known old brand defaults');
 });
 
 T::case('invoice: configured store logo is used with initials as fallback', function (): void {

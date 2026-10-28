@@ -60,7 +60,7 @@ if (($filters['condition'] ?? '') !== '') {
 $pageTitle = $term !== '' ? 'Search results for “' . $term . '”' : ($activeCategory !== null ? $activeCategory['name'] : 'Shop all products');
 $pageDescription = $term !== ''
     ? 'Products matching “' . $term . '” — ' . number_format($total) . ' results.'
-    : 'Browse ' . number_format($total) . ' products across every department, with cash on delivery and island-wide shipping.';
+    : 'Browse ' . number_format($total) . ' products across every department at ' . Settings::get('store_name') . '.';
 $noindex = $term !== '' || (int) $filters['page'] > 1;
 $canonical = $term === '' ? url('/shop.php' . ($activeCategory !== null ? '?category=' . rawurlencode((string) $activeCategory['slug']) : '')) : null;
 require INCLUDES_PATH . '/layout/header.php';

@@ -350,7 +350,7 @@ function abort(int $status, string $message = ''): never
         429 => 'Too many requests',
         default => 'Something went wrong',
     };
-    $app = e((string) Config::get('app.name', 'SoftMyMarket'));
+    $app = e((string) Config::get('app.name', 'YourMarket'));
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
     echo '<title>' . $status . ' — ' . $title . '</title><link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
     echo '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:560px">';
@@ -376,7 +376,8 @@ function money(float|int|string|null $amount, bool $withSymbol = true): string
     if (!$withSymbol) {
         return $formatted;
     }
-    return (string) Config::get('app.currency_symbol', 'Rs') . ' ' . $formatted;
+    $symbol = Settings::get('currency_symbol', (string) Config::get('app.currency_symbol', 'Rs'));
+    return ($symbol !== '' ? $symbol : (string) Config::get('app.currency_symbol', 'Rs')) . ' ' . $formatted;
 }
 
 /** Compact number for dashboards: 12.4k, 3.1M. */
@@ -641,7 +642,7 @@ function img_url(?string $image, ?string $fallback = null, int $width = 640): st
 {
     $image = trim((string) $image);
     if ($image === '') {
-        return image_placeholder($fallback ?? 'SoftMyMarket', $width);
+        return image_placeholder($fallback ?? Settings::get('store_name', 'YourMarket'), $width);
     }
     if (is_drive_url($image)) {
         return '/image.php?src=' . rawurlencode($image);

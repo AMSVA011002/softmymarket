@@ -24,8 +24,9 @@ $width = max(80, min(2000, (int) ($_GET['w'] ?? 640)));
 
 /* ------------------------------------------------------------ placeholders */
 if (isset($_GET['placeholder'])) {
-    $label = trim((string) ($_GET['label'] ?? 'SoftMyMarket'));
-    $label = $label === '' ? 'SoftMyMarket' : $label;
+    $brandFallback = Settings::get('store_name', (string) Config::get('app.name', 'YourMarket'));
+    $label = trim((string) ($_GET['label'] ?? $brandFallback));
+    $label = $label === '' ? $brandFallback : $label;
     $initials = initials($label, 2);
     $short = function_exists('mb_strtolower') ? mb_strtolower($label) : strtolower($label);
     $hue = (crc32($short) % 60) + 130; // pleasant green/blue band
@@ -189,7 +190,7 @@ function fetch_image(string $url, array $allowedHosts, bool $allowPublic, int $m
                 CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_TIMEOUT => 15,
                 CURLOPT_CONNECTTIMEOUT => 8,
-                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; SoftMyMarket/1.0; +image proxy)',
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; YourMarket/1.0; +image proxy)',
                 CURLOPT_HTTPHEADER => [
                     'Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
                     'Referer: ' . $origin,
@@ -235,7 +236,7 @@ function fetch_image(string $url, array $allowedHosts, bool $allowPublic, int $m
             'http' => [
                 'timeout' => 15,
                 'follow_location' => 0,
-                'user_agent' => 'Mozilla/5.0 (compatible; SoftMyMarket/1.0; +image proxy)',
+                'user_agent' => 'Mozilla/5.0 (compatible; YourMarket/1.0; +image proxy)',
                 'header' => "Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8\r\nReferer: " . $origin . "\r\n",
             ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],

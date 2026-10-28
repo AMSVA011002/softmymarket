@@ -1,6 +1,6 @@
 <?php
 /**
- * SoftMyMarket installer.
+ * YourMarket installer.
  *
  * Three steps, each guarded by a token kept in the PHP session:
  *   1. requirements check + database details → writes config/config.php
@@ -51,10 +51,10 @@ function install_write_config(array $input): array
     $replacements = [
         "'host'    => 'localhost'," => "'host'    => '" . addslashes($input['db_host']) . "',",
         "'port'    => 3306," => "'port'    => " . (int) $input['db_port'] . ",",
-        "'name'    => 'softmymarket'," => "'name'    => '" . addslashes($input['db_name']) . "',",
-        "'user'    => 'softmymarket'," => "'user'    => '" . addslashes($input['db_user']) . "',",
+        "'name'    => 'yourmarket'," => "'name'    => '" . addslashes($input['db_name']) . "',",
+        "'user'    => 'yourmarket'," => "'user'    => '" . addslashes($input['db_user']) . "',",
         "'pass'    => ''," => "'pass'    => '" . addslashes($input['db_pass']) . "',",
-        "'url'             => 'https://www.softmymarket.lk'," => "'url'             => '" . addslashes($input['app_url']) . "',",
+        "'url'             => 'https://yourmarket.example'," => "'url'             => '" . addslashes($input['app_url']) . "',",
         "'key'             => 'CHANGE-ME-TO-A-64-CHARACTER-RANDOM-HEX-STRING-0000000000000000'," => "'key'             => '" . bin2hex(random_bytes(32)) . "',",
         "'debug'           => false," => "'debug'           => " . (!empty($input['debug']) ? 'true' : 'false') . ",",
         "'secure'   => true," => "'secure'   => " . (!empty($input['secure_cookies']) ? 'true' : 'false') . ",",
@@ -196,7 +196,9 @@ if (is_post() && !$installed) {
 
                 if ($errors === []) {
                     try {
-                        if (Users::emailExists($email)) {
+                        if (Database::int('SELECT COUNT(*) FROM users') > 0) {
+                            $errors[] = 'An account already exists. Use the storefront registration flow; the first account is the administrator.';
+                        } elseif (Users::emailExists($email)) {
                             $errors[] = 'An account with that email already exists.';
                         } else {
                             $adminId = Users::create([
@@ -206,7 +208,7 @@ if (is_post() && !$installed) {
                                 'status' => 'active',
                                 'password_hash' => Auth::hashPassword($password),
                             ]);
-                            Settings::set('store_name', (string) post('store_name', 'SoftMyMarket'));
+                            Settings::set('store_name', (string) post('store_name', 'YourMarket'));
                             Settings::set('support_email', $email);
                             Audit::log('install.completed', 'user', $adminId);
 
@@ -253,7 +255,7 @@ $done = (bool) query('done') || $installed;
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Install SoftMyMarket</title>
+  <title>Install YourMarket</title>
   <link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css">
   <link rel="stylesheet" href="/assets/css/app.css">
   <style>body{background:var(--ink-50)}.install-card{max-width:720px;margin:2rem auto;background:#fff;border:1px solid var(--ink-200);border-radius:1rem;padding:1.5rem}</style>
@@ -263,7 +265,7 @@ $done = (bool) query('done') || $installed;
   <div class="install-card">
     <div class="d-flex align-items-center gap-2 mb-3">
       <span class="logo-mark">SM</span>
-      <div><strong>SoftMyMarket</strong><div class="small text-ink-500">Installer · v<?= h(SMM_VERSION) ?></div></div>
+      <div><strong>YourMarket</strong><div class="small text-ink-500">Installer · v<?= h(SMM_VERSION) ?></div></div>
     </div>
 
     <?php foreach (flashes() as $flashItem): ?>
@@ -328,7 +330,7 @@ $done = (bool) query('done') || $installed;
 
       <?php elseif ($step === 2): ?>
         <h1 class="h5 fw-bold">Import the database</h1>
-        <p class="small text-ink-600">This creates all 23 tables from <code>database/schema.sql</code>. <strong>Any existing SoftMyMarket tables in this database will be dropped.</strong></p>
+        <p class="small text-ink-600">This creates any missing tables from <code>database/schema.sql</code> and preserves existing tables and custom settings.</p>
         <?php if (!$alreadyConfigured): ?>
           <div class="alert alert-warning small">No configuration file found — go back to step 1.</div>
           <a class="btn btn-soft" href="/install/index.php?step=1">Back</a>
@@ -346,7 +348,7 @@ $done = (bool) query('done') || $installed;
         <form method="post" class="row g-2">
           <?= Csrf::field() ?>
           <input type="hidden" name="step" value="3">
-          <div class="col-md-6"><label class="form-label small">Store name</label><input class="form-control form-control-sm" name="store_name" value="<?= h((string) post('store_name', 'SoftMyMarket')) ?>"></div>
+          <div class="col-md-6"><label class="form-label small">Store name</label><input class="form-control form-control-sm" name="store_name" value="<?= h((string) post('store_name', 'YourMarket')) ?>"></div>
           <div class="col-md-6"><label class="form-label small">Your name</label><input class="form-control form-control-sm" name="admin_name" value="<?= h((string) post('admin_name', '')) ?>" required></div>
           <div class="col-md-6"><label class="form-label small">Email</label><input class="form-control form-control-sm" type="email" name="admin_email" value="<?= h((string) post('admin_email', '')) ?>" required></div>
           <div class="col-md-6"><label class="form-label small">Password</label><input class="form-control form-control-sm" type="password" name="admin_password" minlength="8" required></div>
@@ -361,10 +363,10 @@ $done = (bool) query('done') || $installed;
   </div>
 </div>
 <script nonce="<?= e(Security::nonce()) ?>">
-  // Confirm before replacing tables (kept out of inline onsubmit for the CSP).
+  // Confirm before creating or upgrading the schema (kept out of inline onsubmit for the CSP).
   document.querySelectorAll('form[data-install-confirm]').forEach(function (form) {
     form.addEventListener('submit', function (event) {
-      if (!window.confirm('Import the schema now? Existing SoftMyMarket tables will be replaced.')) {
+      if (!window.confirm('Import the schema now? Missing tables and settings will be added without dropping existing data.')) {
         event.preventDefault();
       }
     });

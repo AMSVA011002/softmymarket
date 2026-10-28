@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SoftMyMarket — front-end behaviour (vanilla JS, no build step)
+   YourMarket — front-end behaviour (vanilla JS, no build step)
    All markup hooks use data-* attributes so inline handlers stay out of the
    templates (the Content-Security-Policy only allows external scripts).
    ========================================================================== */

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * SoftMyMarket bootstrap.
+ * YourMarket bootstrap.
  *
  * Every public entry point starts here:
  *   require __DIR__ . '/includes/bootstrap.php';
@@ -47,18 +47,19 @@ if (!is_file($configFile)) {
         $hasInstaller = is_file(ROOT_PATH . '/install/index.php');
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<title>SoftMyMarket is not configured</title>'
+            . '<title>YourMarket is not configured</title>'
             . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
             . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:640px">'
             . '<div class="card shadow-sm"><div class="card-body p-4">'
-            . '<h1 class="h4 fw-bold mb-3">SoftMyMarket is not configured yet</h1>'
+            . '<h1 class="h4 fw-bold mb-3">YourMarket is not configured yet</h1>'
             . '<p class="text-secondary">The application could not find <code>config/config.php</code>, '
             . 'which holds the database credentials.</p>'
             . '<ol class="small text-secondary">'
             . '<li>Copy <code>config/config.example.php</code> to <code>config/config.php</code>.</li>'
             . '<li>Fill in <code>db.host</code>, <code>db.name</code>, <code>db.user</code>, <code>db.pass</code> '
             . 'and a 64-character <code>app.key</code>.</li>'
-            . '<li>Import <code>database/install.sql</code> in phpMyAdmin.</li>'
+            . '<li>Create a database in your hosting panel, then import <code>database/schema.sql</code> in phpMyAdmin.</li>'
+            . '<li>Open the registration page: the first account becomes the administrator.</li>'
             . ($hasInstaller ? '<li>Or run the guided installer at <a href="/install/index.php">/install/</a>.</li>' : '')
             . '</ol>'
             . '<p class="small text-secondary mb-0">Full instructions: <code>docs/AEONFREE.md</code>.</p>'
@@ -121,12 +122,12 @@ if ($keyBroken && !IS_CLI && !$runningInstaller) {
     header('Cache-Control: no-store');
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<title>SoftMyMarket configuration needs attention</title>'
+        . '<title>YourMarket configuration needs attention</title>'
         . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
         . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:680px">'
         . '<div class="card shadow-sm"><div class="card-body p-4">'
         . '<h1 class="h4 fw-bold mb-3">One setting is missing: <code>app.key</code></h1>'
-        . '<p class="text-secondary mb-2">SoftMyMarket is installed and reachable, but '
+        . '<p class="text-secondary mb-2">YourMarket is installed and reachable, but '
         . '<code>config/config.php</code> still has a placeholder secret. It signs password-reset '
         . 'and order-tracking links, so it has to be random and private.</p>'
         . '<ol class="small text-secondary">'
@@ -251,7 +252,7 @@ if (!function_exists('smm_render_fatal')) {
 
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8">';
         echo '<meta name="viewport" content="width=device-width,initial-scale=1">';
-        echo '<title>Server error — ' . htmlspecialchars((string) Config::get('app.name', 'SoftMyMarket'), ENT_QUOTES, 'UTF-8') . '</title>';
+        echo '<title>Server error — ' . htmlspecialchars((string) Config::get('app.name', 'YourMarket'), ENT_QUOTES, 'UTF-8') . '</title>';
         echo '<meta name="robots" content="noindex, nofollow">';
         echo '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
         echo '<body class="bg-light d-flex align-items-center justify-content-center min-vh-100"><div class="text-center p-4">';
@@ -289,6 +290,21 @@ if (!IS_CLI) {
     // Every POST is CSRF-checked here; gateway callbacks and the installer are
     // exempt because they authenticate their callers differently.
     enforce_csrf();
+
+    // Temporary team credentials grant access only to the password-change screen.
+    $signedInUser = Auth::user();
+    if (!empty($signedInUser['must_change_password'])) {
+        $requestPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+        $isSettingsPage = $requestPath === '/account/settings.php' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET';
+        $isPasswordUpdate = $requestPath === '/actions/account.php'
+            && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+            && post('action') === 'password';
+        $isLogout = $requestPath === '/logout.php'
+            || ($requestPath === '/actions/auth.php' && post('action') === 'logout');
+        if (!$isSettingsPage && !$isPasswordUpdate && !$isLogout) {
+            redirect('/account/settings.php?force_password=1');
+        }
+    }
 }
 
 /**

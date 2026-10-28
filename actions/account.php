@@ -46,6 +46,9 @@ switch ($action) {
             redirect($back);
         }
         $errors = Auth::passwordErrors($new);
+        if (hash_equals($current, $new)) {
+            $errors[] = 'Choose a password different from your current password.';
+        }
         if ($new !== $confirm) {
             $errors[] = 'The new passwords do not match.';
         }
@@ -53,7 +56,10 @@ switch ($action) {
             flash('danger', implode(' ', $errors));
             redirect($back);
         }
-        Users::update($userId, ['password_hash' => Auth::hashPassword($new)]);
+        Users::update($userId, [
+            'password_hash' => Auth::hashPassword($new),
+            'must_change_password' => 0,
+        ]);
         Audit::log('account.password_changed', 'user', $userId);
         Notifier::notify($userId, 'Password changed', 'If this was not you, contact us immediately.', 'warning', '/account/settings.php');
         flash('success', 'Your password has been updated.');

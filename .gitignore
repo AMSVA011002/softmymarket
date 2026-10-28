@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# SoftMyMarket — files that must never be committed
+# YourMarket — files that must never be committed
 # ---------------------------------------------------------------------------
 config/config.php
 config/*.local.php

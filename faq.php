@@ -5,6 +5,30 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 $pageTitle = 'Frequently asked questions';
 $pageDescription = 'Quick answers to the questions we hear most often.';
+$customFaqs = trim(Settings::get('faq_items'));
+$faqs = [];
+if ($customFaqs !== '') {
+    foreach (preg_split('/\\R/u', $customFaqs) ?: [] as $line) {
+        $pair = explode('|', trim($line), 2);
+        if (count($pair) === 2 && trim($pair[0]) !== '' && trim($pair[1]) !== '') {
+            $faqs[] = [trim($pair[0]), trim($pair[1])];
+            if (count($faqs) >= 20) break;
+        }
+    }
+}
+if ($faqs === []) {
+    $methods = array_map('payment_method_label', array_keys(PaymentManager::available(1)));
+    $returnDays = max(1, min(90, Settings::int('return_window_days', 7)));
+    $faqs = [
+        ['Where do you deliver?', 'Delivery areas, charges and estimates are confirmed at checkout for your address.'],
+        ['Which payment methods do you accept?', $methods !== [] ? implode(', ', $methods) . ' are currently available at checkout.' : 'Available payment methods are shown at checkout.'],
+        ['How do returns work?', 'Submit a return request within ' . $returnDays . ' days of delivery. See the Returns & refunds page for terms and exclusions.'],
+        ['What if an item arrives damaged or incorrect?', 'Contact support within 48 hours with your order details and photos so the team can review the issue.'],
+        ['Do products include a warranty?', 'Warranty details are shown on individual product listings where applicable. Keep your invoice as proof of purchase.'],
+        ['Do you offer bulk or trade pricing?', 'Contact support with your requirements to ask about availability.'],
+        ['How do I cancel an order?', 'Contact support as soon as possible. Cancellation may not be possible once an order has shipped.'],
+    ];
+}
 $heroTitle = 'Frequently asked questions';
 $heroSubtitle = 'Short answers — and a real person if you need more.';
 $heroIcon = 'bi-question-circle';
@@ -18,14 +42,6 @@ require INCLUDES_PATH . '/partials/page-hero.php';
         <div class="card-soft p-3 p-md-4">
           <dl class="mb-0">
             <?php
-            $faqs = [
-                ['Do you deliver outside Colombo?', 'Yes. We deliver to all 25 districts. Rates and timelines are shown at checkout based on your district.'],
-                ['Can I pay after receiving the item?', 'Cash on delivery is available island-wide. For larger orders you can also use Mintpay or KOKO to spread payments.'],
-                ['Is the warranty local?', 'Yes, products with warranty show the local warranty period on the product page. Keep your invoice.'],
-                ['What if the item arrives damaged?', 'Refuse the parcel if the packaging is clearly damaged and contact us with photos within 48 hours. We replace or refund.'],
-                ['Do you offer bulk or trade pricing?', 'Yes — contact us with your requirements and we will send a quotation.'],
-                ['How do I cancel an order?', 'If it has not shipped, open the order in your account and press Cancel. Otherwise message support and we will try to intercept it.'],
-            ];
             foreach ($faqs as [$q, $a]): ?>
               <dt class="fw-semibold small mt-3"><?= e($q) ?></dt>
               <dd class="text-ink-600 small mb-0"><?= e($a) ?></dd>

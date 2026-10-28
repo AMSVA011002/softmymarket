@@ -1,5 +1,5 @@
 # ===========================================================================
-# SoftMyMarket — Apache configuration for shared hosting (aeonfree / hstn.me)
+# YourMarket — Apache configuration for shared hosting (aeonfree / hstn.me)
 # ===========================================================================
 # This file is deliberately conservative: every block is wrapped in an
 # <IfModule> test so a host without that module (or with a restricted

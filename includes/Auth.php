@@ -192,7 +192,7 @@ final class Auth
         }
 
         RateLimiter::clear('login', $email . '|' . $ip);
-        self::establish($user, $remember);
+        self::establish($user, $remember && empty($user['must_change_password']));
         Users::update((int) $user['id'], ['last_login_at' => date('Y-m-d H:i:s'), 'last_login_ip' => $ip]);
         Audit::log('auth.login', 'user', (int) $user['id']);
 

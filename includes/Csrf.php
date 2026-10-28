@@ -75,7 +75,7 @@ final class Csrf
             if (wants_json()) {
                 json_response(['error' => 'Your security token expired. Refresh the page and try again.'], 419);
             }
-            $appName = htmlspecialchars((string) Config::get('app.name', 'SoftMyMarket'), ENT_QUOTES, 'UTF-8');
+            $appName = htmlspecialchars(Settings::get('store_name', (string) Config::get('app.name', 'YourMarket')), ENT_QUOTES, 'UTF-8');
             echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Session expired</title>';
             echo '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
             echo '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:520px">';

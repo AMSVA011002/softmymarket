@@ -19,7 +19,7 @@ if ($token !== '' || $email !== '') {
 }
 
 $pageTitle = $verified ? 'Email confirmed' : 'Confirm your email';
-$pageDescription = 'Confirm your email address to activate your SoftMyMarket account.';
+$pageDescription = 'Confirm your email address to activate your ' . Settings::get('store_name') . ' account.';
 $noindex = true;
 $pageClass = 'auth-page';
 require INCLUDES_PATH . '/layout/header.php';

@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 $brands = Catalog::brands(true);
 $pageTitle = 'Shop by brand';
-$pageDescription = 'Browse every brand stocked at SoftMyMarket.';
+$pageDescription = 'Browse every brand stocked at ' . Settings::get('store_name') . '.';
 
 require INCLUDES_PATH . '/layout/header.php';
 ?>
@@ -16,7 +16,7 @@ require INCLUDES_PATH . '/layout/header.php';
       <div>
         <p class="eyebrow">Trusted names</p>
         <h1 class="h3 fw-bold">Shop by brand</h1>
-        <p>Genuine products with local warranty from <?= count($brands) ?> brands.</p>
+        <p>Explore <?= count($brands) ?> brands currently available at <?= e(Settings::get('store_name')) ?>.</p>
       </div>
     </div>
     <div class="row g-2 g-md-3">

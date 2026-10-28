@@ -42,6 +42,7 @@ function smm_maintenance_exempt(string $path, array $exempt = []): bool
         '/tools/',
         '/robots.txt',
         '/sitemap.php',
+        '/manifest.php',
     ];
     foreach (array_merge($defaults, $exempt) as $prefix) {
         if ($path === $prefix || str_starts_with($path, rtrim($prefix, '/') . '/')) {
@@ -73,7 +74,7 @@ function smm_maintenance_login_allowed(string $path, string $method, string $act
 function smm_maintenance_page(): never
 {
     $brand = [
-        'name'   => 'SoftMyMarket',
+        'name'   => 'YourMarket',
         'logo'   => '',
         'color'  => '#0c800f',
         'dark'   => '#0a6510',
@@ -84,6 +85,7 @@ function smm_maintenance_page(): never
     $whatsapp = '';
     $address = '';
     $tagline = '';
+    $language = 'en-LK';
 
     try {
         $brand = Settings::brand();
@@ -92,6 +94,7 @@ function smm_maintenance_page(): never
         $whatsapp = trim(Settings::get('support_whatsapp'));
         $address = trim(Settings::get('address'));
         $tagline = trim(Settings::get('store_tagline'));
+        $language = Settings::get('store_language', 'en-LK');
         if ($whatsapp !== '') {
             $whatsapp = preg_replace('/[^0-9+]/', '', $whatsapp) ?? '';
         }
@@ -99,7 +102,7 @@ function smm_maintenance_page(): never
         error_log('[smm] maintenance page settings unavailable: ' . $e->getMessage());
     }
 
-    $storeName = $brand['name'] !== '' ? (string) $brand['name'] : 'SoftMyMarket';
+    $storeName = $brand['name'] !== '' ? (string) $brand['name'] : 'YourMarket';
     $initials = initials($storeName, 2);
     $brandColor = (string) ($brand['color'] ?: '#0c800f');
     $brandDark = (string) ($brand['color_dark'] ?: '#0a6510');
@@ -121,7 +124,7 @@ function smm_maintenance_page(): never
     }
     ?>
 <!doctype html>
-<html lang="en-LK">
+<html lang="<?= e($language) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

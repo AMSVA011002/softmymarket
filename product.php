@@ -6,6 +6,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/bootstrap.php';
+$returnWindowDays = max(1, min(90, Settings::int('return_window_days', 7)));
+$defaultShippingText = 'Typical delivery takes ' . Settings::get('delivery_promise') . '. Final delivery rates and estimates are shown at checkout.';
+$defaultReturnsText = 'Return requests are accepted within ' . $returnWindowDays . ' days of delivery. Contact support if you need help.';
 
 $slug = trim((string) query('slug', ''));
 $productId = query_int('id');
@@ -189,10 +192,9 @@ require INCLUDES_PATH . '/layout/header.php';
 
         <div class="card-soft p-3 mb-3">
           <div class="row g-2 small">
-            <div class="col-6 d-flex gap-2"><i class="bi bi-truck text-brand"></i><span>Dispatched in 24h from Colombo</span></div>
-            <div class="col-6 d-flex gap-2"><i class="bi bi-cash-coin text-brand"></i><span>Cash on delivery available</span></div>
-            <div class="col-6 d-flex gap-2"><i class="bi bi-arrow-repeat text-brand"></i><span>7-day easy returns</span></div>
-            <div class="col-6 d-flex gap-2"><i class="bi bi-shield-check text-brand"></i><span>Genuine stock, local warranty</span></div>
+            <?php foreach ([['bi-truck', 'trust_delivery_text'], ['bi-cash-coin', 'trust_payment_text'], ['bi-arrow-repeat', 'trust_returns_text'], ['bi-shield-check', 'trust_quality_text']] as [$promiseIcon, $promiseKey]): ?>
+              <?php if (Settings::get($promiseKey) !== ''): ?><div class="col-6 d-flex gap-2"><i class="bi <?= e($promiseIcon) ?> text-brand"></i><span><?= e(Settings::get($promiseKey)) ?></span></div><?php endif; ?>
+            <?php endforeach; ?>
           </div>
         </div>
 
@@ -328,8 +330,8 @@ require INCLUDES_PATH . '/layout/header.php';
         </div>
       </div>
       <div class="tab-pane fade product-description" id="tab-delivery" role="tabpanel">
-        <p><?= nl2br(e(Settings::get('shipping_text') ?: 'Orders placed before 2pm on weekdays are dispatched the same day from our Colombo warehouse. Delivery takes 1–2 working days in Colombo and 2–4 working days elsewhere. Free delivery applies to orders over ' . money(Settings::float('free_shipping_threshold', 15000)) . '.')) ?></p>
-        <p class="mb-0"><?= nl2br(e(Settings::get('returns_text') ?: 'Changed your mind? Return unused items in their original packaging within 7 days for a refund or exchange. Faulty items are covered by the manufacturer warranty.')) ?></p>
+        <p><?= nl2br(e(Settings::get('shipping_text') ?: $defaultShippingText)) ?></p>
+        <p class="mb-0"><?= nl2br(e(Settings::get('returns_text') ?: $defaultReturnsText)) ?></p>
       </div>
     </div>
   </div>

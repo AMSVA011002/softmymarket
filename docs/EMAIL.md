@@ -14,8 +14,12 @@ SMTP authentication is required. The settings UI does not prefill provider-speci
 
 The server must allow outbound SMTP and support the selected SSL/TLS mode. Shared-hosting providers may restrict outbound ports. A successful send means the SMTP/server transport accepted the message; it does not guarantee inbox placement. Check provider logs, spam folders and DNS sender-authentication records (SPF, DKIM and DMARC) if mail is delayed or rejected.
 
+## Team invitations
+
+An administrator adds a staff member or another administrator from **Admin → Team**. The system emails the assigned role and a generated temporary password to the invited address. The password is stored only as a one-way hash in the database. On first sign-in, the account is restricted to the password-change screen until the team member replaces the temporary password; remember-me is not enabled for that first session. If invitation delivery fails, the new account is removed and the dashboard reports the failure.
+
 ## Existing database upgrade
 
-For an installation already in use, back up the database first, then import `database/migrations/20261028_email_verification.sql` once in phpMyAdmin. It adds only the verification-token table. Do not import `database/install.sql` into a populated database because the fresh-install script drops and recreates application tables. Fresh installations use the updated `database/install.sql`.
+The same `database/schema.sql` file is used for fresh and existing databases. Back up first when importing into a database that already contains data; it adds missing tables without dropping existing user or order data.
 
 Existing active customer accounts are not forced through verification again. Only new registrations created after this feature is installed require confirmation. Pending accounts may request a fresh link at the confirmation page; the response does not reveal whether an address has a registered account.

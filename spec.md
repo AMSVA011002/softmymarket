@@ -1,10 +1,10 @@
-# SoftMyMarket — Product and Technical Specification
+# YourMarket — Product and Technical Specification
 
 **Document purpose:** describe the application represented by the current repository, separating code-supported behavior from configuration, merchant integration, and hosting requirements. This is a source-code specification, not a live production audit. The actual deployment's private configuration, credentials, database contents, and runtime behavior have not been inspected.
 
 ## 1. Product summary and scope
 
-SoftMyMarket is a single-store online retail application for browsing and selling a merchant-managed product catalogue. It includes a public storefront, guest and registered-customer shopping, order/payment workflows, and an administration area for store operations. The codebase uses PHP-rendered pages with JavaScript enhancements and a MySQL/MariaDB database.
+YourMarket is a single-store online retail application for browsing and selling a merchant-managed product catalogue. It includes a public storefront, guest and registered-customer shopping, order/payment workflows, and an administration area for store operations. The codebase uses PHP-rendered pages with JavaScript enhancements and a MySQL/MariaDB database.
 
 It is **not** a multi-seller marketplace: there is no seller onboarding, seller portal, commission settlement, or seller-owned catalogue. The store operator is responsible for products, fulfilment, payment-provider accounts, customer service, and deployment.
 
@@ -119,9 +119,9 @@ Role-based restrictions apply; a module appearing in the admin application does 
 
 ### 6.2 Database
 
-The current documented schema contains 27 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, return requests/items/events, email-verification tokens, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the canonical schema. `database/install.sql` is the deploy/import-oriented SQL file supplied for creating the database tables and initial setup data; inspect the exact file for the current import contents before deployment.
+The current documented schema contains 27 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, return requests/items/events, email-verification tokens, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the only SQL file. It creates tables and default settings but no account or demo catalogue.
 
-Install the schema into a new database or take a verified backup and follow the project's upgrade guidance before applying schema changes to an existing store. Do not assume importing an install script into a populated database is non-destructive. Existing installations predating return requests can apply `database/migrations/20261028_returns.sql` once; it creates only the three new return tables.
+Create the database manually, import `database/schema.sql`, and register the first account immediately; the first public registration becomes the administrator. Later registrations are customers. Re-importing the schema does not drop tables or overwrite custom settings.
 
 ## 7. Configuration and deployment requirements
 
@@ -200,7 +200,7 @@ These boundaries are based on inspected source and documented schema; they shoul
 
 - `README.md` — project overview and quick start.
 - `config/config.example.php` — example settings and default enabled/disabled methods.
-- `database/schema.sql` and `database/install.sql` — canonical schema and import/install artifact.
+- `database/schema.sql` — sole SQL artifact for schema and default settings.
 - `docs/DATABASE.md` — data model.
 - `docs/DEPLOYMENT.md`, `docs/AEONFREE.md` — deployment guidance.
 - `docs/SECURITY.md` — security and operational guidance.

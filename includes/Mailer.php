@@ -63,6 +63,10 @@ final class Mailer
         $smtp['username'] = Settings::get('mail_smtp_username', (string) ($smtp['username'] ?? ''));
         $smtp['timeout'] = Settings::int('mail_smtp_timeout', (int) ($smtp['timeout'] ?? 15));
         $encryptedPassword = Settings::get('mail_smtp_password_enc', '');
+        $defaultFromName = trim((string) ($base['from_name'] ?? ''));
+        if ($defaultFromName === '') {
+            $defaultFromName = Settings::get('store_name');
+        }
         if ($encryptedPassword !== '') {
             $password = Security::decrypt($encryptedPassword);
             if ($password === null) {
@@ -77,7 +81,7 @@ final class Mailer
         return [
             'transport' => Settings::get('mail_transport', (string) ($base['transport'] ?? 'mail')),
             'from_email' => Settings::get('mail_from_email', (string) ($base['from_email'] ?? '')),
-            'from_name' => Settings::get('mail_from_name', (string) ($base['from_name'] ?? 'SoftMyMarket')),
+            'from_name' => Settings::get('mail_from_name', $defaultFromName),
             'reply_to' => Settings::get('mail_reply_to', (string) ($base['reply_to'] ?? '')),
             'smtp' => $smtp,
         ];
@@ -90,7 +94,7 @@ final class Mailer
             'MIME-Version: 1.0',
             'From: ' . self::encodeName($fromName) . ' <' . $from . '>',
             'Reply-To: ' . $replyTo,
-            'X-Mailer: SoftMyMarket',
+            'X-Mailer: YourMarket',
             'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
         ];
         $body = "--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n{$text}\r\n\r\n"
@@ -285,11 +289,24 @@ final class Mailer
         return self::send((string) $user['email'], 'Confirm your email address', self::wrap('Confirm your email', $body, 'Verify email address', $link));
     }
 
+    public static function teamInvitation(array $user, string $temporaryPassword): bool
+    {
+        $role = (string) ($user['role'] ?? 'staff');
+        $roleLabel = $role === 'admin' ? 'Administrator' : 'Store staff';
+        $loginUrl = url('/login.php', ['next' => '/admin/index.php']);
+        $body = '<p>Hi ' . e($user['name']) . ',</p>'
+            . '<p>You have been invited to join ' . e(Settings::get('store_name')) . ' as <strong>' . e($roleLabel) . '</strong>.</p>'
+            . '<p>Sign in using this email address and temporary password:</p>'
+            . '<p><strong>Email:</strong> ' . e($user['email']) . '<br><strong>Temporary password:</strong> <code>' . e($temporaryPassword) . '</code></p>'
+            . '<p>You will be required to choose a new password immediately after signing in. Do not forward this message; contact the store administrator if you did not expect this invitation.</p>';
+        return self::send((string) $user['email'], 'Your ' . Settings::get('store_name') . ' team account', self::wrap('You are invited to the team', $body, 'Sign in securely', $loginUrl));
+    }
+
     public static function welcome(array $user): bool
     {
         $body = '<p>Hi ' . e($user['name']) . ',</p>'
             . '<p>Welcome to ' . e(Settings::get('store_name')) . '! Your account is ready.</p>'
-            . '<p>Browse thousands of products with island-wide delivery, cash on delivery and flexible pay-later options.</p>';
+            . '<p>' . e(Settings::get('store_description')) . '</p>';
         return self::send((string) $user['email'], 'Welcome to ' . Settings::get('store_name'), self::wrap('Welcome aboard', $body, 'Start shopping', url('/')));
     }
 
@@ -315,7 +332,7 @@ final class Mailer
 
     public static function contactNotification(array $message): bool
     {
-        $email = Settings::get('support_email', (string) Config::get('app.support_email', 'hello@softmymarket.lk'));
+        $email = Settings::get('support_email', (string) Config::get('app.support_email', 'hello@yourmarket.example'));
         $body = '<p><strong>From:</strong> ' . e($message['name']) . ' &lt;' . e($message['email']) . '&gt;</p>'
             . '<p><strong>Phone:</strong> ' . e($message['phone'] ?? '—') . '</p>'
             . '<p><strong>Subject:</strong> ' . e($message['subject'] ?? '—') . '</p>'
@@ -325,7 +342,7 @@ final class Mailer
 
     public static function lowStockAlert(array $products): bool
     {
-        $email = Settings::get('orders_email', (string) Config::get('app.support_email', 'orders@softmymarket.lk'));
+        $email = Settings::get('orders_email', (string) Config::get('app.support_email', 'orders@yourmarket.example'));
         $rows = '';
         foreach ($products as $product) {
             $rows .= '<li>' . e($product['title']) . ' — ' . (int) $product['stock'] . ' left (SKU ' . e($product['sku']) . ')</li>';

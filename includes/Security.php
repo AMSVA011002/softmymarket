@@ -49,8 +49,8 @@ final class Security
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline' https:",
-            "script-src 'self' 'nonce-" . self::nonce() . "' https://www.googletagmanager.com",
-            "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com",
+            "script-src 'self' 'nonce-" . self::nonce() . "' https://www.googletagmanager.com https://connect.facebook.net",
+            "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://www.facebook.com https://graph.facebook.com",
             "manifest-src 'self'",
         ]);
         header('Content-Security-Policy: ' . $csp);

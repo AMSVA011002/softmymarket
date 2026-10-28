@@ -128,13 +128,12 @@ require __DIR__ . '/includes/layout-top.php';
           <option value="<?= e($value) ?>" <?= ($editing['role'] ?? 'staff') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
-      <div class="d-flex justify-content-between align-items-center">
-        <label class="form-label small" for="t-password"><?= $editing === null ? 'Temporary password *' : 'New password' ?></label>
-        <button class="btn btn-link btn-sm p-0 small" type="button" data-toggle-password="t-password">Show</button>
-      </div>
-      <input class="form-control form-control-sm mb-1" id="t-password" type="password" name="password" autocomplete="new-password" <?= $editing === null ? 'required' : '' ?> minlength="8">
-      <div class="form-text mb-3">At least 8 characters with letters and numbers. <?= $editing !== null ? 'Leave blank to keep the current password.' : 'Share it securely; they can change it after signing in.' ?></div>
-      <button class="btn btn-brand btn-sm w-100" type="submit"><?= $editing === null ? 'Create team account' : 'Save changes' ?></button>
+      <?php if ($editing === null): ?>
+        <div class="alert alert-info small py-2 px-3 mb-3"><i class="bi bi-envelope me-1"></i> We’ll email the selected role and a temporary password to this address. The team member must set a new password at first sign-in.</div>
+      <?php else: ?>
+        <div class="form-text mb-3">Role and contact details can be updated here. Password changes are made by the account holder after signing in.</div>
+      <?php endif; ?>
+      <button class="btn btn-brand btn-sm w-100" type="submit"><?= $editing === null ? 'Send invitation' : 'Save changes' ?></button>
     </form>
   </div>
 </div>

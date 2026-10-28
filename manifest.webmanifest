@@ -1,6 +1,6 @@
 {
-  "name": "SoftMyMarket",
-  "short_name": "SoftMyMarket",
+  "name": "YourMarket",
+  "short_name": "YourMarket",
   "description": "Sri Lanka's trusted online marketplace — electronics, fashion, home and daily essentials with island-wide delivery.",
   "start_url": "/?source=manifest",
   "scope": "/",

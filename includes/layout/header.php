@@ -17,10 +17,10 @@ $smmTree = View::navCategories();
 $smmAnnouncement = trim(Settings::get('announcement'));
 $smmTitle = isset($pageTitle) && $pageTitle !== null
     ? $pageTitle . ' · ' . $brand['name']
-    : Settings::get('default_meta_title', $brand['name'] . ' — online shopping in Sri Lanka');
+    : Settings::get('default_meta_title', $brand['name'] . ' — ' . ($brand['tagline'] !== '' ? $brand['tagline'] : 'Online store'));
 $smmDescription = isset($pageDescription) && $pageDescription !== ''
     ? $pageDescription
-    : Settings::get('default_meta_description');
+    : Settings::get('default_meta_description', Settings::get('store_description'));
 if (isset($pageCanonical) && $pageCanonical !== '') {
     $smmCanonical = $pageCanonical;
 } else {
@@ -53,9 +53,14 @@ $smmIconSrc = $smmFavicon !== ''
 $smmTouchIcon = $smmFavicon !== ''
     ? img_url($smmFavicon, $brand['name'], 180)
     : asset('assets/img/apple-touch-icon.png');
-$smmShareImage = !empty($brand['logo'])
-    ? url(img_url((string) $brand['logo'], $brand['name'], 1200))
-    : url(asset('assets/img/og-cover.png'));
+$smmSocialImage = trim(Settings::get('social_image_url'));
+$smmShareImage = $smmSocialImage !== ''
+    ? url(img_url($smmSocialImage, $brand['name'], 1200))
+    : (!empty($brand['logo'])
+        ? url(img_url((string) $brand['logo'], $brand['name'], 1200))
+        : url(asset('assets/img/og-cover.png')));
+$smmLanguage = Settings::get('store_language', 'en-LK');
+$smmOgLocale = str_replace('-', '_', $smmLanguage);
 $smmTwitterUrl = trim(Settings::get('twitter_url'));
 $smmTwitterHandle = '';
 if ($smmTwitterUrl !== '') {
@@ -84,14 +89,15 @@ $smmStructuredData = [
             'logo'         => url($smmTouchIcon),
             'telephone'    => Settings::get('support_phone'),
             'email'        => Settings::get('support_email'),
-            'priceRange'   => 'Rs',
+            'priceRange'   => Settings::get('currency_symbol', 'Rs'),
             'currenciesAccepted' => Settings::get('currency', 'LKR'),
-            'paymentAccepted'    => 'Cash on delivery, PayHere, Seylan card, Bank transfer, KOKO, Payzy, Mintpay',
+            'areaServed'   => Settings::get('store_country', 'Sri Lanka'),
+            'paymentAccepted'    => 'Payment methods shown during checkout',
             'address'      => [
                 '@type'           => 'PostalAddress',
                 'streetAddress'   => Settings::get('address'),
-                'addressLocality' => 'Colombo',
-                'addressCountry'  => 'LK',
+                'addressLocality' => Settings::get('store_locality', 'Colombo'),
+                'addressCountry'  => Settings::get('store_country_code', 'LK'),
             ],
             'sameAs'       => $smmSameAs,
         ],
@@ -100,7 +106,7 @@ $smmStructuredData = [
             '@id'         => $smmWebsiteId,
             'url'         => url('/'),
             'name'        => $brand['name'],
-            'inLanguage'  => 'en-LK',
+            'inLanguage'  => $smmLanguage,
             'publisher'   => ['@id' => $smmStoreId],
             'potentialAction' => [
                 '@type'       => 'SearchAction',
@@ -115,7 +121,7 @@ $smmStructuredData = [
 ];
 ?>
 <!doctype html>
-<html lang="en-LK" data-currency-symbol="<?= e(Settings::get('currency_symbol', 'Rs')) ?>">
+<html lang="<?= e($smmLanguage) ?>" data-currency-symbol="<?= e(Settings::get('currency_symbol', 'Rs')) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -128,7 +134,7 @@ $smmStructuredData = [
   <meta name="theme-color" content="<?= e($brand['color']) ?>">
   <meta property="og:type" content="<?= e($pageOgType ?? 'website') ?>">
   <meta property="og:site_name" content="<?= e($brand['name']) ?>">
-  <meta property="og:locale" content="en_LK">
+  <meta property="og:locale" content="<?= e($smmOgLocale) ?>">
   <meta property="og:title" content="<?= e($smmTitle) ?>">
   <meta property="og:description" content="<?= e(limit_text($smmDescription, 200, '')) ?>">
   <meta property="og:url" content="<?= e($smmCanonical) ?>">
@@ -147,7 +153,7 @@ $smmStructuredData = [
   <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
   <link rel="icon" type="image/png" sizes="32x32" href="<?= e($smmIconSrc) ?>">
   <link rel="apple-touch-icon" sizes="180x180" href="<?= e($smmTouchIcon) ?>">
-  <link rel="manifest" href="<?= e(asset('manifest.webmanifest')) ?>">
+  <link rel="manifest" href="<?= e(asset('manifest.php')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap-icons/bootstrap-icons.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
@@ -155,7 +161,7 @@ $smmStructuredData = [
     <script type="application/ld+json" nonce="<?= e(Security::nonce()) ?>"><?= json_encode($smmStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   <?php endif; ?>
   <?php if (!empty($brand['color'])): ?>
-    <style>:root{--brand: <?= e($brand['color']) ?>; --brand-600: <?= e($brand['color_dark']) ?>;}</style>
+    <style>:root{--brand: <?= e($brand['color']) ?>; --brand-600: <?= e($brand['color_dark']) ?>; --accent: <?= e($brand['accent']) ?>;}</style>
   <?php endif; ?>
 </head>
 <body class="<?= e($pageClass ?? '') ?>">

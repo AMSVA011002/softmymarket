@@ -12,7 +12,7 @@ if ($next === '' || !str_starts_with($next, '/') || str_starts_with($next, '//')
 }
 
 $pageTitle = 'Create an account';
-$pageDescription = 'Create a SoftMyMarket account to track orders, save addresses and check out faster.';
+$pageDescription = 'Create a ' . Settings::get('store_name') . ' account to track orders, save addresses and check out faster.';
 $noindex = true;
 $pageClass = 'auth-page';
 require INCLUDES_PATH . '/layout/header.php';
@@ -22,7 +22,7 @@ require INCLUDES_PATH . '/layout/header.php';
     <div class="text-center mb-3">
       <h1 class="h5 fw-bold mb-1">Create your account</h1>
       <p class="small text-ink-500 mb-0">It takes less than a minute — and checkout gets faster.</p>
-      <p class="small text-brand mt-2 mb-0"><i class="bi bi-envelope-check me-1"></i> You’ll need to confirm your email before you can sign in.</p>
+      <p class="small text-brand mt-2 mb-0"><i class="bi bi-envelope-check me-1"></i> The first account becomes the store administrator. Later accounts are customers and must confirm their email before signing in.</p>
     </div>
 
     <form method="post" action="/actions/auth.php" class="row g-2" data-disable-on-submit>

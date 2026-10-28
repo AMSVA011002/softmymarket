@@ -25,7 +25,7 @@ final class Session
             $secure = false; // allow plain-HTTP staging without breaking logins
         }
 
-        $name = (string) Config::get('session.name', 'smm_session');
+        $name = (string) Config::get('session.name', 'yourmarket_session');
         $options = [
             'name'            => $name,
             'cookie_lifetime' => 0,
