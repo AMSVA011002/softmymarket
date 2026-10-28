@@ -64,17 +64,16 @@ return [
         // 'mail' uses the host's sendmail binary (typical cPanel setup).
         // 'smtp' uses the socket client in includes/Mailer.php (SMTPS port 465
         // or STARTTLS port 587).
-        'transport'   => 'mail',
+        'transport'   => 'smtp',
         'from_email'  => 'no-reply@softmymarket.lk',
         'from_name'   => 'SoftMyMarket',
         'reply_to'    => 'support@softmymarket.lk',
         'smtp' => [
-            'host'     => 'smtp.softmymarket.lk',
-            'port'     => 465,
-            'encryption' => 'ssl',         // ssl | tls | none
-            'username' => '',
-            'password' => '',
-            'timeout'  => 15,
+            'host'       => '',
+            'port'       => 465,
+            'encryption' => 'ssl', // ssl | tls (mandatory)
+            'username'   => '',
+            'timeout'    => 15,
         ],
         // When true every outgoing message is written to storage/logs/mail.log
         'log' => true,

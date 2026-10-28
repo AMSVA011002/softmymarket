@@ -26,6 +26,11 @@ $renderField = static function (string $key, array $meta): string {
     $label = '<label class="form-label small mb-1" for="' . e($id) . '">' . e($meta['label']) . '</label>';
     $help = !empty($meta['help']) ? '<div class="form-text">' . e($meta['help']) . '</div>' : '';
     $name = 'settings[' . $key . ']';
+    if ($meta['type'] === 'password') {
+        $saved = Settings::get('mail_smtp_password_enc') !== '';
+        $control = '<input class="form-control form-control-sm" id="' . e($id) . '" type="password" name="' . e($name) . '" value="" autocomplete="new-password" placeholder="' . ($saved ? 'Saved securely — leave blank to keep' : 'Not configured') . '">';
+        return $label . $control . $help;
+    }
     // Image fields get a live preview and the same Drive/URL rules as product
     // images (assets/js/media-url.js does the browser side, this is the fallback
     // markup when JS is off — the value is normalised again on save).
@@ -49,6 +54,7 @@ $renderField = static function (string $key, array $meta): string {
     }
 
     $control = match ($meta['type']) {
+        'select' => '<select class="form-select form-select-sm" id="' . e($id) . '" name="' . e($name) . '">' . implode('', array_map(static fn ($option, $optionLabel) => '<option value="' . e((string) $option) . '"' . ((string) $value === (string) $option ? ' selected' : '') . '>' . e((string) $optionLabel) . '</option>', array_keys((array) ($meta['options'] ?? [])), array_values((array) ($meta['options'] ?? [])))) . '</select>',
         'textarea' => '<textarea class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" rows="3">' . e($value) . '</textarea>',
         'bool' => '<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="' . e($id) . '" name="' . e($name) . '" value="1"' . ((int) $value === 1 ? ' checked' : '') . '><label class="form-check-label small" for="' . e($id) . '">Enabled</label></div>',
         'number' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="number" step="0.01" value="' . e($value) . '">',
@@ -66,7 +72,7 @@ require __DIR__ . '/includes/layout-top.php';
 ?>
 <ul class="nav nav-tabs mb-3 flex-wrap">
   <?php
-  $tabLabels = ['general' => 'Store', 'commerce' => 'Commerce', 'content' => 'Content', 'payments' => 'Payments', 'hero' => 'Hero slides'];
+  $tabLabels = ['general' => 'Store', 'commerce' => 'Commerce', 'content' => 'Content', 'email' => 'Email', 'payments' => 'Payments', 'hero' => 'Hero slides'];
   foreach ($tabLabels as $value => $label): ?>
     <li class="nav-item"><a class="nav-link <?= $tab === $value ? 'active' : '' ?>" href="<?= e(admin_url('settings.php', ['tab' => $value])) ?>"><?= e($label) ?></a></li>
   <?php endforeach; ?>
@@ -364,6 +370,9 @@ require __DIR__ . '/includes/layout-top.php';
     <input type="hidden" name="action" value="settings_save">
     <input type="hidden" name="group" value="<?= e($tab) ?>">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <?php if ($tab === 'email'): ?>
+      <div class="alert alert-info small"><strong>Transactional email and account verification</strong><br>Enter the outgoing SMTP server, account username and password supplied by your mail provider. Authentication is mandatory. The password is encrypted at rest and never shown again; leave the password field blank to retain it. A real SMTP or server-mail transport is required to deliver verification links.</div>
+    <?php endif; ?>
     <?php if ($tab === 'commerce' && Settings::bool('maintenance_mode')): ?>
       <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status">
         <i class="bi bi-cone-striped"></i>
@@ -384,6 +393,14 @@ require __DIR__ . '/includes/layout-top.php';
     </div>
     <button class="btn btn-brand mt-3" type="submit"><i class="bi bi-check2 me-1"></i> Save settings</button>
   </form>
+  <?php if ($tab === 'email'): ?>
+    <form method="post" action="/admin/actions.php" class="mt-2">
+      <?= Csrf::field() ?>
+      <input type="hidden" name="action" value="email_test">
+      <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+      <button class="btn btn-soft" type="submit"><i class="bi bi-send me-1"></i> Send test email to my admin address</button>
+    </form>
+  <?php endif; ?>
 <?php endif; ?>
 
 <?php

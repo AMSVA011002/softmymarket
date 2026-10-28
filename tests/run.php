@@ -547,11 +547,14 @@ T::case('sql: database/install.sql creates every table in schema.sql', function 
 
     preg_match_all('/CREATE TABLE `(\w+)`/', $schema, $matches);
     $expected = $matches[1];
-    T::true(count($expected) >= 26, 'expected at least 26 tables in schema.sql, found ' . count($expected));
-    foreach (['return_requests', 'return_request_items', 'return_events'] as $table) {
-        T::contains('CREATE TABLE `' . $table . '`', $schema, "schema.sql is missing return table {$table}");
+    T::true(count($expected) >= 27, 'expected at least 27 tables in schema.sql, found ' . count($expected));
+    foreach (['return_requests', 'return_request_items', 'return_events', 'email_verifications'] as $table) {
+        T::contains('CREATE TABLE `' . $table . '`', $schema, "schema.sql is missing required table {$table}");
     }
     T::contains('CREATE TABLE `return_requests`', (string) file_get_contents($root . '/database/migrations/20261028_returns.sql'), 'upgrade migration must add return requests without dropping existing data');
+    $emailMigration = (string) file_get_contents($root . '/database/migrations/20261028_email_verification.sql');
+    T::contains('CREATE TABLE `email_verifications`', $emailMigration, 'email verification upgrade migration must create the token table');
+    T::false(str_contains($emailMigration, 'DROP TABLE'), 'email verification migration must not drop existing data');
 
     foreach ($expected as $table) {
         T::contains('CREATE TABLE `' . $table . '`', $install, "install.sql is missing table {$table}");

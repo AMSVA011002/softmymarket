@@ -52,7 +52,7 @@ no `DEFINER`, no routines, no `SUPER` privileges.
 
 | File | What it does |
 | --- | --- |
-| `database/install.sql` | 26 tables + indexes + foreign keys + default settings + the first administrator |
+| `database/install.sql` | 27 tables + indexes + foreign keys + default settings + the first administrator |
 | `database/demo-data.sql` | *(optional)* 12 categories, 8 brands, 12 products, 5 coupons |
 
 **phpMyAdmin → select `mseet_43261025_softmymarket` → Import → choose

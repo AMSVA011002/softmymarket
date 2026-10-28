@@ -13,7 +13,7 @@ Two deploy-ready variants are generated from it (and kept in sync by
 | [`database/demo-data.sql`](../database/demo-data.sql) | optional demo catalogue: 12 categories, 8 brands, 12 products, 5 coupons |
 
 * Engine: InnoDB, `utf8mb4` / `utf8mb4_unicode_ci`
-* 26 tables, 1 optional configurable prefix (`db.prefix`, empty by default)
+* 27 tables, 1 optional configurable prefix (`db.prefix`, empty by default)
 * All access goes through PDO prepared statements — see
   [SECURITY.md](SECURITY.md#sql-injection)
 
@@ -31,7 +31,7 @@ Both files are self-contained: `SET NAMES utf8mb4`, `SET time_zone '+05:30'` and
 `DEFINER`, no triggers — a restricted shared-hosting user can run them. The last
 statement in each file prints a summary so a failed import is obvious.
 
-For a database that was installed before the return-request feature, back it up and apply `database/migrations/20261028_returns.sql` once in phpMyAdmin; it creates only the three return tables and does not drop or rewrite existing data. Verify afterwards with `php tools/deploy-check.php` or **Admin → Tools**.
+For databases installed before these features, take a backup and apply the appropriate non-destructive migration once in phpMyAdmin: `database/migrations/20261028_returns.sql` for customer returns, then `database/migrations/20261028_email_verification.sql` for email confirmation. The latter creates only the verification-token table and does not rewrite existing user records. Verify afterwards with `php tools/deploy-check.php` or **Admin → Tools**.
 
 ---
 
@@ -81,6 +81,7 @@ SMM_DB_HOST=127.0.0.1 SMM_DB_NAME=softmymarket_test SMM_DB_USER=root SMM_DB_PASS
 | --- | --- | --- |
 | `users` | Admin, store staff and customers in one table | `uuid` (public id), `role` ENUM(`admin`,`staff`,`customer`), `status` ENUM(`active`,`suspended`,`pending`), `password_hash` (bcrypt), `email` UNIQUE, `last_login_at`, `last_login_ip`, `marketing_opt_in` |
 | `password_resets` | One-time reset tokens, stored **hashed** | `token_hash`, `expires_at`, `used_at` |
+| `email_verifications` | One-time registration confirmation tokens, stored **hashed** | `user_id`, `token_hash`, `expires_at`, `used_at` |
 | `user_addresses` | Saved delivery addresses | `user_id` FK → users (CASCADE), `label`, `line1`/`line2`, `city`, `district`, `postal_code`, `is_default` |
 
 ### Catalogue
@@ -208,7 +209,7 @@ The seeder creates:
 php tests/run.php --db
 ```
 
-Runs read-only integrity checks: all 26 tables exist, no orphaned categories,
+Runs read-only integrity checks: all 27 tables exist, no orphaned categories,
 category depths are consistent, products point at real categories/brands, every
 password is a real hash, order subtotals equal their line items, every order has
 a timeline event, and the pricing engine's arithmetic balances.

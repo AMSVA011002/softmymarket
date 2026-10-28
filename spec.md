@@ -119,7 +119,7 @@ Role-based restrictions apply; a module appearing in the admin application does 
 
 ### 6.2 Database
 
-The current documented schema contains 26 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, return requests/items/events, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the canonical schema. `database/install.sql` is the deploy/import-oriented SQL file supplied for creating the database tables and initial setup data; inspect the exact file for the current import contents before deployment.
+The current documented schema contains 27 tables covering users/roles, catalogue, categories/brands, carts/wishlists, orders/order items/events/payments, return requests/items/events, email-verification tokens, coupons, reviews, addresses, notifications, contact/newsletter records, password resets, settings and audit/operational data. See `docs/DATABASE.md` for entity-level descriptions and `database/schema.sql` for the canonical schema. `database/install.sql` is the deploy/import-oriented SQL file supplied for creating the database tables and initial setup data; inspect the exact file for the current import contents before deployment.
 
 Install the schema into a new database or take a verified backup and follow the project's upgrade guidance before applying schema changes to an existing store. Do not assume importing an install script into a populated database is non-destructive. Existing installations predating return requests can apply `database/migrations/20261028_returns.sql` once; it creates only the three new return tables.
 

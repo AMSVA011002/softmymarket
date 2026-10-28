@@ -21,28 +21,66 @@ final class Mailer
             return false;
         }
 
-        $fromEmail = (string) Config::get('mail.from_email', 'no-reply@localhost');
-        $fromName = (string) Config::get('mail.from_name', (string) Config::get('app.name', 'SoftMyMarket'));
-        $replyTo = $replyTo ?? (string) Config::get('mail.reply_to', $fromEmail);
         $text = $text ?? trim(strip_tags(str_replace(['<br>', '</p>', '</h1>', '</h2>', '</li>'], "\n", $html)));
-
+        $base = (array) Config::get('mail', []);
         if (Config::get('mail.log')) {
             self::log($to, $subject, $html);
         }
 
-        $transport = (string) Config::get('mail.transport', 'mail');
         try {
-            if ($transport === 'log') {
-                return true;
+            $options = self::options($base);
+            $fromEmail = $options['from_email'];
+            $fromName = $options['from_name'];
+            $replyTo = $replyTo ?? $options['reply_to'];
+            if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL) || !filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
+                throw new RuntimeException('A valid sender and reply-to email address must be configured in Admin → Settings → Email.');
             }
-            if ($transport === 'smtp') {
-                return self::smtpSend($to, $subject, $html, $text, $fromEmail, $fromName, $replyTo);
+            if ($options['transport'] === 'log') {
+                // A log-only transport is useful for staging but never counts
+                // as delivery (especially for security-critical verification).
+                return false;
+            }
+            if ($options['transport'] === 'smtp') {
+                return self::smtpSend($to, $subject, $html, $text, $fromEmail, $fromName, $replyTo, $options['smtp']);
+            }
+            if ($options['transport'] !== 'mail') {
+                throw new RuntimeException('Unsupported mail transport.');
             }
             return self::mailSend($to, $subject, $html, $text, $fromEmail, $fromName, $replyTo);
         } catch (Throwable $e) {
             error_log('Mail delivery failed: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /** @param array<string,mixed> $base @return array{transport:string,from_email:string,from_name:string,reply_to:string,smtp:array<string,mixed>} */
+    private static function options(array $base): array
+    {
+        $smtp = (array) ($base['smtp'] ?? []);
+        $smtp['host'] = Settings::get('mail_smtp_host', (string) ($smtp['host'] ?? ''));
+        $smtp['port'] = Settings::int('mail_smtp_port', (int) ($smtp['port'] ?? 465));
+        $smtp['encryption'] = Settings::get('mail_smtp_encryption', (string) ($smtp['encryption'] ?? 'ssl'));
+        $smtp['username'] = Settings::get('mail_smtp_username', (string) ($smtp['username'] ?? ''));
+        $smtp['timeout'] = Settings::int('mail_smtp_timeout', (int) ($smtp['timeout'] ?? 15));
+        $encryptedPassword = Settings::get('mail_smtp_password_enc', '');
+        if ($encryptedPassword !== '') {
+            $password = Security::decrypt($encryptedPassword);
+            if ($password === null) {
+                throw new RuntimeException('The saved SMTP password could not be decrypted. Re-enter it in Admin → Settings → Email.');
+            }
+            $smtp['password'] = $password;
+        } else {
+            // SMTP secrets belong in the encrypted dashboard setting, never in config.php.
+            $smtp['password'] = '';
+        }
+
+        return [
+            'transport' => Settings::get('mail_transport', (string) ($base['transport'] ?? 'mail')),
+            'from_email' => Settings::get('mail_from_email', (string) ($base['from_email'] ?? '')),
+            'from_name' => Settings::get('mail_from_name', (string) ($base['from_name'] ?? 'SoftMyMarket')),
+            'reply_to' => Settings::get('mail_reply_to', (string) ($base['reply_to'] ?? '')),
+            'smtp' => $smtp,
+        ];
     }
 
     private static function mailSend(string $to, string $subject, string $html, string $text, string $from, string $fromName, string $replyTo): bool
@@ -62,15 +100,25 @@ final class Mailer
         return @mail($to, $subjectHeader, $body, implode("\r\n", $headers), '-f' . $from);
     }
 
-    private static function smtpSend(string $to, string $subject, string $html, string $text, string $from, string $fromName, string $replyTo): bool
+    private static function smtpSend(string $to, string $subject, string $html, string $text, string $from, string $fromName, string $replyTo, array $cfg): bool
     {
-        $cfg = (array) Config::get('mail.smtp', []);
         $host = (string) ($cfg['host'] ?? '');
         $port = (int) ($cfg['port'] ?? 465);
         $encryption = (string) ($cfg['encryption'] ?? 'ssl');
-        $timeout = (int) ($cfg['timeout'] ?? 15);
+        $timeout = max(5, min(60, (int) ($cfg['timeout'] ?? 15)));
+        if ($port < 1 || $port > 65535) {
+            throw new RuntimeException('SMTP port must be between 1 and 65535.');
+        }
         if ($host === '') {
-            throw new RuntimeException('SMTP host is not configured.');
+            throw new RuntimeException('SMTP host is not configured. Set it in Admin → Settings → Email.');
+        }
+        $username = (string) ($cfg['username'] ?? '');
+        $password = (string) ($cfg['password'] ?? '');
+        if ($username === '' || $password === '') {
+            throw new RuntimeException('SMTP username and password are required. Configure them in Admin → Settings → Email.');
+        }
+        if (!in_array($encryption, ['ssl', 'tls'], true)) {
+            throw new RuntimeException('SMTP must use SSL/TLS or STARTTLS.');
         }
 
         $scheme = $encryption === 'ssl' ? 'ssl://' : '';
@@ -81,7 +129,9 @@ final class Mailer
         stream_set_timeout($socket, $timeout);
 
         self::expect($socket, 220);
-        $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $urlHost = parse_url((string) Config::get('app.url', ''), PHP_URL_HOST);
+        $hostname = is_string($urlHost) && $urlHost !== '' ? $urlHost : 'localhost';
+        $hostname = preg_replace('/[^a-zA-Z0-9.-]/', '', $hostname) ?: 'localhost';
         self::command($socket, 'EHLO ' . $hostname, 250);
 
         if ($encryption === 'tls') {
@@ -92,12 +142,9 @@ final class Mailer
             self::command($socket, 'EHLO ' . $hostname, 250);
         }
 
-        $username = (string) ($cfg['username'] ?? '');
-        if ($username !== '') {
-            self::command($socket, 'AUTH LOGIN', 334);
-            self::command($socket, base64_encode($username), 334);
-            self::command($socket, base64_encode((string) ($cfg['password'] ?? '')), 235);
-        }
+        self::command($socket, 'AUTH LOGIN', 334);
+        self::command($socket, base64_encode($username), 334);
+        self::command($socket, base64_encode($password), 235);
 
         self::command($socket, 'MAIL FROM:<' . $from . '>', 250);
         self::command($socket, 'RCPT TO:<' . $to . '>', 250);
@@ -227,6 +274,15 @@ final class Mailer
             'Order ' . $order['order_number'] . ' — ' . order_status_label($status),
             self::wrap('Order update', $body, 'View order', url('account/order.php?id=' . (int) $order['id']))
         );
+    }
+
+    public static function emailVerification(array $user, string $link): bool
+    {
+        $body = '<p>Hi ' . e($user['name']) . ',</p>'
+            . '<p>Thank you for creating an account with ' . e(Settings::get('store_name')) . '. Confirm that this email address belongs to you to activate your customer account.</p>'
+            . '<p>This secure link expires in 24 hours. If you did not create the account, you can ignore this message.</p>'
+            . '<p style="color:#64748b;font-size:13px;word-break:break-all">' . e($link) . '</p>';
+        return self::send((string) $user['email'], 'Confirm your email address', self::wrap('Confirm your email', $body, 'Verify email address', $link));
     }
 
     public static function welcome(array $user): bool
