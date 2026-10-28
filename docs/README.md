@@ -2,7 +2,6 @@
 
 | Document | Read it when |
 | --- | --- |
-| [AEONFREE.md](AEONFREE.md) | deploying the live store to aeonfree (`softmymarket.hstn.me`) — upload, SQL import, first run, free-plan limits |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | uploading to shared hosting, HTTPS, cron, gateways, mail, launch checklist |
 | [DATABASE.md](DATABASE.md) | filling in DB credentials, understanding the schema, seeding, maintenance |
 | [SETTINGS.md](SETTINGS.md) | changing YourMarket identity, customization options, existing-install schema update, currency and locale behavior |

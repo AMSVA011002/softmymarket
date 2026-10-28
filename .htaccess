@@ -1,5 +1,5 @@
 # ===========================================================================
-# YourMarket — Apache configuration for shared hosting (aeonfree / hstn.me)
+# YourMarket — Apache configuration for common PHP hosting
 # ===========================================================================
 # This file is deliberately conservative: every block is wrapped in an
 # <IfModule> test so a host without that module (or with a restricted
@@ -24,8 +24,8 @@ DirectoryIndex index.php index.html
 # ---------------------------------------------------------------------------
 # HTTPS
 # ---------------------------------------------------------------------------
-# aeonfree issues a free certificate for *.hstn.me. Once it is active, uncomment
-# the three lines below to force HTTPS everywhere.
+# After HTTPS is enabled for your domain, uncomment the three lines below to
+# redirect all HTTP requests to HTTPS. Confirm the certificate works first.
 #<IfModule mod_rewrite.c>
 #    RewriteEngine On
 #    RewriteCond %{HTTPS} !=on
@@ -45,9 +45,9 @@ DirectoryIndex index.php index.html
 # ---------------------------------------------------------------------------
 <IfModule mod_alias.c>
     RedirectMatch 404 ^/(config|includes|database|storage|tests|docs)(/|$)
-    RedirectMatch 404 ^/(tools|install)/.*\.(php|md|sql|lock)$
+    RedirectMatch 404 ^/tools/.*\.(php|md|sql|lock)$
     RedirectMatch 404 /\.(git|env|htaccess|htpasswd|editorconfig)(/|$)
-    RedirectMatch 404 /(README|DEPLOYMENT|SECURITY|CHANGELOG|AEONFREE)\.md$
+    RedirectMatch 404 /(README|DEPLOYMENT|SECURITY|CHANGELOG)\.md$
 </IfModule>
 
 <FilesMatch "\.(sql|sql\.gz|log|lock|ini|dist|bak|sh|md|json|yml|yaml)$">

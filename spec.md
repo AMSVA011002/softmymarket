@@ -135,9 +135,9 @@ The deployment must also configure a writable, protected location for required r
 
 ### 7.2 Hosting
 
-The project documentation targets conventional PHP hosting with MySQL/MariaDB, including the stated AeonFree-style shared-hosting environment. Verify the host's PHP version/extensions, MariaDB version, HTTPS support, upload limits, rewrite support, outbound mail capability, cron availability, and filesystem permissions before launch. The application does not provision its own host, database, domain, SSL certificate, mail service or payment-provider account.
+The project documentation targets conventional PHP hosting with MySQL/MariaDB across common shared-hosting panels and VPS environments. Verify the host's PHP version/extensions, MariaDB version, HTTPS support, upload limits, rewrite support, outbound mail capability, cron availability, and filesystem permissions before launch. The application does not provision its own host, database, domain, SSL certificate, mail service or payment-provider account.
 
-For a deployment such as `softmymarket.hstn.me`, enter the exact HTTPS public URL in configuration when TLS is active, and use the host-provided MariaDB database host/name/user/password. Do not assume the development/example host name or a local URL is valid in production. The database host is distinct from the public web host where the provider specifies it.
+Enter the deployment’s exact HTTPS public URL and the host-provided MySQL/MariaDB database host/name/user/password in configuration. Do not assume the development/example host name or a local URL is valid in production. The database host may differ from the public web host.
 
 ### 7.3 Scheduled work and operations
 
@@ -202,6 +202,6 @@ These boundaries are based on inspected source and documented schema; they shoul
 - `config/config.example.php` — example settings and default enabled/disabled methods.
 - `database/schema.sql` — sole SQL artifact for schema and default settings.
 - `docs/DATABASE.md` — data model.
-- `docs/DEPLOYMENT.md`, `docs/AEONFREE.md` — deployment guidance.
+- `docs/DEPLOYMENT.md` — generic PHP hosting deployment guidance.
 - `docs/SECURITY.md` — security and operational guidance.
 - `tests/run.php` and `tests/` — CLI test entry point and checks.

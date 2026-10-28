@@ -205,6 +205,13 @@ final class Auth
         Session::regenerate();
         $_SESSION[self::SESSION_KEY] = (int) $user['id'];
         self::$user = $user;
+        if (($user['role'] ?? '') === 'admin') {
+            $editorLock = dirname(__DIR__) . '/config/config-editor.lock';
+            if (!is_file($editorLock)) {
+                @file_put_contents($editorLock, "Administrator login completed at " . gmdate('c') . "\n", LOCK_EX);
+                @chmod($editorLock, 0600);
+            }
+        }
         Csrf::rotate();
 
         if ($remember) {
