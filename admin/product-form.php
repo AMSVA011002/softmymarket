@@ -14,10 +14,26 @@ if ($id > 0 && $product === null) {
     redirect(admin_url('products.php'));
 }
 
+$skuToken = '';
+$skuDisplay = (string) ($product['sku'] ?? '');
+if ($product === null) {
+    $previousToken = (string) old('sku_token', '');
+    $previousClaims = $previousToken !== '' ? Security::verify($previousToken) : null;
+    $previousSku = is_array($previousClaims) ? (string) ($previousClaims['sku'] ?? '') : '';
+    if ($previousClaims !== null && ($previousClaims['purpose'] ?? '') === 'product_sku'
+        && preg_match('/^YM-[A-F0-9]{16}$/D', $previousSku)
+        && !Database::exists('SELECT 1 FROM products WHERE sku = :sku LIMIT 1', ['sku' => $previousSku])) {
+        $skuDisplay = $previousSku;
+    } else {
+        $skuDisplay = Catalog::generateSku();
+    }
+    $skuToken = Security::sign(['purpose' => 'product_sku', 'sku' => $skuDisplay], 7200);
+}
+
 $values = [
     'title' => old('title', $product['title'] ?? ''),
     'slug' => old('slug', $product['slug'] ?? ''),
-    'sku' => old('sku', $product['sku'] ?? ''),
+    'sku' => $skuDisplay,
     'category_id' => (int) old('category_id', $product['category_id'] ?? 0),
     'parent_category_id' => (int) old('parent_category_id', 0),
     'brand_id' => (int) old('brand_id', $product['brand_id'] ?? 0),
@@ -77,6 +93,7 @@ require __DIR__ . '/includes/layout-top.php';
   <input type="hidden" name="action" value="product_save">
   <input type="hidden" name="id" value="<?= (int) ($product['id'] ?? 0) ?>">
   <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+  <?php if ($product === null): ?><input type="hidden" name="sku_token" value="<?= e($skuToken) ?>"><?php endif; ?>
 
   <div class="row g-3">
     <div class="col-lg-8">
@@ -88,8 +105,9 @@ require __DIR__ . '/includes/layout-top.php';
             <input class="form-control" id="title" name="title" value="<?= e($values['title']) ?>" maxlength="200" required>
           </div>
           <div class="col-md-6">
-            <label class="form-label small" for="sku">SKU *</label>
-            <input class="form-control" id="sku" name="sku" value="<?= e($values['sku']) ?>" maxlength="60" required>
+            <label class="form-label small" for="sku">SKU (automatically generated)</label>
+            <input class="form-control bg-light" id="sku" value="<?= e($values['sku']) ?>" readonly aria-readonly="true">
+            <div class="form-text">This unique SKU is assigned automatically and cannot be changed.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label small" for="slug">URL slug</label>

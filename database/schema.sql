@@ -224,6 +224,27 @@ PREPARE ym_choice_flag_stmt FROM @ym_choice_flag_ddl;
 EXECUTE ym_choice_flag_stmt;
 DEALLOCATE PREPARE ym_choice_flag_stmt;
 
+-- Ensure SKU uniqueness also exists on databases upgraded from older schemas.
+-- If legacy duplicate SKU values exist, MySQL rejects this ALTER rather than
+-- silently changing identifiers that may be referenced by inventory workflows.
+SET @ym_has_unique_sku = (
+  SELECT COUNT(*) FROM (
+    SELECT INDEX_NAME
+      FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+     GROUP BY INDEX_NAME
+    HAVING COUNT(*) = 1 AND MAX(COLUMN_NAME = 'sku') = 1 AND MAX(NON_UNIQUE) = 0
+  ) AS ym_unique_sku_indexes
+);
+SET @ym_unique_sku_ddl = IF(
+  @ym_has_unique_sku = 0,
+  'ALTER TABLE `products` ADD UNIQUE KEY `uniq_products_sku` (`sku`)',
+  'SELECT 1'
+);
+PREPARE ym_unique_sku_stmt FROM @ym_unique_sku_ddl;
+EXECUTE ym_unique_sku_stmt;
+DEALLOCATE PREPARE ym_unique_sku_stmt;
+
 -- ------------------------------------------------------------------- reviews
 CREATE TABLE IF NOT EXISTS `reviews` (
   `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
