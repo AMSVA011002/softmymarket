@@ -15,16 +15,6 @@ $smmWishCount = count(Cart::wishlistIds());
 $smmUnread = Notifier::unreadCount($smmUser['id'] ?? null);
 $smmTree = View::navCategories();
 $smmAnnouncement = trim(Settings::get('announcement'));
-$smmIntroVideo = '';
-if (Settings::bool('intro_video_enabled')) {
-    $smmCandidateVideo = trim(Settings::get('intro_video_url'));
-    $smmVideoParts = parse_url($smmCandidateVideo);
-    if (strlen($smmCandidateVideo) <= 2000 && filter_var($smmCandidateVideo, FILTER_VALIDATE_URL)
-        && is_array($smmVideoParts) && strtolower((string) ($smmVideoParts['scheme'] ?? '')) === 'https'
-        && !empty($smmVideoParts['host']) && !isset($smmVideoParts['user']) && !isset($smmVideoParts['pass'])) {
-        $smmIntroVideo = $smmCandidateVideo;
-    }
-}
 $smmTitle = isset($pageTitle) && $pageTitle !== null
     ? $pageTitle . ' · ' . $brand['name']
     : Settings::get('default_meta_title', $brand['name'] . ' — ' . ($brand['tagline'] !== '' ? $brand['tagline'] : 'Online store'));
@@ -173,19 +163,6 @@ $smmStructuredData = [
   <style nonce="<?= e(Security::nonce()) ?>">:root{<?= e(Settings::themeCssVars()) ?>}</style>
 </head>
 <body class="<?= e($pageClass ?? '') ?>">
-<?php if ($smmIntroVideo !== ''): ?>
-  <div class="store-intro" data-store-intro data-intro-src="<?= e($smmIntroVideo) ?>" aria-label="Store introduction">
-    <video class="store-intro-video" data-intro-video autoplay playsinline preload="auto" tabindex="-1" aria-label="Store introduction video">
-      <source src="<?= e($smmIntroVideo) ?>">
-    </video>
-    <div class="store-intro-fallback" data-intro-fallback hidden>
-      <div class="store-intro-prompt" role="status">
-        <p>Tap to play the store introduction with sound.</p>
-        <button class="store-intro-play" type="button" data-intro-start>Play with sound</button>
-      </div>
-    </div>
-  </div>
-<?php endif; ?>
 <header class="site-header">
   <a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-brand btn-sm" href="#main">Skip to content</a>
   <?php if ($smmAnnouncement !== ''): ?>
