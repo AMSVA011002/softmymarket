@@ -91,19 +91,26 @@ final class Database
     /** @return list<array<string,mixed>> */
     public static function all(string $sql, array $params = []): array
     {
-        return self::run($sql, $params)->fetchAll();
+        $stmt = self::run($sql, $params);
+        $rows = $stmt->fetchAll();
+        $stmt->closeCursor();
+        return $rows;
     }
 
     /** @return array<string,mixed>|null */
     public static function one(string $sql, array $params = []): ?array
     {
-        $row = self::run($sql, $params)->fetch();
+        $stmt = self::run($sql, $params);
+        $row = $stmt->fetch();
+        $stmt->closeCursor();
         return $row === false ? null : $row;
     }
 
     public static function value(string $sql, array $params = [], mixed $default = null): mixed
     {
-        $value = self::run($sql, $params)->fetchColumn();
+        $stmt = self::run($sql, $params);
+        $value = $stmt->fetchColumn();
+        $stmt->closeCursor();
         return $value === false ? $default : $value;
     }
 
@@ -119,7 +126,10 @@ final class Database
 
     public static function exists(string $sql, array $params = []): bool
     {
-        return self::run($sql, $params)->fetchColumn() !== false;
+        $stmt = self::run($sql, $params);
+        $exists = $stmt->fetchColumn() !== false;
+        $stmt->closeCursor();
+        return $exists;
     }
 
     /**
