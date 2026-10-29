@@ -41,6 +41,8 @@ final class Settings
         'support_whatsapp'      => '+94 77 123 4567',
         'address'               => 'No. 120, Galle Road, Colombo 03, Sri Lanka',
         'announcement'          => 'Welcome — delivery options and order details are shown at checkout.',
+        'intro_video_enabled'   => '0',
+        'intro_video_url'       => '',
         'currency'              => 'LKR',
         'currency_symbol'       => 'Rs',
         'logo_url'              => '',

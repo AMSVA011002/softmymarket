@@ -675,6 +675,10 @@ switch ($action) {
                 $values[$key] = (string) (normalize_image_url($values[$key]) ?? '');
             }
         }
+        if ($group === 'intro' && ($values['intro_video_enabled'] ?? '0') === '1'
+            && trim((string) ($values['intro_video_url'] ?? '')) === '') {
+            $done('danger', 'Add a direct HTTPS video file URL before enabling the intro video.');
+        }
         Settings::setMany($values);
         Audit::log('settings.updated', 'settings', null, ['group' => $group]);
         $done('success', 'Settings saved.');
