@@ -442,7 +442,7 @@ final class Catalog
             return [];
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $rows = Database::all(self::PRODUCT_SELECT . " WHERE p.id IN ({$placeholders}) AND p.deleted_at IS NULL", $ids);
+        $rows = Database::all(self::PRODUCT_SELECT . " WHERE p.id IN ({$placeholders}) AND p.status = 'active' AND p.deleted_at IS NULL", $ids);
         $mapped = [];
         foreach ($rows as $row) {
             $product = self::mapProduct($row);
@@ -864,8 +864,15 @@ final class Catalog
     /** Dashboard product list with admin-only columns. */
     public static function adminProducts(array $filters): array
     {
-        $where = ['p.deleted_at IS NULL'];
         $params = [];
+        $statusFilter = (string) ($filters['status'] ?? '');
+        if ($statusFilter === 'archived') {
+            // Include both discontinued rows and products soft-archived from the
+            // default admin list so they can be restored later.
+            $where = ['(p.status = \'archived\' OR p.deleted_at IS NOT NULL)'];
+        } else {
+            $where = ['p.deleted_at IS NULL'];
+        }
         if (!empty($filters['q'])) {
             $like = '%' . $filters['q'] . '%';
             $where[] = '(p.title LIKE :aq1 OR p.sku LIKE :aq2 OR p.tags LIKE :aq3 OR b.name LIKE :aq4 OR c.name LIKE :aq5)';
@@ -875,9 +882,9 @@ final class Catalog
             $params['aq4'] = $like;
             $params['aq5'] = $like;
         }
-        if (!empty($filters['status']) && in_array($filters['status'], ['active', 'draft', 'archived'], true)) {
+        if ($statusFilter !== '' && $statusFilter !== 'archived' && in_array($statusFilter, ['active', 'draft'], true)) {
             $where[] = 'p.status = :astatus';
-            $params['astatus'] = $filters['status'];
+            $params['astatus'] = $statusFilter;
         }
         if (!empty($filters['category'])) {
             $where[] = 'p.category_id = :acat';
@@ -998,6 +1005,7 @@ final class Catalog
             'low_stock_alert'   => max(0, (int) ($data['low_stock_alert'] ?? Settings::int('low_stock_threshold', 5))),
             'condition'         => in_array($data['condition'] ?? '', ['new', 'used', 'refurbished'], true) ? (string) $data['condition'] : 'new',
             'status'            => $status,
+            'is_choice'         => (int) !empty($data['is_choice']),
             'is_featured'       => (int) !empty($data['is_featured']),
             'is_flash_deal'     => (int) !empty($data['is_flash_deal']),
             'free_shipping'     => (int) !empty($data['free_shipping']),
@@ -1031,6 +1039,24 @@ final class Catalog
         Database::update('products', $fields, 'id = :id', ['id' => $id]);
         Audit::log('product.updated', 'product', $id, ['title' => $fields['title']]);
         return $id;
+    }
+
+    /** Restore an archived product safely as a draft so it can be reviewed before republishing. */
+    public static function restoreProduct(int $id): void
+    {
+        $product = Database::one('SELECT id, title, status, deleted_at FROM products WHERE id = :id LIMIT 1', ['id' => $id]);
+        if ($product === null) {
+            throw new InvalidArgumentException('Product not found.');
+        }
+        if ($product['status'] !== 'archived' && $product['deleted_at'] === null) {
+            throw new InvalidArgumentException('Only archived products can be restored.');
+        }
+        Database::update('products', [
+            'deleted_at' => null,
+            'status' => 'draft',
+            'updated_at' => date('Y-m-d H:i:s'),
+        ], 'id = :id', ['id' => $id]);
+        Audit::log('product.restored', 'product', $id, ['title' => (string) $product['title']]);
     }
 
     /** Soft delete: keeps order history intact. */
@@ -1191,7 +1217,7 @@ final class Catalog
 
     public static function mapProduct(array $row): array
     {
-        foreach (['id', 'category_id', 'brand_id', 'stock', 'low_stock_alert', 'is_featured', 'is_flash_deal', 'free_shipping', 'sold_count', 'view_count', 'review_count', 'weight_grams'] as $key) {
+        foreach (['id', 'category_id', 'brand_id', 'stock', 'low_stock_alert', 'is_choice', 'is_featured', 'is_flash_deal', 'free_shipping', 'sold_count', 'view_count', 'review_count', 'weight_grams'] as $key) {
             if (array_key_exists($key, $row) && $row[$key] !== null) {
                 $row[$key] = (int) $row[$key];
             }

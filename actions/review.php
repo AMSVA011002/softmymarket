@@ -12,7 +12,7 @@ RateLimiter::guard('review');
 
 $productId = post_int('product_id');
 $product = Catalog::product($productId);
-if ($product === null) {
+if ($product === null || $product['status'] !== 'active') {
     abort(404, 'Product not found.');
 }
 if (!Settings::bool('allow_reviews', true)) {

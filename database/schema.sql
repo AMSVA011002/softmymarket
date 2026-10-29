@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `low_stock_alert`   INT             NOT NULL DEFAULT 5,
   `condition`         ENUM('new','used','refurbished') NOT NULL DEFAULT 'new',
   `status`            ENUM('active','draft','archived') NOT NULL DEFAULT 'active',
+  `is_choice`         TINYINT(1)      NOT NULL DEFAULT 0,
   `is_featured`       TINYINT(1)      NOT NULL DEFAULT 0,
   `is_flash_deal`     TINYINT(1)      NOT NULL DEFAULT 0,
   `free_shipping`     TINYINT(1)      NOT NULL DEFAULT 0,
@@ -207,6 +208,21 @@ CREATE TABLE IF NOT EXISTS `products` (
   CONSTRAINT `fk_products_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_products_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Re-import-safe upgrade for existing product tables.
+SET @ym_has_choice_flag = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+     AND COLUMN_NAME = 'is_choice'
+);
+SET @ym_choice_flag_ddl = IF(
+  @ym_has_choice_flag = 0,
+  'ALTER TABLE `products` ADD COLUMN `is_choice` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`',
+  'SELECT 1'
+);
+PREPARE ym_choice_flag_stmt FROM @ym_choice_flag_ddl;
+EXECUTE ym_choice_flag_stmt;
+DEALLOCATE PREPARE ym_choice_flag_stmt;
 
 -- ------------------------------------------------------------------- reviews
 CREATE TABLE IF NOT EXISTS `reviews` (

@@ -51,6 +51,7 @@ if ((int) $values['parent_category_id'] <= 0) {
         : (int) ($selectedCategory['id'] ?? 0);
 }
 $flags = [
+    'is_choice' => (int) old('is_choice', $product['is_choice'] ?? 0),
     'is_featured' => (int) old('is_featured', $product['is_featured'] ?? 0),
     'is_flash_deal' => (int) old('is_flash_deal', $product['is_flash_deal'] ?? 0),
     'free_shipping' => (int) old('free_shipping', $product['free_shipping'] ?? 0),
@@ -223,10 +224,14 @@ require __DIR__ . '/includes/layout-top.php';
         <h2 class="h6 fw-bold mb-2">Publishing</h2>
         <label class="form-label small" for="status">Status</label>
         <select class="form-select form-select-sm mb-2" id="status" name="status">
-          <?php foreach (['active' => 'Active — visible in the shop', 'draft' => 'Draft — hidden', 'archived' => 'Archived'] as $value => $label): ?>
+          <?php foreach (['active' => 'Active — visible in the shop', 'draft' => 'Draft — hidden', 'archived' => 'Archived / discontinued — hidden from the store'] as $value => $label): ?>
             <option value="<?= e($value) ?>" <?= $values['status'] === $value ? 'selected' : '' ?>><?= e($label) ?></option>
           <?php endforeach; ?>
         </select>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="is_choice" name="is_choice" value="1" <?= $flags['is_choice'] ? 'checked' : '' ?>>
+          <label class="form-check-label small" for="is_choice">Show “Choice” badge on product cards</label>
+        </div>
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="is_featured" name="is_featured" value="1" <?= $flags['is_featured'] ? 'checked' : '' ?>>
           <label class="form-check-label small" for="is_featured">Featured on the home page</label>

@@ -41,7 +41,7 @@ require __DIR__ . '/includes/layout-top.php';
       <label class="form-label small mb-1" for="p-status">Status</label>
       <select class="form-select form-select-sm" id="p-status" name="status">
         <option value="">Any</option>
-        <?php foreach (['active' => 'Active', 'draft' => 'Draft', 'archived' => 'Archived'] as $value => $label): ?>
+        <?php foreach (['active' => 'Active', 'draft' => 'Draft', 'archived' => 'Archived / discontinued'] as $value => $label): ?>
           <option value="<?= e($value) ?>" <?= $filters['status'] === $value ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
@@ -93,12 +93,17 @@ require __DIR__ . '/includes/layout-top.php';
       </thead>
       <tbody>
         <?php foreach ($rows as $product): ?>
+          <?php $isArchived = $product['status'] === 'archived' || !empty($product['deleted_at']); ?>
           <tr>
             <td>
               <div class="d-flex align-items-center gap-2">
                 <img src="<?= e(product_image_src($product['image'] ?? null, (string) $product['title'], 80)) ?>" alt="" width="40" height="40" style="border-radius:.45rem;object-fit:cover;background:var(--ink-100)">
                 <div class="min-w-0">
-                  <a class="text-decoration-none fw-semibold d-block text-truncate" style="max-width:280px" href="<?= e(admin_url('product-form.php', ['id' => (int) $product['id']])) ?>"><?= e($product['title']) ?></a>
+                  <?php if (!$isArchived): ?>
+                    <a class="text-decoration-none fw-semibold d-block text-truncate" style="max-width:280px" href="<?= e(admin_url('product-form.php', ['id' => (int) $product['id']])) ?>"><?= e($product['title']) ?></a>
+                  <?php else: ?>
+                    <span class="fw-semibold d-block text-truncate" style="max-width:280px"><?= e($product['title']) ?></span>
+                  <?php endif; ?>
                   <div class="text-ink-400" style="font-size:.68rem"><?= e($product['sku']) ?><?= !empty($product['brand_name']) ? ' · ' . e($product['brand_name']) : '' ?></div>
                 </div>
               </div>
@@ -113,19 +118,33 @@ require __DIR__ . '/includes/layout-top.php';
             </td>
             <td class="text-center d-none d-md-table-cell small"><?= (int) $product['sold_count'] ?></td>
             <td>
-              <span class="badge text-bg-<?= $product['status'] === 'active' ? 'success' : ($product['status'] === 'draft' ? 'secondary' : 'dark') ?>"><?= e(humanize((string) $product['status'])) ?></span>
+              <span class="badge text-bg-<?= $isArchived ? 'dark' : ($product['status'] === 'active' ? 'success' : 'secondary') ?>"><?= e($isArchived ? 'Archived / discontinued' : humanize((string) $product['status'])) ?></span>
               <?php if (!empty($product['is_featured'])): ?><span class="badge text-bg-light" title="Featured"><i class="bi bi-star-fill text-warning"></i></span><?php endif; ?>
             </td>
             <td class="text-end text-nowrap">
-              <a class="btn btn-sm btn-soft" href="<?= e('/product.php?slug=' . rawurlencode((string) $product['slug'])) ?>" target="_blank" rel="noopener" title="View on site"><i class="bi bi-box-arrow-up-right"></i></a>
-              <a class="btn btn-sm btn-soft" href="<?= e(admin_url('product-form.php', ['id' => (int) $product['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
-              <form method="post" action="/admin/actions.php" class="d-inline" data-confirm="Archive “<?= e($product['title']) ?>”? It will disappear from the shop but order history is kept.">
-                <?= Csrf::field() ?>
-                <input type="hidden" name="action" value="product_delete">
-                <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-                <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
-                <button class="btn btn-sm btn-soft" type="submit" title="Archive"><i class="bi bi-archive"></i></button>
-              </form>
+              <?php if (!$isArchived): ?>
+                <a class="btn btn-sm btn-soft" href="<?= e('/product.php?slug=' . rawurlencode((string) $product['slug'])) ?>" target="_blank" rel="noopener" title="View on site"><i class="bi bi-box-arrow-up-right"></i></a>
+              <?php endif; ?>
+              <?php if (!$isArchived): ?>
+                <a class="btn btn-sm btn-soft" href="<?= e(admin_url('product-form.php', ['id' => (int) $product['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
+              <?php endif; ?>
+              <?php if ($isArchived): ?>
+                <form method="post" action="/admin/actions.php" class="d-inline" data-confirm="Restore “<?= e($product['title']) ?>” as a draft? You can update its stock and publish it again from the product editor.">
+                  <?= Csrf::field() ?>
+                  <input type="hidden" name="action" value="product_restore">
+                  <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+                  <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+                  <button class="btn btn-sm btn-brand" type="submit" title="Restore as draft"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </form>
+              <?php else: ?>
+                <form method="post" action="/admin/actions.php" class="d-inline" data-confirm="Archive “<?= e($product['title']) ?>”? It will disappear from the shop but order history is kept.">
+                  <?= Csrf::field() ?>
+                  <input type="hidden" name="action" value="product_delete">
+                  <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+                  <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+                  <button class="btn btn-sm btn-soft" type="submit" title="Archive"><i class="bi bi-archive"></i></button>
+                </form>
+              <?php endif; ?>
             </td>
           </tr>
         <?php endforeach; ?>

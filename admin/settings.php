@@ -21,7 +21,9 @@ if (isset($storeUrlParts['port'])) {
 
 /** Render one settings input. */
 $renderField = static function (string $key, array $meta): string {
-    $value = Settings::get($key, (string) $meta['default']);
+    $value = $meta['type'] === 'color'
+        ? Settings::color($key)
+        : Settings::get($key, (string) $meta['default']);
     if ($key === 'mail_from_name' && $value === '') {
         $value = Settings::get('store_name');
     }
@@ -76,7 +78,7 @@ require __DIR__ . '/includes/layout-top.php';
 ?>
 <ul class="nav nav-tabs mb-3 flex-wrap">
   <?php
-  $tabLabels = ['general' => 'Store', 'commerce' => 'Commerce', 'content' => 'Content', 'email' => 'Email', 'payments' => 'Payments', 'hero' => 'Hero slides'];
+  $tabLabels = ['general' => 'Store', 'appearance' => 'Appearance', 'commerce' => 'Commerce', 'content' => 'Content', 'email' => 'Email', 'payments' => 'Payments', 'hero' => 'Hero slides'];
   foreach ($tabLabels as $value => $label): ?>
     <li class="nav-item"><a class="nav-link <?= $tab === $value ? 'active' : '' ?>" href="<?= e(admin_url('settings.php', ['tab' => $value])) ?>"><?= e($label) ?></a></li>
   <?php endforeach; ?>
@@ -374,6 +376,9 @@ require __DIR__ . '/includes/layout-top.php';
     <input type="hidden" name="action" value="settings_save">
     <input type="hidden" name="group" value="<?= e($tab) ?>">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
+    <?php if ($tab === 'appearance'): ?>
+      <div class="alert alert-info small"><strong>Store appearance colours</strong><br>Choose colours for the storefront and shared UI components, including buttons, text, navigation, wishlist controls, product badges, and the footer. Save to apply the new palette across the site. Use high-contrast text/background combinations for readability.</div>
+    <?php endif; ?>
     <?php if ($tab === 'email'): ?>
       <div class="alert alert-info small"><strong>Transactional email and account verification</strong><br>Enter the outgoing SMTP server, account username and password supplied by your mail provider. Authentication is mandatory. The password is encrypted at rest and never shown again; leave the password field blank to retain it. A real SMTP or server-mail transport is required to deliver verification links.</div>
     <?php endif; ?>
