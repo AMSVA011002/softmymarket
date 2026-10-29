@@ -582,7 +582,7 @@ CREATE TABLE IF NOT EXISTS `search_log` (
 -- Default settings. Settings::get() already ships these as PHP defaults, but
 -- having rows means the admin settings screen opens with real values.
 -- ---------------------------------------------------------------------------
-INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
+INSERT IGNORE INTO `settings` (`setting_key`, `setting_value`) VALUES
   ('store_name', 'YourMarket'),
   ('store_tagline', 'Sri Lanka''s friendliest online store'),
   ('store_description', 'Shop quality products from one trusted local store, with reliable delivery and helpful customer support.'),
@@ -620,8 +620,7 @@ INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
   ('live_tracking_refresh', '30'),
   ('tracking_note', 'Tracking updates often. Keep this page open and it will refresh by itself.'),
   ('bank_transfer_note', 'Transfer to Seylan Bank · 0123456789 · YourMarket (Pvt) Ltd, and upload your slip so we can verify it quickly.'),
-  ('default_meta_description', '')
-ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`);
+  ('default_meta_description', '');
 
 
 -- Seed missing settings only; existing admin-customized values are preserved.

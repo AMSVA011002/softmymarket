@@ -100,7 +100,15 @@ function install_schema(): array
         if ($statement === '') {
             continue;
         }
-        $pdo->exec($statement);
+        // Some schema statements use PREPARE/EXECUTE and can produce a result
+        // set (for example the no-op SELECT 1 used by guarded upgrades). Using
+        // exec() leaves that result pending on MySQL and the next statement
+        // fails with error 2014. Run through query() and close the cursor so
+        // every statement's result is fully consumed before continuing.
+        $statementResult = $pdo->query($statement);
+        if ($statementResult !== false) {
+            $statementResult->closeCursor();
+        }
         $executed++;
     }
     return [true, 'Schema imported (' . $executed . ' statements).'];
