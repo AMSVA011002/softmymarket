@@ -137,6 +137,8 @@ if ($keyBroken && !IS_CLI && !$runningInstaller) {
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
     Security::sendHeaders();
+    $installerAvailable = is_file(ROOT_PATH . '/install/index.php')
+        && !is_file(STORAGE_PATH . '/installed.lock');
 
     $repairKey = '';
     if (Security::isHttps()) {
@@ -170,8 +172,10 @@ if ($keyBroken && !IS_CLI && !$runningInstaller) {
         . '<li>Replace the placeholder value on the <code>app.key</code> line with the 64-character key above' . ($repairKey !== '' ? '' : ' you generated') . '.</li>'
         . '<li>Save the file and reload this page.</li>'
         . '</ol>'
-        . '<p class="small text-secondary mb-0">Everything else — the database, the catalogue and '
-        . 'the dashboard — is already working.</p>'
+        . '<p class="small text-secondary mb-0">After saving the key, continue to the installer to verify the database settings, import the schema, and finish setup.</p>'
+        . ($installerAvailable
+            ? '<a class="btn btn-primary mt-3" href="/install/index.php?step=1">Continue installation and configure the database</a>'
+            : '')
         . '</div></div></div>'
         . '<script nonce="' . Security::nonce() . '">const copyButton=document.getElementById("copy-repair-app-key");if(copyButton)copyButton.addEventListener("click",async function(){const field=document.getElementById("repair-app-key");const status=document.getElementById("repair-key-status");field.focus();field.select();field.setSelectionRange(0,field.value.length);try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(field.value);}else if(!document.execCommand("copy")){throw new Error("Clipboard copy failed");}status.textContent="Copied. Paste it into config/config.php at the app.key setting.";}catch(error){try{field.focus();field.select();const copied=document.execCommand("copy");status.textContent=copied?"Copied. Paste it into config/config.php.":"Key selected. Copy it with your browser copy command.";}catch(fallbackError){status.textContent="Key selected. Copy it with your browser copy command.";}}});</script>'
         . '</body></html>';
@@ -278,9 +282,14 @@ if (!function_exists('smm_render_fatal')) {
         }
 
         $debug = (bool) Config::get('app.debug');
-        $safeMessage = $debug
-            ? htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')
-            : 'Something went wrong on our side.';
+        $databaseUnavailable = stripos($e->getMessage(), 'store database is unavailable') !== false;
+        $installerAvailable = is_file(ROOT_PATH . '/install/index.php')
+            && !is_file(STORAGE_PATH . '/installed.lock');
+        $safeMessage = $databaseUnavailable
+            ? 'YourMarket cannot connect to its MySQL database. Check the connection settings and continue the installation to correct them.'
+            : ($debug
+                ? htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')
+                : 'Something went wrong on our side.');
         $safeTrace = $debug
             ? '<pre class="small text-start overflow-auto">' . htmlspecialchars($e->getTraceAsString(), ENT_QUOTES, 'UTF-8') . '</pre>'
             : '';
@@ -294,6 +303,13 @@ if (!function_exists('smm_render_fatal')) {
         echo '<body class="bg-light d-flex align-items-center justify-content-center min-vh-100"><div class="text-center p-4">';
         echo '<div class="display-5 mb-3">⚠️</div><h1 class="h3 fw-bold">We hit a snag</h1>';
         echo '<p class="text-secondary">' . $safeMessage . '</p>';
+        if ($databaseUnavailable) {
+            echo '<div class="alert alert-warning text-start small"><strong>Database connection failed.</strong> Check the database host supplied by your hosting provider, port, database name, username, password, and user privileges. Do not use the website host unless your provider says it is also the MySQL host.</div>';
+            if ($installerAvailable) {
+                echo '<a class="btn btn-primary mt-2" href="/install/index.php?step=1">Continue installation and update database settings</a>';
+                echo '<p class="small text-secondary mt-2">After saving valid connection details, continue to the schema step. Importing the schema adds missing tables and does not drop existing tables.</p>';
+            }
+        }
         echo '<a class="btn btn-success mt-2" href="/">Back to the store</a>';
         echo '<p class="text-secondary small mt-3 mb-0">Reference: <code>' . $safeRef . '</code><br>';
         echo 'Quote this reference to support — the matching entry is in <code>storage/logs/</code>.</p>';
@@ -319,16 +335,23 @@ require_once INCLUDES_PATH . '/Auth.php';
 require_once INCLUDES_PATH . '/Database.php';
 require_once INCLUDES_PATH . '/Settings.php';
 
+$isInstallerRequest = false;
 if (!IS_CLI) {
     Security::sendHeaders();
     Session::start();
-    Auth::boot();
+    $isInstallerRequest = str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install');
+    // The installer is the recovery path for a broken/missing database
+    // configuration. Do not let stale login or remember-me cookies trigger a
+    // database query before the installer has a chance to repair it.
+    if (!$isInstallerRequest) {
+        Auth::boot();
+    }
     // Every POST is CSRF-checked here; gateway callbacks and the installer are
     // exempt because they authenticate their callers differently.
     enforce_csrf();
 
     // Temporary team credentials grant access only to the password-change screen.
-    $signedInUser = Auth::user();
+    $signedInUser = $isInstallerRequest ? null : Auth::user();
     if (!empty($signedInUser['must_change_password'])) {
         $requestPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
         $isSettingsPage = $requestPath === '/account/settings.php' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET';
@@ -353,7 +376,7 @@ if (!IS_CLI) {
  * Exempt: the dashboard, login/logout, assets, the image proxy, payment
  * callbacks, the installer, the deploy check and the holding page itself.
  */
-if (!IS_CLI && !defined('SMM_MAINTENANCE_PAGE')) {
+if (!IS_CLI && !$isInstallerRequest && !defined('SMM_MAINTENANCE_PAGE')) {
     try {
         $maintenanceOn = Settings::bool('maintenance_mode');
     } catch (Throwable $e) {
@@ -383,7 +406,7 @@ if (!IS_CLI && !defined('SMM_MAINTENANCE_PAGE')) {
  * Payment credentials edited in the dashboard override config/config.php.
  * Stored as one JSON document so a save is a single atomic row write.
  */
-if (is_file(ROOT_PATH . '/config/config.php')) {
+if (!$isInstallerRequest && is_file(ROOT_PATH . '/config/config.php')) {
     try {
         $gatewayOverrides = json_decode(Settings::get('gateway_config', ''), true);
         if (is_array($gatewayOverrides)) {
@@ -404,7 +427,7 @@ if (is_file(ROOT_PATH . '/config/config.php')) {
 
 // Shared-hosting fallback: process overdue bank-transfer orders during normal
 // traffic. The CLI task in tools/expire-orders.php can also run from cron.
-if (!IS_CLI && isset($_SESSION)) {
+if (!IS_CLI && !$isInstallerRequest && isset($_SESSION)) {
     $lastOrderExpiryCheck = (int) ($_SESSION['_order_expiry_check_at'] ?? 0);
     if (time() - $lastOrderExpiryCheck >= 300) {
         $_SESSION['_order_expiry_check_at'] = time();
