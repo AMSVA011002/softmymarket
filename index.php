@@ -289,7 +289,7 @@ require INCLUDES_PATH . '/layout/header.php';
           <div class="section-head mb-2"><div><h2 class="h6 fw-bold mb-0">Best sellers</h2><p class="small text-ink-500 mb-0">What everyone is buying</p></div></div>
           <?php foreach ($bestSellers as $product): ?>
             <a class="d-flex gap-2 py-2 border-bottom text-decoration-none" href="/product.php?slug=<?= e($product['slug']) ?>">
-              <img src="<?= e(img_url($product['image'], (string) $product['title'], 120)) ?>" alt="" width="52" height="52" loading="lazy" style="border-radius:.6rem;object-fit:cover;background:var(--ink-100)">
+              <img src="<?= e(product_image_src($product['image'] ?? null, (string) $product['title'], 120)) ?>" alt="" width="52" height="52" loading="lazy" style="border-radius:.6rem;object-fit:cover;background:var(--ink-100)">
               <span class="flex-grow-1 min-w-0">
                 <span class="d-block small fw-semibold text-ink-800 text-truncate"><?= e($product['title']) ?></span>
                 <span class="d-block small text-ink-400"><?= e($product['category_name'] ?? '') ?></span>

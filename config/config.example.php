@@ -194,7 +194,7 @@ return [
         'cache_ttl'   => 60 * 60 * 24 * 7, // seconds a remote image stays cached
         'max_bytes'   => 5 * 1024 * 1024,
         'cache_dir'   => 'storage/cache/images',
-        'placeholder' => 'assets/img/placeholder.svg',
+        'placeholder' => 'assets/img/placeholder.svg', // Built-in fallback when the dashboard placeholder is blank
     ],
 
     'uploads' => [

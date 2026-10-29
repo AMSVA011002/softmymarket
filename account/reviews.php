@@ -28,7 +28,7 @@ require INCLUDES_PATH . '/layout/header.php';
           <div class="card-soft p-3 p-md-4">
             <?php foreach ($rows as $review): ?>
               <div class="d-flex gap-3 py-3 border-bottom">
-                <img src="<?= e(img_url($review['image_url'], (string) $review['product_title'], 120)) ?>" alt="" width="56" height="56" style="object-fit:cover;border-radius:8px" loading="lazy">
+                <img src="<?= e(product_image_src($review['image_url'] ?? null, (string) $review['product_title'], 120)) ?>" alt="" width="56" height="56" style="object-fit:cover;border-radius:8px" loading="lazy">
                 <div class="flex-grow-1">
                   <div class="d-flex flex-wrap justify-content-between gap-2">
                     <a class="small fw-semibold text-decoration-none" href="/product.php?slug=<?= e($review['product_slug']) ?>"><?= e($review['product_title']) ?></a>
