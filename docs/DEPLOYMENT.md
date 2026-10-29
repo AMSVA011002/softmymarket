@@ -74,6 +74,12 @@ After signing in as the first administrator, configure email delivery and invite
 
 **Alternative — the web installer.** `/install/` uses the same `database/schema.sql` and can also create the first administrator interactively. It does not require or use a separate installation SQL file.
 
+### Installer troubleshooting
+
+- If **Writable storage/logs/** is missing, the installer attempts to create the runtime directories. If the check still fails, make sure PHP can write to `storage/` and `storage/logs/`; the hosting PHP error log records a failed directory-creation attempt.
+- If the installer says the existing configuration cannot connect to MySQL, verify the database hostname (use the database host supplied by your provider, not necessarily the website host), port, database name, username, password, and database-user privileges. Existing non-secret values are prefilled in step 1; the password is never shown. The underlying PDO reason is written to the host’s PHP error log.
+- Do not import the schema until the installer confirms that the configured database is reachable.
+
 ### Manual alternative
 
 ```bash
