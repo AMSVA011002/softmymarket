@@ -134,9 +134,23 @@ $runningInstaller = str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/
 if ($keyBroken && !IS_CLI && !$runningInstaller) {
     http_response_code(503);
     header('Content-Type: text/html; charset=utf-8');
-    header('Cache-Control: no-store');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    Security::sendHeaders();
+
+    $repairKey = '';
+    if (Security::isHttps()) {
+        try {
+            $repairKey = bin2hex(random_bytes(32));
+        } catch (Throwable) {
+            $repairKey = '';
+        }
+    }
+    $safeRepairKey = htmlspecialchars($repairKey, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<meta name="robots" content="noindex,nofollow,noarchive">'
         . '<title>YourMarket configuration needs attention</title>'
         . '<link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>'
         . '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:680px">'
@@ -145,15 +159,22 @@ if ($keyBroken && !IS_CLI && !$runningInstaller) {
         . '<p class="text-secondary mb-2">YourMarket is installed and reachable, but '
         . '<code>config/config.php</code> still has a placeholder secret. It signs password-reset '
         . 'and order-tracking links, so it has to be random and private.</p>'
+        . ($repairKey !== ''
+            ? '<h2 class="h6 mt-4">Step 1 — copy a securely generated key</h2>'
+                . '<p class="small text-secondary">This 64-character key is generated for this page load only. Copy it now; reloading creates a different key. Do not share it.</p>'
+                . '<div class="input-group mb-2"><input id="repair-app-key" class="form-control font-monospace" type="text" value="' . $safeRepairKey . '" readonly aria-label="Generated app key"><button id="copy-repair-app-key" class="btn btn-outline-success" type="button">Copy key</button></div>'
+                . '<div id="repair-key-status" class="small text-success" aria-live="polite"></div>'
+            : '<div class="alert alert-warning small mt-3">A key is only generated and shown over HTTPS to protect it in transit. Open this page using your secure HTTPS address, or generate one on your server with <code>php -r "echo bin2hex(random_bytes(32));"</code>.</div>')
+        . '<h2 class="h6 mt-4">' . ($repairKey !== '' ? 'Step 2' : 'Next') . ' — update config/config.php</h2>'
         . '<ol class="small text-secondary">'
-        . '<li>Generate a key:<br><code>php -r "echo bin2hex(random_bytes(32));"</code></li>'
-        . '<li>Paste the 64-character result into <code>config/config.php</code> at '
-        . '<code>\'key\' =&gt; \'...\'</code>.</li>'
+        . '<li>Replace the placeholder value on the <code>app.key</code> line with the 64-character key above' . ($repairKey !== '' ? '' : ' you generated') . '.</li>'
         . '<li>Save the file and reload this page.</li>'
         . '</ol>'
         . '<p class="small text-secondary mb-0">Everything else — the database, the catalogue and '
         . 'the dashboard — is already working.</p>'
-        . '</div></div></div></body></html>';
+        . '</div></div></div>'
+        . '<script nonce="' . Security::nonce() . '">const copyButton=document.getElementById("copy-repair-app-key");if(copyButton)copyButton.addEventListener("click",async function(){const field=document.getElementById("repair-app-key");const status=document.getElementById("repair-key-status");field.focus();field.select();field.setSelectionRange(0,field.value.length);try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(field.value);}else if(!document.execCommand("copy")){throw new Error("Clipboard copy failed");}status.textContent="Copied. Paste it into config/config.php at the app.key setting.";}catch(error){try{field.focus();field.select();const copied=document.execCommand("copy");status.textContent=copied?"Copied. Paste it into config/config.php.":"Key selected. Copy it with your browser copy command.";}catch(fallbackError){status.textContent="Key selected. Copy it with your browser copy command.";}}});</script>'
+        . '</body></html>';
     exit;
 }
 if (!$keyBroken && !preg_match('/^[0-9a-f]{64}$/i', $appKey)) {
