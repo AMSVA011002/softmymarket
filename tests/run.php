@@ -181,6 +181,8 @@ T::case('helpers: img_url proxies Drive links and keeps https URLs', function ()
     T::same('https://cdn.example.com/a.jpg', img_url('https://cdn.example.com/a.jpg'));
     T::same('/assets/img/logo.png', img_url('/assets/img/logo.png'));
     T::contains('/image.php?placeholder=1', img_url(''));
+    T::same('/assets/img/placeholder.svg', product_image_src(''));
+    T::contains('/image.php?src=', product_image_src('https://cdn.example.com/missing-product.jpg', 'Sample product', 320));
 });
 
 T::case('helpers: paginate clamps pages and computes offsets', function (): void {
@@ -581,15 +583,26 @@ T::case('team invitations email a temporary password and force a first-login cha
 T::case('settings: YourMarket defaults and dashboard customization fields are available', function (): void {
     $root = dirname(__DIR__);
     T::same('YourMarket', Settings::DEFAULTS['store_name'], 'brand default');
-    foreach (['store_description', 'orders_email', 'store_language', 'store_locality', 'store_country_code', 'social_image_url', 'twitter_url', 'meta_pixel_id', 'return_window_days', 'delivery_promise', 'faq_items', 'trust_delivery_text'] as $key) {
+    foreach (['store_description', 'orders_email', 'store_language', 'store_locality', 'store_country_code', 'social_image_url', 'product_placeholder_url', 'facebook_url', 'linkedin_url', 'threads_url', 'whatsapp_url', 'footer_copyright', 'twitter_url', 'meta_pixel_id', 'return_window_days', 'delivery_promise', 'faq_items', 'trust_delivery_text'] as $key) {
         T::true(array_key_exists($key, Settings::DEFAULTS), 'missing setting default: ' . $key);
     }
     $adminSettings = (string) file_get_contents($root . '/admin/includes/bootstrap.php');
-    foreach (['store_description', 'orders_email', 'social_image_url', 'twitter_url', 'trust_delivery_text', 'return_window_days', 'faq_items'] as $key) {
+    foreach (['store_description', 'orders_email', 'social_image_url', 'product_placeholder_url', 'facebook_url', 'linkedin_url', 'threads_url', 'footer_copyright', 'twitter_url', 'trust_delivery_text', 'return_window_days', 'faq_items'] as $key) {
         T::contains("'" . $key . "' =>", $adminSettings, 'missing Admin setting field ' . $key);
     }
     T::contains("Settings::get('currency_symbol'", (string) file_get_contents($root . '/includes/helpers.php'), 'money formatting should honor the dashboard currency symbol');
     T::contains("Settings::get('meta_pixel_id')", (string) file_get_contents($root . '/includes/layout/footer.php'), 'configured Meta Pixel should be included on storefront pages');
+    $schema = (string) file_get_contents($root . '/database/schema.sql');
+    T::contains("('product_placeholder_url', '')", $schema, 'schema should seed the placeholder URL for existing/new installs');
+    T::contains("('linkedin_url', '')", $schema, 'schema should seed social URLs without overwriting saved links');
+    T::contains("('footer_copyright', '© {year} {store}. All rights reserved.')", $schema, 'schema should seed a customizable copyright template');
+
+    $footer = (string) file_get_contents($root . '/includes/layout/footer.php');
+    $socialNav = strpos($footer, '<nav class="d-flex flex-wrap justify-content-center gap-2 py-3 border-top"');
+    $copyrightLine = strpos($footer, '<?= e($footerCopyright) ?>');
+    T::true($socialNav !== false && $copyrightLine !== false && $socialNav < $copyrightLine, 'configured social icons should appear just before footer copyright');
+    T::contains("'{year}' => date('Y')", $footer, 'copyright template should substitute current year');
+    T::contains('\'{store}\' => (string) $brand[\'name\']', $footer, 'copyright template should substitute store name');
 
     T::contains("`setting_value` = 'SoftMyMarket'", (string) file_get_contents($root . '/database/schema.sql'), 'schema should update only known old brand defaults');
 });

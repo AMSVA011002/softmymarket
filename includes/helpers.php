@@ -629,6 +629,30 @@ function is_remote_url(?string $url): bool
     return is_string($url) && (bool) preg_match('#^https?://#i', trim($url));
 }
 
+/** Return the configured product placeholder, validating local paths stay inside the app. */
+function product_placeholder_src(string $label = 'Product', int $width = 640): string
+{
+    $custom = normalize_image_url(Settings::get('product_placeholder_url', ''));
+    if ($custom !== null) {
+        // Mark this as the terminal fallback so a failed placeholder cannot recurse.
+        return '/image.php?src=' . rawurlencode($custom) . '&w=' . max(80, min(2000, $width)) . '&fallback=1';
+    }
+
+    $configured = trim((string) Config::get('images.placeholder', 'assets/img/placeholder.svg'));
+    $relative = ltrim($configured, '/');
+    if ($relative !== '' && !str_contains($relative, '..')
+        && preg_match('#^[A-Za-z0-9._/-]+$#D', $relative)) {
+        $root = realpath(ROOT_PATH);
+        $file = realpath(ROOT_PATH . '/' . $relative);
+        if ($root !== false && $file !== false && is_file($file)
+            && str_starts_with($file, $root . DIRECTORY_SEPARATOR)) {
+            return '/' . str_replace('\\', '/', $relative);
+        }
+    }
+
+    return image_placeholder($label !== '' ? $label : 'Product', $width);
+}
+
 /**
  * Turn any stored image reference into a browser-safe src.
  *
@@ -669,6 +693,19 @@ function image_placeholder(string $label, int $width = 640): string
     return '/image.php?placeholder=1&label=' . $text . '&w=' . $width;
 }
 
+/** Resolve product art through the proxy so unavailable remote URLs can use the store placeholder. */
+function product_image_src(?string $image, ?string $label = 'Product', int $width = 640): string
+{
+    $normalised = normalize_image_url($image);
+    if ($normalised === null) {
+        return product_placeholder_src($label ?? 'Product', $width);
+    }
+    if (is_remote_url($normalised)) {
+        return '/image.php?src=' . rawurlencode($normalised) . '&w=' . max(80, min(2000, $width));
+    }
+    return img_url($normalised, $label, $width);
+}
+
 /** First image of a product record. */
 function product_image(array $product): string
 {
@@ -678,7 +715,7 @@ function product_image(array $product): string
         $images = is_array($decoded) ? $decoded : [];
     }
     $first = is_array($images) && $images !== [] ? (string) reset($images) : '';
-    return img_url($first, $product['title'] ?? 'Product');
+    return product_image_src($first, (string) ($product['title'] ?? 'Product'));
 }
 
 /* -------------------------------------------------------------- taxonomy */

@@ -17,7 +17,7 @@
         <tr>
           <td>
             <div class="d-flex align-items-center gap-2">
-              <img src="<?= e(img_url((string) $item['image_url'], (string) $item['title'], 120)) ?>" alt="" width="48" height="48" style="object-fit:cover;border-radius:8px;background:var(--ink-100)" loading="lazy">
+              <img src="<?= e(product_image_src((string) ($item['image_url'] ?? ''), (string) $item['title'], 120)) ?>" alt="" width="48" height="48" style="object-fit:cover;border-radius:8px;background:var(--ink-100)" loading="lazy">
               <div>
                 <a class="small fw-semibold text-decoration-none" href="/product.php?slug=<?= e($item['slug']) ?>"><?= e($item['title']) ?></a>
                 <div class="text-ink-400" style="font-size:.7rem">SKU <?= e($item['sku']) ?></div>

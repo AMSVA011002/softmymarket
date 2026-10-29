@@ -595,6 +595,9 @@ switch ($action) {
             if (strlen($values[$key]) > 4000) {
                 $done('danger', strtolower((string) $meta['label']) . ' is too long.');
             }
+            if (isset($meta['max_length']) && mb_strlen($values[$key]) > (int) $meta['max_length']) {
+                $done('danger', strtolower((string) $meta['label']) . ' must be no longer than ' . (int) $meta['max_length'] . ' characters.');
+            }
             if ($meta['type'] === 'number') {
                 if (!is_numeric($values[$key])) {
                     $done('danger', 'Enter a valid number for ' . strtolower((string) $meta['label']) . '.');

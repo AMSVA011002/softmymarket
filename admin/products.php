@@ -96,7 +96,7 @@ require __DIR__ . '/includes/layout-top.php';
           <tr>
             <td>
               <div class="d-flex align-items-center gap-2">
-                <img src="<?= e(img_url($product['image'], (string) $product['title'], 80)) ?>" alt="" width="40" height="40" style="border-radius:.45rem;object-fit:cover;background:var(--ink-100)">
+                <img src="<?= e(product_image_src($product['image'] ?? null, (string) $product['title'], 80)) ?>" alt="" width="40" height="40" style="border-radius:.45rem;object-fit:cover;background:var(--ink-100)">
                 <div class="min-w-0">
                   <a class="text-decoration-none fw-semibold d-block text-truncate" style="max-width:280px" href="<?= e(admin_url('product-form.php', ['id' => (int) $product['id']])) ?>"><?= e($product['title']) ?></a>
                   <div class="text-ink-400" style="font-size:.68rem"><?= e($product['sku']) ?><?= !empty($product['brand_name']) ? ' · ' . e($product['brand_name']) : '' ?></div>

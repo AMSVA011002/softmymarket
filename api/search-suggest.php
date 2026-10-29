@@ -51,7 +51,7 @@ json_response([
         'was' => !empty($product['compare_at_price']) ? money((float) $product['compare_at_price']) : null,
         'category' => (string) ($product['category_name'] ?? ''),
         'stock' => (int) ($product['stock'] ?? 0),
-        'image' => img_url($product['image'] ?? null, (string) $product['title'], 120),
+        'image' => product_image_src($product['image'] ?? null, (string) $product['title'], 120),
         'url' => '/product.php?slug=' . rawurlencode((string) $product['slug']),
     ], $products),
     'categories' => array_map(static fn (array $category): array => [

@@ -64,7 +64,7 @@ $renderField = static function (string $key, array $meta): string {
         'color' => '<input class="form-control form-control-sm form-control-color" id="' . e($id) . '" name="' . e($name) . '" type="color" value="' . e($value) . '">',
         'email' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="email" value="' . e($value) . '">',
         'url' => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" type="url" value="' . e($value) . '" placeholder="https://">',
-        default => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" value="' . e($value) . '">',
+        default => '<input class="form-control form-control-sm" id="' . e($id) . '" name="' . e($name) . '" value="' . e($value) . '"' . (!empty($meta['max_length']) ? ' maxlength="' . (int) $meta['max_length'] . '"' : '') . '>',
     };
     return $label . $control . $help;
 };

@@ -52,7 +52,7 @@ require INCLUDES_PATH . '/layout/header.php';
                 <div class="table-responsive"><table class="table table-admin align-middle">
                   <thead><tr><th>Item</th><th>Purchased</th><th>Still returnable</th><th style="width:130px">Return quantity</th></tr></thead>
                   <tbody><?php foreach ($eligibleItems as $item): ?>
-                    <tr><td><div class="d-flex align-items-center gap-2"><?php if ($item['image_url']): ?><img src="<?= e(img_url((string) $item['image_url'])) ?>" alt="" width="42" height="42" class="rounded object-fit-cover"><?php endif; ?><span><?= e($item['title']) ?><small class="d-block text-ink-400"><?= e((string) ($item['sku'] ?? '')) ?></small></span></div></td>
+                    <tr><td><div class="d-flex align-items-center gap-2"><img src="<?= e(product_image_src((string) ($item['image_url'] ?? ''), (string) $item['title'], 120)) ?>" alt="" width="42" height="42" class="rounded object-fit-cover"><span><?= e($item['title']) ?><small class="d-block text-ink-400"><?= e((string) ($item['sku'] ?? '')) ?></small></span></div></td>
                       <td><?= (int) $item['quantity'] ?></td><td><?= (int) $item['returnable_quantity'] ?></td>
                       <td><input class="form-control form-control-sm" type="number" name="quantity[<?= (int) $item['id'] ?>]" min="0" max="<?= (int) $item['returnable_quantity'] ?>" value="0" aria-label="Return quantity for <?= e($item['title']) ?>"></td></tr>
                   <?php endforeach; ?></tbody>

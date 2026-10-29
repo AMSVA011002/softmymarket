@@ -171,7 +171,7 @@ require __DIR__ . '/includes/layout-top.php';
         <ul class="list-unstyled small mb-0">
           <?php foreach ($lowStock as $product): ?>
             <li class="d-flex align-items-center gap-2 py-1 border-bottom">
-              <img src="<?= e(img_url($product['image'], (string) $product['title'], 80)) ?>" alt="" width="32" height="32" style="border-radius:.4rem;object-fit:cover">
+              <img src="<?= e(product_image_src($product['image'] ?? null, (string) $product['title'], 80)) ?>" alt="" width="32" height="32" style="border-radius:.4rem;object-fit:cover">
               <span class="flex-grow-1 text-truncate"><?= e(limit_text($product['title'], 30)) ?></span>
               <span class="badge text-bg-<?= $product['stock'] <= 0 ? 'danger' : 'warning' ?> rounded-pill"><?= (int) $product['stock'] ?></span>
             </li>

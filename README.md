@@ -153,6 +153,7 @@ Prepare these as public Google Drive links (set sharing to **Anyone with the lin
 | --- | --- | ---: |
 | Homepage hero slide | Rotating home-page artwork; desktop frame is 4:3, while mobile uses a 16:9 container with the full image contained (not cropped). Keep key content centered; slide text is separate. | **1600 × 1200 px** (4:3) |
 | Product image/gallery | Product cards, product detail gallery, cart, checkout, search and order thumbnails. Product cards crop to 4:3; detail view is square. | **1600 × 1600 px** (square) |
+| Product placeholder | Automatically shown when a product has no image or its remote image cannot be fetched. Set or replace it in **Admin → Settings → Store**; leave blank to use the built-in placeholder. | **800 × 800 px** (square) or 4:3 |
 | Category image | Small square category tile, displayed about 48 × 48 px. | **512 × 512 px** |
 | Store logo | Store header, footer, dashboard, invoices and shipping labels; generally displayed 38–48 px high, up to about 240 × 78 px on invoices. | **600 × 180 px**, transparent |
 | Brand logo | Home brand strip and brand listings; larger display is about 120 × 40 px. | **480 × 160 px**, transparent |
@@ -165,7 +166,7 @@ Small thumbnails reuse the relevant product, category or logo source; no extra i
 
 ## Configuration
 
-Everything lives in `config/config.php` (git-ignored, HTTP-blocked, `0640`):
+Server connection and runtime defaults live in `config/config.php` (git-ignored, HTTP-blocked, `0640`):
 
 * `app` — name, URL, key, timezone, currency, support contacts
 * `db` — host, port, name, user, password
@@ -175,8 +176,7 @@ Everything lives in `config/config.php` (git-ignored, HTTP-blocked, `0640`):
 * `payments` — per-gateway credentials, mode and limits
 * `images` / `uploads` — proxy allow-list, sizes, cache directory
 
-Gateway credentials can also be edited in **Admin → Settings → Payments** (stored
-in the `settings` table and merged over the file at boot).
+Store settings are managed in the dashboard database. The product placeholder image is editable in **Admin → Settings → Store** and is used when a product image is missing or unavailable. Add HTTPS social profile URLs there to show matching icons immediately above the footer copyright row; customize the copyright line with the `{year}` and `{store}` tokens. Gateway credentials can also be edited in **Admin → Settings → Payments**.
 
 ---
 

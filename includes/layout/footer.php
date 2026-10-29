@@ -6,6 +6,51 @@ $brand = Settings::brand();
 $footerCart = Cart::contents();
 $footerQuote = Pricing::quote($footerCart);
 $footerCategories = array_slice(View::navCategories(6), 0, 6);
+$footerSocialPlatforms = [
+    'facebook_url' => ['Facebook', 'facebook'],
+    'instagram_url' => ['Instagram', 'instagram'],
+    'tiktok_url' => ['TikTok', 'tiktok'],
+    'youtube_url' => ['YouTube', 'youtube'],
+    'twitter_url' => ['X', 'twitter-x'],
+    'whatsapp_url' => ['WhatsApp', 'whatsapp'],
+    'linkedin_url' => ['LinkedIn', 'linkedin'],
+    'pinterest_url' => ['Pinterest', 'pinterest'],
+    'snapchat_url' => ['Snapchat', 'snapchat'],
+    'telegram_url' => ['Telegram', 'telegram'],
+    'discord_url' => ['Discord', 'discord'],
+    'threads_url' => ['Threads', 'threads'],
+    'reddit_url' => ['Reddit', 'reddit'],
+    'twitch_url' => ['Twitch', 'twitch'],
+    'messenger_url' => ['Messenger', 'messenger'],
+    'wechat_url' => ['WeChat', 'wechat'],
+    'line_url' => ['LINE', 'line'],
+    'mastodon_url' => ['Mastodon', 'mastodon'],
+    'vimeo_url' => ['Vimeo', 'vimeo'],
+    'spotify_url' => ['Spotify', 'spotify'],
+    'medium_url' => ['Medium', 'medium'],
+    'behance_url' => ['Behance', 'behance'],
+    'wordpress_url' => ['WordPress', 'wordpress'],
+    'github_url' => ['GitHub', 'github'],
+];
+$footerSocialLinks = [];
+foreach ($footerSocialPlatforms as $key => [$platform, $icon]) {
+    $href = trim(Settings::get($key));
+    $parts = parse_url($href);
+    if ($href === '' || !filter_var($href, FILTER_VALIDATE_URL) || !is_array($parts)
+        || strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || empty($parts['host'])
+        || isset($parts['user']) || isset($parts['pass'])) {
+        continue;
+    }
+    $footerSocialLinks[] = ['label' => $platform, 'icon' => $icon, 'href' => $href];
+}
+$footerCopyrightTemplate = trim(Settings::get('footer_copyright'));
+if ($footerCopyrightTemplate === '') {
+    $footerCopyrightTemplate = '© {year} {store}. All rights reserved.';
+}
+$footerCopyright = strtr($footerCopyrightTemplate, [
+    '{year}' => date('Y'),
+    '{store}' => (string) $brand['name'],
+]);
 ?>
 </main>
 
@@ -41,13 +86,6 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
           <li class="mb-1"><i class="bi bi-telephone me-2 text-brand"></i><a class="text-decoration-none text-ink-600" href="tel:<?= e(preg_replace('/\s+/', '', Settings::get('support_phone'))) ?>"><?= e(Settings::get('support_phone')) ?></a></li>
           <li class="mb-1"><i class="bi bi-envelope me-2 text-brand"></i><a class="text-decoration-none text-ink-600" href="mailto:<?= e(Settings::get('support_email')) ?>"><?= e(Settings::get('support_email')) ?></a></li>
         </ul>
-        <div class="d-flex gap-2">
-          <?php foreach (['facebook_url' => 'facebook', 'instagram_url' => 'instagram', 'tiktok_url' => 'tiktok', 'youtube_url' => 'youtube', 'twitter_url' => 'twitter-x', 'whatsapp_url' => 'whatsapp'] as $key => $network):
-              $link = trim(Settings::get($key));
-              if ($link === '') continue; ?>
-            <a class="social-link" href="<?= e($link) ?>" rel="noopener nofollow" target="_blank" aria-label="<?= e(ucfirst($network)) ?>"><i class="bi bi-<?= e($network) ?>"></i></a>
-          <?php endforeach; ?>
-        </div>
       </div>
 
       <div class="col-6 col-lg-2">
@@ -103,8 +141,19 @@ $footerCategories = array_slice(View::navCategories(6), 0, 6);
       </div>
     </div>
 
+    <?php if ($footerSocialLinks !== []): ?>
+      <nav class="d-flex flex-wrap justify-content-center gap-2 py-3 border-top" aria-label="Social media links">
+        <?php foreach ($footerSocialLinks as $social): ?>
+          <a class="social-link" href="<?= e($social['href']) ?>" rel="noopener noreferrer nofollow" target="_blank"
+             aria-label="Visit our <?= e($social['label']) ?> page" title="<?= e($social['label']) ?>">
+            <i class="bi bi-<?= e($social['icon']) ?>" aria-hidden="true"></i>
+          </a>
+        <?php endforeach; ?>
+      </nav>
+    <?php endif; ?>
+
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 border-top small text-ink-500">
-      <div>© <?= date('Y') ?> <?= e($brand['name']) ?>. <?= e(Settings::get('footer_note')) ?></div>
+      <div><?= e($footerCopyright) ?><?php if (trim(Settings::get('footer_note')) !== ''): ?> <span class="ms-2">· <?= e(Settings::get('footer_note')) ?></span><?php endif; ?></div>
       <div class="d-flex gap-3">
         <a class="text-decoration-none text-ink-500" href="/privacy.php">Privacy</a>
         <a class="text-decoration-none text-ink-500" href="/terms.php">Terms</a>

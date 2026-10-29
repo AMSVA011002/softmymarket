@@ -71,7 +71,7 @@ require __DIR__ . '/includes/layout-top.php';
               <tr>
                 <td>
                   <div class="d-flex align-items-center gap-2">
-                    <img src="<?= e(img_url($item['image_url'] ?? null, (string) $item['title'], 80)) ?>" alt="" width="36" height="36" style="border-radius:.4rem;object-fit:cover">
+                    <img src="<?= e(product_image_src($item['image_url'] ?? null, (string) $item['title'], 80)) ?>" alt="" width="36" height="36" style="border-radius:.4rem;object-fit:cover">
                     <div class="min-w-0">
                       <div class="text-truncate"><?= e((string) $item['title']) ?></div>
                       <?php if (!empty($item['product_id'])): ?>

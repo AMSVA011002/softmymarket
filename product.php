@@ -93,16 +93,16 @@ require INCLUDES_PATH . '/layout/header.php';
       <div class="col-lg-6">
         <div class="sticky-lg-top" style="top:84px" data-gallery>
           <div class="gallery-main">
-            <img src="<?= e(img_url($images[0] ?? null, (string) $product['title'], 900)) ?>" alt="<?= e($product['title']) ?>"
+            <img src="<?= e(product_image_src($images[0] ?? null, (string) $product['title'], 900)) ?>" alt="<?= e($product['title']) ?>"
                  width="900" height="900" data-gallery-main>
           </div>
           <?php if (count($images) > 1): ?>
             <div class="gallery-thumbs">
               <?php foreach (array_slice($images, 0, 20) as $index => $image): ?>
                 <button class="gallery-thumb <?= $index === 0 ? 'active' : '' ?>" type="button"
-                        data-gallery-thumb="<?= e(img_url($image, (string) $product['title'], 900)) ?>"
+                        data-gallery-thumb="<?= e(product_image_src($image, (string) $product['title'], 900)) ?>"
                         aria-label="View image <?= $index + 1 ?>">
-                  <img src="<?= e(img_url($image, (string) $product['title'], 160)) ?>" alt="" width="120" height="120" loading="lazy">
+                  <img src="<?= e(product_image_src($image, (string) $product['title'], 160)) ?>" alt="" width="120" height="120" loading="lazy">
                 </button>
               <?php endforeach; ?>
             </div>
@@ -356,7 +356,7 @@ require INCLUDES_PATH . '/layout/header.php';
     '@context' => 'https://schema.org',
     '@type' => 'Product',
     'name' => $product['title'],
-    'image' => array_map(static fn ($image) => img_url((string) $image, (string) $product['title'], 900), array_slice($images, 0, 3)),
+    'image' => array_map(static fn ($image) => product_image_src((string) $image, (string) $product['title'], 900), array_slice($images, 0, 3)),
     'description' => limit_text(strip_tags((string) $product['description']), 320, ''),
     'sku' => $product['sku'],
     'brand' => ['@type' => 'Brand', 'name' => (string) ($product['brand_name'] ?? Settings::get('store_name'))],

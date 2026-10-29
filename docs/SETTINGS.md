@@ -7,10 +7,10 @@ need to edit PHP files for these values.
 
 ## Store settings
 
-- **Store** — name and tagline, description, logo and favicon, social-share
-  image, primary/dark/accent colours, currency code and display symbol, language
+- **Store** — name and tagline, description, logo, favicon, social-share
+  image, product placeholder, primary/dark/accent colours, currency code and display symbol, language
   tag, address/locality/country, business hours, support and order-notification
-  email/phone, announcement bar, footer note, social URLs, page metadata, and
+  email/phone, announcement bar, footer note and copyright text, social profile URLs, page metadata, and
   analytics identifiers.
 - **Commerce** — shipping fees and free-shipping threshold, tax percent, low
   stock threshold, order-number prefix, guest checkout, reviews, maintenance
@@ -27,9 +27,24 @@ need to edit PHP files for these values.
   themes.
 
 External logo, favicon and image URLs are entered through the dashboard. They
-are proxied and cached by the existing image service. Social and analytics
-fields are optional and disabled when left blank. Analytics IDs are validated;
-Meta Pixel is only emitted for a valid numeric Pixel ID.
+are proxied and cached by the existing image service. Set **Product image
+placeholder** in **Admin → Settings → Store** to choose the image displayed when
+a product has no image or its remote image cannot be loaded. Use a public Google
+Drive share link or HTTPS image URL; leave the field blank to use the built-in
+placeholder. Existing products need no manual updates for the fallback to apply.
+On an existing installation, import the updated `database/schema.sql` once to
+seed the new setting key; it preserves the other customized settings.
+
+Social profile fields cover Facebook, Instagram, TikTok, YouTube, X, WhatsApp,
+LinkedIn, Pinterest, Snapchat, Telegram, Discord, Threads, Reddit, Twitch,
+Messenger, WeChat, LINE, Mastodon, Vimeo, Spotify, Medium, Behance, WordPress
+and GitHub. Add only channels the store uses; blank fields do not render an icon.
+Links must be HTTPS. The configured platform icons appear in the footer directly
+above its copyright row. Set **Copyright line** in **Admin → Settings → Store**
+to customize that row; `{year}` and `{store}` are replaced automatically, and
+HTML is rendered as plain escaped text. Social and analytics fields are optional.
+Analytics IDs are validated; Meta Pixel is only emitted for a valid numeric
+Pixel ID.
 
 ### Currency and locale
 

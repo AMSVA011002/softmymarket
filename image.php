@@ -136,7 +136,8 @@ foreach ($sources as $candidate) {
     try {
         assert_allowed($candidate, $allowedHosts, $allowPublic);
     } catch (Throwable $e) {
-        abort(400, $e->getMessage());
+        error_log('Image proxy rejected ' . $src . ': ' . $e->getMessage());
+        image_fallback_response($width);
     }
 }
 $source = $sources[0];
@@ -274,6 +275,24 @@ function make_absolute(string $location, string $base): string
     return $scheme . '://' . $host . $dir . '/' . $location;
 }
 
+/** Redirect failed product image requests to the configured placeholder, then stop at a built-in SVG if that placeholder also fails. */
+function image_fallback_response(int $width): never
+{
+    if (empty($_GET['fallback'])) {
+        $fallback = product_placeholder_src(Settings::get('store_name', 'YourMarket'), $width);
+        header('Cache-Control: no-store');
+        header('Location: ' . $fallback, true, 302);
+        exit;
+    }
+
+    header('Content-Type: image/svg+xml; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Product image unavailable"><rect width="400" height="300" fill="#f1f5f9"/>'
+        . '<text x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#64748b">Product image unavailable</text></svg>';
+    exit;
+}
+
 $bytes = null;
 $mime = '';
 $lastError = null;
@@ -290,11 +309,7 @@ foreach ($sources as $candidate) {
 if ($bytes === null) {
     $e = $lastError ?? new RuntimeException('No image source.');
     error_log('Image proxy failed for ' . $src . ': ' . $e->getMessage());
-    header('Content-Type: image/svg+xml; charset=utf-8');
-    header('Cache-Control: no-store');
-    echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#f1f5f9"/>'
-        . '<text x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#94a3b8">Image unavailable</text></svg>';
-    exit;
+    image_fallback_response($width);
 }
 
 $mime = strtolower(trim(explode(';', $mime)[0]));
@@ -303,7 +318,8 @@ if (!isset($allowedMimes[$mime])) {
     $info = @getimagesizefromstring($bytes);
     $mime = is_array($info) ? (string) ($info['mime'] ?? '') : '';
     if (!isset($allowedMimes[$mime])) {
-        abort(415, 'That URL did not return an image.');
+        error_log('Image proxy returned unsupported content for ' . $src);
+        image_fallback_response($width);
     }
 }
 

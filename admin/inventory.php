@@ -88,7 +88,7 @@ require __DIR__ . '/includes/layout-top.php';
               <tr>
                 <td>
                   <div class="d-flex align-items-center gap-2">
-                    <img src="<?= e(img_url($row['image_url'], (string) $row['title'], 80)) ?>" alt="" width="36" height="36" style="border-radius:.4rem;object-fit:cover;background:var(--ink-100)">
+                    <img src="<?= e(product_image_src($row['image_url'] ?? null, (string) $row['title'], 80)) ?>" alt="" width="36" height="36" style="border-radius:.4rem;object-fit:cover;background:var(--ink-100)">
                     <div class="min-w-0">
                       <a class="text-decoration-none d-block text-truncate" style="max-width:260px" href="<?= e(admin_url('product-form.php', ['id' => (int) $row['id']])) ?>"><?= e($row['title']) ?></a>
                       <div class="text-ink-400" style="font-size:.68rem"><?= e($row['sku']) ?><?= !empty($row['category_name']) ? ' · ' . e($row['category_name']) : '' ?></div>
