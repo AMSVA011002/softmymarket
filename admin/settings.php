@@ -78,7 +78,7 @@ require __DIR__ . '/includes/layout-top.php';
 ?>
 <ul class="nav nav-tabs mb-3 flex-wrap">
   <?php
-  $tabLabels = ['general' => 'Store', 'appearance' => 'Appearance', 'intro' => 'Intro video', 'commerce' => 'Commerce', 'content' => 'Content', 'email' => 'Email', 'payments' => 'Payments', 'hero' => 'Hero slides'];
+  $tabLabels = ['general' => 'Store', 'appearance' => 'Appearance', 'commerce' => 'Commerce', 'content' => 'Content', 'email' => 'Email', 'payments' => 'Payments', 'hero' => 'Hero slides'];
   foreach ($tabLabels as $value => $label): ?>
     <li class="nav-item"><a class="nav-link <?= $tab === $value ? 'active' : '' ?>" href="<?= e(admin_url('settings.php', ['tab' => $value])) ?>"><?= e($label) ?></a></li>
   <?php endforeach; ?>
@@ -376,9 +376,6 @@ require __DIR__ . '/includes/layout-top.php';
     <input type="hidden" name="action" value="settings_save">
     <input type="hidden" name="group" value="<?= e($tab) ?>">
     <input type="hidden" name="return" value="<?= e($returnUrl) ?>">
-    <?php if ($tab === 'intro'): ?>
-      <div class="alert alert-info small"><strong>Store intro video</strong><br>The intro appears over the storefront once per browser after the video reaches its end. It has no native playback controls. Browsers often block automatic playback with sound until a visitor taps the “Play with sound” button. If no video URL is set, the storefront opens normally.</div>
-    <?php endif; ?>
     <?php if ($tab === 'appearance'): ?>
       <div class="alert alert-info small"><strong>Store appearance colours</strong><br>Choose colours for the storefront and shared UI components, including buttons, text, navigation, wishlist controls, product badges, and the footer. Save to apply the new palette across the site. Use high-contrast text/background combinations for readability.</div>
     <?php endif; ?>

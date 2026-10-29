@@ -216,10 +216,6 @@ function admin_setting_groups(): array
             'theme_footer_bg' => ['label' => 'Footer background', 'type' => 'color', 'default' => '#f8fafc'],
             'theme_footer_text' => ['label' => 'Footer text and links', 'type' => 'color', 'default' => '#44536a'],
         ],
-        'intro' => [
-            'intro_video_enabled' => ['label' => 'Enable intro video', 'type' => 'bool', 'default' => 0, 'help' => 'When enabled, the video plays once per visitor and storefront browser. Visitors go straight to the store if the video has already completed.'],
-            'intro_video_url' => ['label' => 'Direct video file URL', 'type' => 'url', 'default' => '', 'help' => 'Use a public HTTPS link directly to an MP4 or WebM video file (not a YouTube page or Google Drive preview page). The video plays without native controls. Browsers may require one tap to start playback with sound. Leave blank to disable the intro.'],
-        ],
         'email' => [
             'mail_transport' => ['label' => 'Email transport', 'type' => 'select', 'default' => 'smtp', 'options' => ['smtp' => 'Authenticated SMTP', 'mail' => 'Server mail()'], 'help' => 'SMTP is recommended. The sender must be permitted by the mail account.'],
             'mail_from_email' => ['label' => 'From email address', 'type' => 'email', 'default' => '', 'help' => 'Use the mailbox address authorised by your SMTP provider.'],

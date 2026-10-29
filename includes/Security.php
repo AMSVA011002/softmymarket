@@ -47,7 +47,6 @@ final class Security
             "frame-ancestors 'self'",
             "object-src 'none'",
             "img-src 'self' data: blob: https:",
-            "media-src 'self' blob: https:",
             "font-src 'self' data:",
             "style-src 'self' 'unsafe-inline' https:",
             "script-src 'self' 'nonce-" . self::nonce() . "' https://www.googletagmanager.com https://connect.facebook.net",
