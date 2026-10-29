@@ -48,6 +48,47 @@ final class Settings
         'brand_color'           => '#0c800f',
         'brand_color_dark'      => '#0a6510',
         'accent_color'          => '#0a57a0',
+        'theme_header_bg' => '#ffffff',
+        'theme_header_text' => '#0f172a',
+        'theme_announcement_bg' => '#0a6510',
+        'theme_announcement_text' => '#ffffff',
+        'theme_input_bg' => '#ffffff',
+        'theme_input_text' => '#1e293b',
+        'theme_admin_sidebar_bg' => '#0f1f14',
+        'theme_admin_sidebar_text' => '#cfe9d5',
+        'theme_admin_active_bg' => '#0c800f',
+        'theme_nav_bg' => '#ffffff',
+        'theme_nav_text' => '#44536a',
+        'theme_page_bg' => '#f8fafc',
+        'theme_surface_bg' => '#ffffff',
+        'theme_border_color' => '#e2e8f0',
+        'theme_text_color' => '#1e293b',
+        'theme_heading_color' => '#0f172a',
+        'theme_muted_color' => '#566376',
+        'theme_link_color' => '#0a6510',
+        'theme_link_hover_color' => '#084213',
+        'theme_button_bg' => '#0c800f',
+        'theme_button_text' => '#ffffff',
+        'theme_button_hover_bg' => '#0a6510',
+        'theme_button_hover_text' => '#ffffff',
+        'theme_secondary_button_bg' => '#f1f5f9',
+        'theme_secondary_button_text' => '#334155',
+        'theme_secondary_button_hover_bg' => '#e2e8f0',
+        'theme_secondary_button_hover_text' => '#0f172a',
+        'theme_wishlist_icon' => '#44536a',
+        'theme_wishlist_bg' => '#ffffff',
+        'theme_wishlist_hover_icon' => '#e11d48',
+        'theme_wishlist_hover_bg' => '#ffffff',
+        'theme_wishlist_saved_icon' => '#e11d48',
+        'theme_wishlist_saved_bg' => '#ffffff',
+        'theme_discount_badge_bg' => '#e11d48',
+        'theme_discount_badge_text' => '#ffffff',
+        'theme_choice_badge_bg' => '#24b36b',
+        'theme_choice_badge_text' => '#ffffff',
+        'theme_featured_badge_bg' => '#3979ed',
+        'theme_featured_badge_text' => '#ffffff',
+        'theme_footer_bg' => '#f8fafc',
+        'theme_footer_text' => '#44536a',
         'free_shipping_threshold' => '15000',
         'default_shipping_fee'  => '450',
         'tax_percent'           => '0',
@@ -181,6 +222,100 @@ final class Settings
         self::$cache = null;
     }
 
+    /** Return a saved six-digit hex colour, falling back on the trusted default. */
+    public static function color(string $key): string
+    {
+        $default = (string) (self::DEFAULTS[$key] ?? '#000000');
+        $value = self::get($key, $default);
+        return preg_match('/^#[0-9a-f]{6}$/iD', $value) ? strtolower($value) : $default;
+    }
+
+    /** CSS declarations for the configurable storefront/admin colour palette. */
+    public static function themeCssVars(): string
+    {
+        $map = [
+            '--brand' => 'brand_color',
+            '--brand-600' => 'brand_color_dark',
+            '--accent' => 'accent_color',
+            '--ui-header-bg' => 'theme_header_bg',
+            '--ui-header-text' => 'theme_header_text',
+            '--ui-announcement-bg' => 'theme_announcement_bg',
+            '--ui-announcement-text' => 'theme_announcement_text',
+            '--ui-input-bg' => 'theme_input_bg',
+            '--ui-input-text' => 'theme_input_text',
+            '--ui-admin-sidebar-bg' => 'theme_admin_sidebar_bg',
+            '--ui-admin-sidebar-text' => 'theme_admin_sidebar_text',
+            '--ui-admin-active-bg' => 'theme_admin_active_bg',
+            '--ui-nav-bg' => 'theme_nav_bg',
+            '--ui-nav-text' => 'theme_nav_text',
+            '--ui-page-bg' => 'theme_page_bg',
+            '--ui-surface-bg' => 'theme_surface_bg',
+            '--ui-border' => 'theme_border_color',
+            '--ui-text' => 'theme_text_color',
+            '--ui-heading' => 'theme_heading_color',
+            '--ui-muted' => 'theme_muted_color',
+            '--ui-link' => 'theme_link_color',
+            '--ui-link-hover' => 'theme_link_hover_color',
+            '--ui-button-bg' => 'theme_button_bg',
+            '--ui-button-text' => 'theme_button_text',
+            '--ui-button-hover-bg' => 'theme_button_hover_bg',
+            '--ui-button-hover-text' => 'theme_button_hover_text',
+            '--ui-secondary-button-bg' => 'theme_secondary_button_bg',
+            '--ui-secondary-button-text' => 'theme_secondary_button_text',
+            '--ui-secondary-button-hover-bg' => 'theme_secondary_button_hover_bg',
+            '--ui-secondary-button-hover-text' => 'theme_secondary_button_hover_text',
+            '--ui-wishlist-icon' => 'theme_wishlist_icon',
+            '--ui-wishlist-bg' => 'theme_wishlist_bg',
+            '--ui-wishlist-hover-icon' => 'theme_wishlist_hover_icon',
+            '--ui-wishlist-hover-bg' => 'theme_wishlist_hover_bg',
+            '--ui-wishlist-saved-icon' => 'theme_wishlist_saved_icon',
+            '--ui-wishlist-saved-bg' => 'theme_wishlist_saved_bg',
+            '--ui-discount-badge-bg' => 'theme_discount_badge_bg',
+            '--ui-discount-badge-text' => 'theme_discount_badge_text',
+            '--ui-choice-badge-bg' => 'theme_choice_badge_bg',
+            '--ui-choice-badge-text' => 'theme_choice_badge_text',
+            '--ui-featured-badge-bg' => 'theme_featured_badge_bg',
+            '--ui-featured-badge-text' => 'theme_featured_badge_text',
+            '--ui-footer-bg' => 'theme_footer_bg',
+            '--ui-footer-text' => 'theme_footer_text',
+            '--bs-primary' => 'theme_button_bg',
+            '--bs-body-bg' => 'theme_page_bg',
+            '--bs-body-color' => 'theme_text_color',
+            '--bs-secondary-bg' => 'theme_surface_bg',
+            '--bs-tertiary-bg' => 'theme_page_bg',
+            '--bs-secondary-color' => 'theme_muted_color',
+            '--bs-border-color' => 'theme_border_color',
+            '--bs-link-color' => 'theme_link_color',
+            '--bs-link-hover-color' => 'theme_link_hover_color',
+            '--ink-50' => 'theme_page_bg',
+            '--ink-100' => 'theme_secondary_button_bg',
+            '--ink-200' => 'theme_border_color',
+            '--ink-300' => 'theme_border_color',
+            '--ink-400' => 'theme_muted_color',
+            '--ink-500' => 'theme_muted_color',
+            '--ink-600' => 'theme_muted_color',
+            '--ink-700' => 'theme_text_color',
+            '--ink-800' => 'theme_text_color',
+            '--ink-900' => 'theme_heading_color',
+        ];
+        $declarations = [];
+        foreach ($map as $variable => $key) {
+            $declarations[] = $variable . ':' . self::color($key);
+        }
+        foreach ([
+            '--bs-primary-rgb' => 'theme_button_bg',
+            '--bs-body-color-rgb' => 'theme_text_color',
+            '--bs-secondary-color-rgb' => 'theme_muted_color',
+            '--bs-link-color-rgb' => 'theme_link_color',
+            '--bs-link-hover-color-rgb' => 'theme_link_hover_color',
+        ] as $variable => $key) {
+            $hex = self::color($key);
+            $rgb = [hexdec(substr($hex, 1, 2)), hexdec(substr($hex, 3, 2)), hexdec(substr($hex, 5, 2))];
+            $declarations[] = $variable . ':' . implode(',', $rgb);
+        }
+        return implode(';', $declarations);
+    }
+
     /** Convenience: the storefront brand block used by layouts and emails. */
     public static function brand(): array
     {
@@ -190,9 +325,9 @@ final class Settings
             'tagline'     => self::get('store_tagline'),
             'logo'        => self::get('logo_url'),
             'favicon'     => self::get('favicon_url'),
-            'color'       => self::get('brand_color', '#0c800f'),
-            'color_dark'  => self::get('brand_color_dark', '#0a6510'),
-            'accent'      => self::get('accent_color', '#0a57a0'),
+            'color'       => self::color('brand_color'),
+            'color_dark'  => self::color('brand_color_dark'),
+            'accent'      => self::color('accent_color'),
             'phone'       => self::get('support_phone'),
             'email'       => self::get('support_email'),
             'whatsapp'    => self::get('support_whatsapp'),

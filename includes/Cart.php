@@ -78,9 +78,9 @@ final class Cart
             return ['ok' => true, 'message' => 'Item removed.'];
         }
         $product = Catalog::product($productId);
-        if ($product === null) {
+        if ($product === null || $product['status'] !== 'active') {
             self::remove($productId);
-            return ['ok' => false, 'error' => 'Product not found.'];
+            return ['ok' => false, 'error' => 'This product is no longer available.'];
         }
         $quantity = min($quantity, $product['stock'], (int) Config::get('security.max_order_qty', 10));
         if ($quantity <= 0) {
@@ -243,7 +243,7 @@ final class Cart
         }
         foreach ($session as $productId => $qty) {
             $product = Catalog::product((int) $productId);
-            if ($product === null || $product['stock'] <= 0) {
+            if ($product === null || $product['status'] !== 'active' || $product['stock'] <= 0) {
                 continue;
             }
             $existing = Database::int(
@@ -277,7 +277,12 @@ final class Cart
         if (!Auth::check()) {
             return [];
         }
-        $rows = Database::all('SELECT product_id FROM wishlist_items WHERE user_id = :uid', ['uid' => Auth::id()]);
+        $rows = Database::all(
+            "SELECT w.product_id FROM wishlist_items w
+               JOIN products p ON p.id = w.product_id
+              WHERE w.user_id = :uid AND p.status = 'active' AND p.deleted_at IS NULL",
+            ['uid' => Auth::id()]
+        );
         return array_map(static fn ($r) => (int) $r['product_id'], $rows);
     }
 

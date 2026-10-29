@@ -190,6 +190,7 @@ switch ($action) {
             'low_stock_alert' => post_int('low_stock_alert'),
             'condition' => (string) post('condition', 'new'),
             'status' => (string) post('status', 'draft'),
+            'is_choice' => (bool) post('is_choice'),
             'is_featured' => (bool) post('is_featured'),
             'is_flash_deal' => (bool) post('is_flash_deal'),
             'free_shipping' => (bool) post('free_shipping'),
@@ -225,9 +226,12 @@ switch ($action) {
 
     case 'product_restore':
         admin_require('products.manage');
-        Database::update('products', ['deleted_at' => null, 'status' => 'draft'], 'id = :id', ['id' => post_int('product_id')]);
-        Audit::log('product.restored', 'product', post_int('product_id'));
-        $done('success', 'Product restored as a draft.');
+        try {
+            Catalog::restoreProduct(post_int('product_id'));
+        } catch (Throwable $e) {
+            $done('danger', $e->getMessage());
+        }
+        $done('success', 'Product restored as a draft. Update its stock and set it to Active when it is ready to return to the shop.');
 
     case 'product_toggle':
         admin_require('products.manage');
@@ -236,7 +240,7 @@ switch ($action) {
             $done('danger', 'Product not found.');
         }
         $field = (string) post('field');
-        if (!in_array($field, ['is_featured', 'is_flash_deal', 'free_shipping'], true)) {
+        if (!in_array($field, ['is_choice', 'is_featured', 'is_flash_deal', 'free_shipping'], true)) {
             $done('danger', 'Unknown product flag.');
         }
         Database::update('products', [$field => (int) !$product[$field]], 'id = :id', ['id' => (int) $product['id']]);

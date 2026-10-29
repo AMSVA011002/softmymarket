@@ -3,6 +3,8 @@
 /** @var array<string,list<int>> $wishlist */
 $saved = in_array((int) $product['id'], $wishlist ?? [], true);
 $discount = (int) ($product['discount_percent'] ?? 0);
+$isChoice = !empty($product['is_choice']);
+$isFeatured = !empty($product['is_featured']);
 $stock = (int) $product['stock'];
 $url = '/product.php?slug=' . rawurlencode((string) $product['slug']);
 ?>
@@ -12,7 +14,8 @@ $url = '/product.php?slug=' . rawurlencode((string) $product['slug']);
          loading="<?= !empty($options['priority']) ? 'eager' : 'lazy' ?>" width="400" height="300">
     <span class="product-badges">
       <?php if ($discount > 0): ?><span class="badge-deal">−<?= $discount ?>%</span><?php endif; ?>
-      <?php if (!empty($product['is_featured']) && $discount === 0): ?><span class="badge-feature">Featured</span><?php endif; ?>
+      <?php if ($isChoice): ?><span class="badge-choice">Choice</span><?php endif; ?>
+      <?php if ($isFeatured): ?><span class="badge-feature">Featured</span><?php endif; ?>
       <?php if ($stock <= 0): ?><span class="badge-out">Sold out</span><?php endif; ?>
     </span>
   </a>

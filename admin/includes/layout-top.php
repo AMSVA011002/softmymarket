@@ -21,6 +21,7 @@ $adminFl = flashes();
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap/bootstrap.min.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/vendor/bootstrap-icons/bootstrap-icons.css')) ?>">
   <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+  <style nonce="<?= e(Security::nonce()) ?>">:root{<?= e(Settings::themeCssVars()) ?>}</style>
   <meta name="csrf-token" content="<?= e(Csrf::token()) ?>">
 </head>
 <body class="admin-body">

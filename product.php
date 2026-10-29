@@ -12,9 +12,9 @@ $defaultReturnsText = 'Return requests are accepted within ' . $returnWindowDays
 
 $slug = trim((string) query('slug', ''));
 $productId = query_int('id');
-$product = $slug !== '' ? Catalog::productBySlug($slug) : ($productId > 0 ? Catalog::product($productId) : null);
+$product = $slug !== '' ? Catalog::productBySlug($slug, true) : ($productId > 0 ? Catalog::product($productId) : null);
 
-if ($product === null || !empty($product['deleted_at'])) {
+if ($product === null || !empty($product['deleted_at']) || $product['status'] !== 'active') {
     http_response_code(404);
     $pageTitle = 'Product not found';
     require INCLUDES_PATH . '/layout/header.php';
@@ -22,15 +22,6 @@ if ($product === null || !empty($product['deleted_at'])) {
     require INCLUDES_PATH . '/layout/footer.php';
     exit;
 }
-if ($product['status'] !== 'active' && !Auth::isTeam()) {
-    http_response_code(404);
-    $pageTitle = 'Product unavailable';
-    require INCLUDES_PATH . '/layout/header.php';
-    echo '<section class="section"><div class="container-page">' . View::emptyState('bi-bag-x', 'This product is not available', 'Browse the rest of the catalogue — new stock arrives weekly.', 'Shop all products', '/shop.php') . '</div></section>';
-    require INCLUDES_PATH . '/layout/footer.php';
-    exit;
-}
-
 Catalog::incrementView((int) $product['id']);
 
 // Remember the last 8 products this browser viewed (used by the home rail).

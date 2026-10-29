@@ -160,9 +160,7 @@ $smmStructuredData = [
   <?php if (!$smmNoindex): ?>
     <script type="application/ld+json" nonce="<?= e(Security::nonce()) ?>"><?= json_encode($smmStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   <?php endif; ?>
-  <?php if (!empty($brand['color'])): ?>
-    <style>:root{--brand: <?= e($brand['color']) ?>; --brand-600: <?= e($brand['color_dark']) ?>; --accent: <?= e($brand['accent']) ?>;}</style>
-  <?php endif; ?>
+  <style nonce="<?= e(Security::nonce()) ?>">:root{<?= e(Settings::themeCssVars()) ?>}</style>
 </head>
 <body class="<?= e($pageClass ?? '') ?>">
 <header class="site-header">
