@@ -106,6 +106,25 @@ function install_schema(): array
     return [true, 'Schema imported (' . $executed . ' statements).'];
 }
 
+/** Create expected runtime directories when the storage parent permits it. */
+function install_prepare_storage_directories(): void
+{
+    foreach ([
+        STORAGE_PATH,
+        STORAGE_PATH . '/logs',
+        STORAGE_PATH . '/cache',
+        STORAGE_PATH . '/cache/images',
+        STORAGE_PATH . '/uploads',
+        STORAGE_PATH . '/sessions',
+        STORAGE_PATH . '/backups',
+    ] as $directory) {
+        if (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory)) {
+            error_log('Installer could not create runtime directory: ' . $directory);
+        }
+    }
+}
+
+install_prepare_storage_directories();
 $requirements = install_requirements();
 $requirementsOk = !in_array(false, $requirements, true);
 $alreadyConfigured = is_file($configFile);
@@ -303,23 +322,33 @@ $done = (bool) query('done') || $installed;
           <?php endforeach; ?>
         </ul>
         <?php if (!$requirementsOk): ?>
-          <div class="alert alert-warning small">Fix the missing requirements above with your host before continuing.</div>
+          <div class="alert alert-warning small">
+            Fix the missing requirements before continuing.
+            <?php if (empty($requirements['Writable storage/logs/'])): ?>
+              The installer tried to create <code>storage/logs/</code> automatically. It still cannot write there; create the directory in your hosting File Manager and grant the PHP process write access (usually directory mode <code>0755</code> or <code>0750</code> when PHP runs as the account owner).
+            <?php endif; ?>
+          </div>
         <?php endif; ?>
 
         <?php if ($alreadyConfigured && $dbOk): ?>
           <div class="alert alert-info small">A configuration file already exists and the database is reachable. Continue to import the schema.</div>
           <a class="btn btn-brand" href="/install/index.php?step=2">Continue</a>
         <?php else: ?>
-          <?php if ($dbError !== null): ?><div class="alert alert-warning small">Existing configuration could not connect: <?= h($dbError) ?></div><?php endif; ?>
+          <?php if ($dbError !== null): ?>
+            <div class="alert alert-warning small">
+              <strong>Existing configuration could not connect to MySQL.</strong>
+              The config file is present, but the connection failed. Verify the database host, port, database name, username, password and that this database user has privileges on that database. The password is never shown here. The exact PDO error is written to the hosting PHP error log. Correct the connection details below and save to replace the configuration.
+            </div>
+          <?php endif; ?>
           <form method="post" class="row g-2">
             <?= Csrf::field() ?>
             <input type="hidden" name="step" value="1">
-            <div class="col-md-8"><label class="form-label small">Database host</label><input class="form-control form-control-sm" name="db_host" value="<?= h((string) post('db_host', 'localhost')) ?>" required></div>
-            <div class="col-md-4"><label class="form-label small">Port</label><input class="form-control form-control-sm" name="db_port" value="<?= h((string) post('db_port', '3306')) ?>" required></div>
-            <div class="col-md-6"><label class="form-label small">Database name</label><input class="form-control form-control-sm" name="db_name" value="<?= h((string) post('db_name', '')) ?>" required></div>
-            <div class="col-md-6"><label class="form-label small">Database user</label><input class="form-control form-control-sm" name="db_user" value="<?= h((string) post('db_user', '')) ?>" required></div>
+            <div class="col-md-8"><label class="form-label small">Database host</label><input class="form-control form-control-sm" name="db_host" value="<?= h((string) post('db_host', (string) Config::get('db.host', 'localhost'))) ?>" required></div>
+            <div class="col-md-4"><label class="form-label small">Port</label><input class="form-control form-control-sm" name="db_port" value="<?= h((string) post('db_port', (string) Config::get('db.port', '3306'))) ?>" required></div>
+            <div class="col-md-6"><label class="form-label small">Database name</label><input class="form-control form-control-sm" name="db_name" value="<?= h((string) post('db_name', (string) Config::get('db.name', ''))) ?>" required></div>
+            <div class="col-md-6"><label class="form-label small">Database user</label><input class="form-control form-control-sm" name="db_user" value="<?= h((string) post('db_user', (string) Config::get('db.user', ''))) ?>" required></div>
             <div class="col-12"><label class="form-label small">Database password</label><input class="form-control form-control-sm" type="password" name="db_pass" value=""></div>
-            <div class="col-12"><label class="form-label small">Store URL (no trailing slash)</label><input class="form-control form-control-sm" name="app_url" value="<?= h((string) post('app_url', (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost'))) ?>" required></div>
+            <div class="col-12"><label class="form-label small">Store URL (no trailing slash)</label><input class="form-control form-control-sm" name="app_url" value="<?= h((string) post('app_url', $alreadyConfigured ? (string) Config::get('app.url', '') : ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost')))) ?>" required></div>
             <div class="col-12">
               <div class="form-check"><input class="form-check-input" type="checkbox" id="i-secure" name="secure_cookies" value="1" checked><label class="form-check-label small" for="i-secure">Require HTTPS for session cookies (recommended)</label></div>
               <div class="form-check"><input class="form-check-input" type="checkbox" id="i-debug" name="debug" value="1"><label class="form-check-label small" for="i-debug">Enable debug mode (development only)</label></div>
@@ -331,9 +360,11 @@ $done = (bool) query('done') || $installed;
       <?php elseif ($step === 2): ?>
         <h1 class="h5 fw-bold">Import the database</h1>
         <p class="small text-ink-600">This creates any missing tables from <code>database/schema.sql</code> and preserves existing tables and custom settings.</p>
-        <?php if (!$alreadyConfigured): ?>
-          <div class="alert alert-warning small">No configuration file found — go back to step 1.</div>
-          <a class="btn btn-soft" href="/install/index.php?step=1">Back</a>
+        <?php if (!$alreadyConfigured || !$dbOk): ?>
+          <div class="alert alert-warning small">
+            <?php if (!$alreadyConfigured): ?>No configuration file found.<?php else: ?>The configured database could not be reached. Correct its host, port, database name, username and password in step 1 before importing the schema.<?php endif; ?>
+          </div>
+          <a class="btn btn-soft" href="/install/index.php?step=1">Back to database settings</a>
         <?php else: ?>
           <form method="post" data-install-confirm>
             <?= Csrf::field() ?>
