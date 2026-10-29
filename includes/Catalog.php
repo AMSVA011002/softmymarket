@@ -930,6 +930,18 @@ final class Catalog
         return ['rows' => array_map([self::class, 'mapProduct'], $rows), 'total' => $total, 'pager' => $pager];
     }
 
+    /** Generate a compact, high-entropy SKU that is checked against the database. */
+    public static function generateSku(): string
+    {
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $sku = 'YM-' . strtoupper(bin2hex(random_bytes(8)));
+            if (!Database::exists('SELECT 1 FROM products WHERE sku = :sku LIMIT 1', ['sku' => $sku])) {
+                return $sku;
+            }
+        }
+        throw new RuntimeException('A unique SKU could not be generated. Try again.');
+    }
+
     /**
      * Create or update a product from the dashboard form.
      *
@@ -937,6 +949,14 @@ final class Catalog
      */
     public static function saveProduct(array $data, ?int $id = null): int
     {
+        $existingProduct = null;
+        if ($id !== null) {
+            $existingProduct = self::product($id);
+            if ($existingProduct === null) {
+                throw new InvalidArgumentException('Product not found.');
+            }
+        }
+
         $title = trim((string) ($data['title'] ?? ''));
         if ($title === '') {
             throw new InvalidArgumentException('Product title is required.');
@@ -955,16 +975,25 @@ final class Catalog
             && (int) ($category['parent_id'] ?? 0) !== $parentCategoryId) {
             throw new InvalidArgumentException('Choose a subcategory belonging to the selected parent category.');
         }
-        $sku = strtoupper(trim((string) ($data['sku'] ?? '')));
-        if ($sku === '') {
-            throw new InvalidArgumentException('SKU is required.');
-        }
-        $dupe = Database::exists('SELECT 1 FROM products WHERE sku = :sku AND id <> :id LIMIT 1', [
-            'sku' => $sku,
-            'id'  => $id ?? 0,
-        ]);
-        if ($dupe) {
-            throw new InvalidArgumentException('That SKU is already used by another product.');
+        if ($existingProduct !== null) {
+            // SKU is immutable after creation; never trust a submitted value.
+            $sku = (string) $existingProduct['sku'];
+        } else {
+            $skuToken = trim((string) ($data['sku_token'] ?? ''));
+            if ($skuToken === '') {
+                $sku = self::generateSku();
+            } else {
+                $skuClaims = Security::verify($skuToken);
+                $candidate = is_array($skuClaims) ? (string) ($skuClaims['sku'] ?? '') : '';
+                if ($skuClaims === null || ($skuClaims['purpose'] ?? '') !== 'product_sku'
+                    || !preg_match('/^YM-[A-F0-9]{16}$/D', $candidate)) {
+                    throw new InvalidArgumentException('The generated SKU is invalid or has expired. Reload the product form and try again.');
+                }
+                if (Database::exists('SELECT 1 FROM products WHERE sku = :sku LIMIT 1', ['sku' => $candidate])) {
+                    throw new InvalidArgumentException('That generated SKU is already in use. Reload the product form to generate another.');
+                }
+                $sku = $candidate;
+            }
         }
 
         // Accept Google Drive share links and ordinary product-page image URLs,
@@ -1032,10 +1061,6 @@ final class Catalog
             return $id;
         }
 
-        $existing = self::product($id);
-        if ($existing === null) {
-            throw new InvalidArgumentException('Product not found.');
-        }
         Database::update('products', $fields, 'id = :id', ['id' => $id]);
         Audit::log('product.updated', 'product', $id, ['title' => $fields['title']]);
         return $id;

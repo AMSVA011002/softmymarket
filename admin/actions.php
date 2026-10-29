@@ -177,7 +177,7 @@ switch ($action) {
         $data = [
             'title' => (string) post('title', ''),
             'slug' => (string) post('slug', ''),
-            'sku' => (string) post('sku', ''),
+            'sku_token' => (string) post('sku_token', ''),
             'category_id' => post_int('category_id'),
             'parent_category_id' => post_int('parent_category_id'),
             'brand_id' => post_int('brand_id'),
