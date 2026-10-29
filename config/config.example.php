@@ -3,8 +3,8 @@
  * YourMarket — example configuration.
  *
  * Copy this file to config/config.php and fill in the values for the host.
- * The installer (install/) can generate it for you and will never overwrite an
- * existing file.
+ * The installer (install/) can generate it for you. It validates the database
+ * connection before saving and preserves other settings in a valid existing file.
  *
  * config/config.php is blocked from HTTP access by config/.htaccess and is
  * listed in .gitignore — never commit real credentials to the repository.

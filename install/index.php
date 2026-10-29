@@ -21,6 +21,11 @@ $installed = is_file($lockFile);
 
 $errors = [];
 $step = (int) ($_POST['step'] ?? $_GET['step'] ?? 1);
+$configRecoveryNotice = null;
+if ($configRecoveryError !== null) {
+    $step = 1;
+    $configRecoveryNotice = 'The existing config/config.php was empty or invalid. Enter the database details below; the installer will replace it safely after checking the connection.';
+}
 
 /** Simple escaping alias so the template stays readable. */
 function h(?string $value): string
@@ -47,36 +52,102 @@ function install_requirements(): array
 /** Render the config file from the example, with our values injected. */
 function install_write_config(array $input): array
 {
-    $template = (string) file_get_contents(ROOT_PATH . '/config/config.example.php');
-    $replacements = [
-        "'host'    => 'localhost'," => "'host'    => '" . addslashes($input['db_host']) . "',",
-        "'port'    => 3306," => "'port'    => " . (int) $input['db_port'] . ",",
-        "'name'    => 'yourmarket'," => "'name'    => '" . addslashes($input['db_name']) . "',",
-        "'user'    => 'yourmarket'," => "'user'    => '" . addslashes($input['db_user']) . "',",
-        "'pass'    => ''," => "'pass'    => '" . addslashes($input['db_pass']) . "',",
-        "'url'             => 'https://yourmarket.example'," => "'url'             => '" . addslashes($input['app_url']) . "',",
-        "'key'             => 'CHANGE-ME-TO-A-64-CHARACTER-RANDOM-HEX-STRING-0000000000000000'," => "'key'             => '" . bin2hex(random_bytes(32)) . "',",
-        "'debug'           => false," => "'debug'           => " . (!empty($input['debug']) ? 'true' : 'false') . ",",
-        "'secure'   => true," => "'secure'   => " . (!empty($input['secure_cookies']) ? 'true' : 'false') . ",",
-    ];
-    foreach ($replacements as $search => $replace) {
-        $template = str_replace($search, $replace, $template);
-    }
     $target = ROOT_PATH . '/config/config.php';
+    $example = ROOT_PATH . '/config/config.example.php';
     if (!is_writable(dirname($target))) {
         return [false, 'The config/ directory is not writable. Create config/config.php manually using config/config.example.php.'];
     }
-    if (@file_put_contents($target, $template) === false) {
-        return [false, 'Could not write config/config.php. Check folder permissions (0755).'];
+
+    // Retain every existing configuration section (mail, payments, session
+    // policy, and other host settings) when correcting only the DB connection.
+    // If the existing file is empty or malformed, recover from the example.
+    $config = null;
+    if (is_file($target)) {
+        try {
+            $existing = require $target;
+            if (is_array($existing)) {
+                $config = $existing;
+            }
+        } catch (Throwable) {
+            // The recovery path below uses the trusted example configuration.
+        }
     }
-    @chmod($target, 0640);
-    return [true, 'Configuration saved to config/config.php.'];
+    if (!is_array($config)) {
+        if (!is_readable($example)) {
+            return [false, 'The example configuration is missing or unreadable. Re-upload config/config.example.php.'];
+        }
+        try {
+            $config = require $example;
+        } catch (Throwable) {
+            return [false, 'The example configuration could not be loaded. Re-upload config/config.example.php.'];
+        }
+    }
+    if (!is_array($config)) {
+        return [false, 'The example configuration is invalid. Re-upload config/config.example.php.'];
+    }
+
+    $config['db'] = is_array($config['db'] ?? null) ? $config['db'] : [];
+    $config['app'] = is_array($config['app'] ?? null) ? $config['app'] : [];
+    $config['session'] = is_array($config['session'] ?? null) ? $config['session'] : [];
+    $config['db']['host'] = trim((string) $input['db_host']);
+    $config['db']['port'] = (int) $input['db_port'];
+    $config['db']['name'] = trim((string) $input['db_name']);
+    $config['db']['user'] = trim((string) $input['db_user']);
+    $config['db']['pass'] = (string) $input['db_pass'];
+    $config['app']['url'] = rtrim(trim((string) $input['app_url']), '/');
+    $config['app']['debug'] = !empty($input['debug']);
+    $config['session']['secure'] = !empty($input['secure_cookies']);
+
+    $appKey = (string) ($config['app']['key'] ?? '');
+    if (strlen($appKey) < 32 || stripos($appKey, 'CHANGE-ME') !== false) {
+        try {
+            $config['app']['key'] = bin2hex(random_bytes(32));
+        } catch (Throwable) {
+            return [false, 'Could not generate a secure app.key on this server. Enable PHP random_bytes support and try again.'];
+        }
+    }
+
+    $contents = "<?php\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
+    try {
+        token_get_all($contents, TOKEN_PARSE);
+    } catch (Throwable) {
+        return [false, 'The generated configuration failed its PHP syntax check; the existing file was not changed.'];
+    }
+
+    // Write beside the destination, verify the complete write, then atomically
+    // replace config.php. A failed write cannot truncate the current file.
+    $temporary = @tempnam(dirname($target), '.config-');
+    if ($temporary === false) {
+        return [false, 'Could not create a temporary configuration file. Check config/ directory permissions.'];
+    }
+    $written = @file_put_contents($temporary, $contents, LOCK_EX);
+    if ($written !== strlen($contents)) {
+        @unlink($temporary);
+        return [false, 'Could not write the complete configuration file. The existing file was not changed.'];
+    }
+    @chmod($temporary, 0640);
+    if (!@rename($temporary, $target)) {
+        @unlink($temporary);
+        return [false, 'Could not safely replace config/config.php. Check config/ directory permissions.'];
+    }
+    return [true, 'Configuration saved safely to config/config.php.'];
 }
 
 /** Run the schema file statement by statement. */
 function install_schema(): array
 {
-    $sql = (string) file_get_contents(ROOT_PATH . '/database/schema.sql');
+    // Schema creation may involve many round trips on shared hosting. Raise
+    // PHP's soft limit where the host permits it; hard hosting limits still
+    // take precedence.
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(300);
+    }
+
+    $schemaPath = ROOT_PATH . '/database/schema.sql';
+    if (!is_readable($schemaPath)) {
+        throw new RuntimeException('The schema file is missing or unreadable: database/schema.sql');
+    }
+    $sql = (string) file_get_contents($schemaPath);
     $pdo = Database::pdo();
     $pdo->exec('SET NAMES utf8mb4');
     $statements = [];
@@ -105,9 +176,17 @@ function install_schema(): array
         // exec() leaves that result pending on MySQL and the next statement
         // fails with error 2014. Run through query() and close the cursor so
         // every statement's result is fully consumed before continuing.
-        $statementResult = $pdo->query($statement);
-        if ($statementResult !== false) {
-            $statementResult->closeCursor();
+        try {
+            $statementResult = $pdo->query($statement);
+            if ($statementResult !== false) {
+                $statementResult->closeCursor();
+            }
+        } catch (Throwable $e) {
+            throw new RuntimeException(
+                'Schema import failed at SQL statement ' . ($executed + 1) . ': ' . $e->getMessage(),
+                (int) $e->getCode(),
+                $e
+            );
         }
         $executed++;
     }
@@ -298,6 +377,9 @@ $done = (bool) query('done') || $installed;
     <?php foreach (flashes() as $flashItem): ?>
       <div class="alert alert-<?= h($flashItem['type']) ?> py-2 small"><?= h($flashItem['message']) ?></div>
     <?php endforeach; ?>
+    <?php if ($configRecoveryNotice !== null): ?>
+      <div class="alert alert-warning py-2 small"><?= h($configRecoveryNotice) ?></div>
+    <?php endif; ?>
     <?php foreach ($errors as $error): ?>
       <div class="alert alert-danger py-2 small"><?= h($error) ?></div>
     <?php endforeach; ?>
@@ -356,7 +438,7 @@ $done = (bool) query('done') || $installed;
             <div class="col-md-6"><label class="form-label small">Database name</label><input class="form-control form-control-sm" name="db_name" value="<?= h((string) post('db_name', (string) Config::get('db.name', ''))) ?>" required></div>
             <div class="col-md-6"><label class="form-label small">Database user</label><input class="form-control form-control-sm" name="db_user" value="<?= h((string) post('db_user', (string) Config::get('db.user', ''))) ?>" required></div>
             <div class="col-12"><label class="form-label small">Database password</label><input class="form-control form-control-sm" type="password" name="db_pass" value=""></div>
-            <div class="col-12"><label class="form-label small">Store URL (no trailing slash)</label><input class="form-control form-control-sm" name="app_url" value="<?= h((string) post('app_url', $alreadyConfigured ? (string) Config::get('app.url', '') : ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost')))) ?>" required></div>
+            <div class="col-12"><label class="form-label small">Store URL (no trailing slash)</label><input class="form-control form-control-sm" name="app_url" value="<?= h((string) post('app_url', $alreadyConfigured && $configRecoveryError === null ? (string) Config::get('app.url', '') : ((Security::isHttps() ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost')))) ?>" required></div>
             <div class="col-12">
               <div class="form-check"><input class="form-check-input" type="checkbox" id="i-secure" name="secure_cookies" value="1" checked><label class="form-check-label small" for="i-secure">Require HTTPS for session cookies (recommended)</label></div>
               <div class="form-check"><input class="form-check-input" type="checkbox" id="i-debug" name="debug" value="1"><label class="form-check-label small" for="i-debug">Enable debug mode (development only)</label></div>

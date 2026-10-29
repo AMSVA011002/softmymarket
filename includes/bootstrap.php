@@ -38,8 +38,45 @@ spl_autoload_register(static function (string $class): void {
 
 /** ------------------------------------------------------------- configuration */
 $configFile = ROOT_PATH . '/config/config.php';
-if (!is_file($configFile)) {
-    if (!IS_CLI && !str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install')) {
+$configRecoveryError = null;
+$earlyScriptPath = (string) (parse_url((string) ($_SERVER['SCRIPT_NAME'] ?? ''), PHP_URL_PATH) ?: '');
+$earlyRequestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+$isInstallerEntry = preg_match('~(?:^|/)install(?:/|$)~', $earlyScriptPath) === 1
+    || preg_match('~(?:^|/)install(?:/|$)~', $earlyRequestPath) === 1;
+unset($earlyScriptPath, $earlyRequestPath);
+
+if (is_file($configFile)) {
+    $configSource = @file_get_contents($configFile);
+    if ($configSource === false || trim($configSource) === '') {
+        $configRecoveryError = 'config/config.php is empty or unreadable.';
+    } else {
+        try {
+            token_get_all($configSource, TOKEN_PARSE);
+        } catch (Throwable $e) {
+            $configRecoveryError = 'config/config.php contains invalid PHP syntax.';
+        }
+    }
+    unset($configSource);
+}
+
+if ($configRecoveryError !== null && !$isInstallerEntry && !IS_CLI) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    Security::sendHeaders();
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Configuration needs repair</title><link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"></head>';
+    echo '<body class="bg-light d-flex align-items-center min-vh-100"><div class="container" style="max-width:680px"><div class="card shadow-sm"><div class="card-body p-4">';
+    echo '<h1 class="h4 fw-bold">YourMarket configuration needs repair</h1><p class="text-secondary">' . htmlspecialchars($configRecoveryError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' The installer can rebuild the configuration after you enter the database details supplied by your host.</p>';
+    if (is_file(ROOT_PATH . '/install/index.php')) {
+        echo '<a class="btn btn-primary" href="/install/index.php?step=1">Open installer and repair configuration</a>';
+    }
+    echo '</div></div></div></body></html>';
+    exit;
+}
+
+if (!is_file($configFile) || $configRecoveryError !== null) {
+    if (!IS_CLI && !$isInstallerEntry) {
         // Nothing works without a database. Explain instead of redirecting: on
         // hosts where install/ is blocked by .htaccess a redirect would loop.
         http_response_code(503);
@@ -85,8 +122,29 @@ if (!is_file($configFile)) {
     $configFile = ROOT_PATH . '/config/config.example.php';
 }
 
-/** @var array<string,mixed> $config */
+/** @var mixed $config */
 $config = require $configFile;
+if (!is_array($config)) {
+    $configRecoveryError = 'config/config.php must return a PHP configuration array.';
+    if ($isInstallerEntry && $configFile !== ROOT_PATH . '/config/config.example.php') {
+        error_log($configRecoveryError . ' Loading the example configuration for installer recovery.');
+        $configFile = ROOT_PATH . '/config/config.example.php';
+        $config = require $configFile;
+    } elseif (!IS_CLI) {
+        http_response_code(503);
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        Security::sendHeaders();
+        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Configuration needs repair</title><link rel="stylesheet" href="/assets/vendor/bootstrap/bootstrap.min.css"><body class="bg-light"><main class="container py-5" style="max-width:680px"><div class="card"><div class="card-body"><h1 class="h4">YourMarket configuration needs repair</h1><p>' . htmlspecialchars($configRecoveryError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>';
+        if (is_file(ROOT_PATH . '/install/index.php')) {
+            echo '<a class="btn btn-primary" href="/install/index.php?step=1">Open installer and repair configuration</a>';
+        }
+        echo '</div></div></main></body></html>';
+        exit;
+    } else {
+        throw new RuntimeException($configRecoveryError);
+    }
+}
 
 // Environment overrides (SMM_DB_HOST=... SMM_APP_URL=... SMM_APP_DEBUG=1)
 $envMap = [
@@ -130,7 +188,11 @@ setlocale(LC_MONETARY, 'en_LK.UTF-8', 'en_US.UTF-8', 'C');
  */
 $appKey = (string) Config::get('app.key', '');
 $keyBroken = strlen($appKey) < 32 || stripos($appKey, 'CHANGE-ME') !== false;
-$runningInstaller = str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install');
+$scriptPath = (string) (parse_url((string) ($_SERVER['SCRIPT_NAME'] ?? ''), PHP_URL_PATH) ?: '');
+$requestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+$runningInstaller = preg_match('~(?:^|/)install(?:/|$)~', $scriptPath) === 1
+    || preg_match('~(?:^|/)install(?:/|$)~', $requestPath) === 1;
+unset($scriptPath, $requestPath);
 if ($keyBroken && !IS_CLI && !$runningInstaller) {
     http_response_code(503);
     header('Content-Type: text/html; charset=utf-8');
@@ -339,7 +401,11 @@ $isInstallerRequest = false;
 if (!IS_CLI) {
     Security::sendHeaders();
     Session::start();
-    $isInstallerRequest = str_starts_with((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '/install');
+    $installerScriptPath = (string) (parse_url((string) ($_SERVER['SCRIPT_NAME'] ?? ''), PHP_URL_PATH) ?: '');
+    $installerRequestPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+    $isInstallerRequest = preg_match('~(?:^|/)install(?:/|$)~', $installerScriptPath) === 1
+        || preg_match('~(?:^|/)install(?:/|$)~', $installerRequestPath) === 1;
+    unset($installerScriptPath, $installerRequestPath);
     // The installer is the recovery path for a broken/missing database
     // configuration. Do not let stale login or remember-me cookies trigger a
     // database query before the installer has a chance to repair it.
