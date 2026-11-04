@@ -732,6 +732,26 @@ switch ($action) {
         $done('success', $slides === [] ? 'All custom slides removed — the built-in slides are showing again.' : 'Hero slides saved (' . count($slides) . ').');
 
     /* ------------------------------------------------------------ messages */
+    case 'seller_message_reply':
+        admin_require('messages.view');
+        $conversationId = post_int('conversation_id');
+        try {
+            SellerMessages::sendAsTeam(
+                $conversationId,
+                (int) Auth::id(),
+                (string) post('body', ''),
+                is_array($_FILES['attachments'] ?? null) ? $_FILES['attachments'] : []
+            );
+        } catch (InvalidArgumentException $e) {
+            remember_input(['seller_team_message_body' => (string) post('body', '')]);
+            $done('danger', $e->getMessage());
+        } catch (Throwable $e) {
+            remember_input(['seller_team_message_body' => (string) post('body', '')]);
+            error_log('Admin seller reply failed: ' . $e->getMessage());
+            $done('danger', 'The reply could not be sent. Try again and reselect any images.');
+        }
+        $done('success', 'Reply sent to the customer.');
+
     case 'message_read':
         admin_require('messages.view');
         Database::update('contact_messages', ['status' => 'open'], 'id = :id', ['id' => post_int('message_id')]);

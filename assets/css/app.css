@@ -1446,3 +1446,20 @@ body.invoice-print-label { page: package-label; }
 @media (prefers-reduced-motion: reduce) {
   .support-launcher i { transition: none; }
 }
+
+.seller-thread-link:last-child { border-bottom: 0 !important; }
+.seller-thread-link > .flex-grow-1 { min-width: 0; }
+.seller-thread-link:hover { background: var(--ui-page-bg, var(--ink-50)); }
+.seller-thread-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; border-radius: .8rem; background: var(--brand-50); color: var(--brand-700); }
+.seller-chat-history { display: flex; flex-direction: column; gap: .8rem; max-height: 65vh; overflow-y: auto; }
+.seller-chat-message { width: fit-content; max-width: min(88%, 42rem); padding: .75rem .9rem; border-radius: 1rem; border: 1px solid var(--ui-border, var(--ink-200)); background: var(--ui-surface-bg, #fff); }
+.seller-chat-message.from-customer { align-self: flex-end; border-color: var(--brand-200); background: var(--brand-50); }
+.seller-chat-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; margin-bottom: .3rem; font-size: .72rem; }
+.seller-chat-meta time { color: var(--ink-400); }
+.seller-chat-body { font-size: .88rem; line-height: 1.5; overflow-wrap: anywhere; }
+.seller-chat-attachment { display: inline-block; margin: .45rem .35rem 0 0; }
+.seller-chat-attachment img { display: block; width: auto; max-width: min(100%, 220px); max-height: 220px; object-fit: cover; border-radius: .6rem; border: 1px solid var(--ui-border, var(--ink-200)); }
+@media (max-width: 575.98px) {
+  .seller-chat-message { max-width: 96%; }
+  .seller-chat-history { max-height: none; }
+}
