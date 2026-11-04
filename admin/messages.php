@@ -34,13 +34,19 @@ $messages = Database::all(
 $subscribers = Database::all('SELECT * FROM newsletter_subscribers ORDER BY created_at DESC LIMIT 200');
 $subscriberCount = Database::int('SELECT COUNT(*) FROM newsletter_subscribers');
 $returnUrl = admin_url('messages.php', ['status' => $status, 'tab' => $tab]);
+$productThreads = $tab === 'product'
+    ? SellerMessages::forTeam(query_int('page', 1), in_array($status, ['open', 'closed'], true) ? $status : '', $search)
+    : null;
 
 $adminTitle = 'Messages';
-$adminSubtitle = number_format($total) . ' messages · ' . number_format($subscriberCount) . ' newsletter subscribers';
+$adminSubtitle = $tab === 'product'
+    ? number_format((int) ($productThreads['total'] ?? 0)) . ' product conversations'
+    : number_format($total) . ' contact messages · ' . number_format($subscriberCount) . ' newsletter subscribers';
 require __DIR__ . '/includes/layout-top.php';
 ?>
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link <?= $tab === 'messages' ? 'active' : '' ?>" href="<?= e(admin_url('messages.php', ['tab' => 'messages'])) ?>">Contact messages</a></li>
+  <li class="nav-item"><a class="nav-link <?= $tab === 'product' ? 'active' : '' ?>" href="<?= e(admin_url('messages.php', ['tab' => 'product'])) ?>">Product enquiries<?php if ($tab !== 'product'): ?><?php $unreadProductThreads = Database::int("SELECT COUNT(DISTINCT c.id) FROM seller_conversations c JOIN seller_messages m ON m.conversation_id = c.id WHERE m.sender_role = 'customer' AND m.team_read_at IS NULL"); ?><?php if ($unreadProductThreads > 0): ?> <span class="badge text-bg-danger"><?= $unreadProductThreads ?></span><?php endif; ?><?php endif; ?></a></li>
   <li class="nav-item"><a class="nav-link <?= $tab === 'newsletter' ? 'active' : '' ?>" href="<?= e(admin_url('messages.php', ['tab' => 'newsletter'])) ?>">Newsletter</a></li>
 </ul>
 
@@ -73,6 +79,39 @@ require __DIR__ . '/includes/layout-top.php';
       </table>
     </div>
   </div>
+<?php elseif ($tab === 'product'): ?>
+  <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get" action="<?= e(admin_url('messages.php')) ?>">
+    <input type="hidden" name="tab" value="product">
+    <div class="btn-group btn-group-sm">
+      <?php foreach (['' => 'All', 'open' => 'Open', 'closed' => 'Closed'] as $value => $label): ?>
+        <a class="btn btn-sm <?= $status === $value ? 'btn-brand' : 'btn-soft' ?>" href="<?= e(admin_url('messages.php', ['tab' => 'product', 'status' => $value, 'q' => $search])) ?>"><?= e($label) ?></a>
+      <?php endforeach; ?>
+    </div>
+    <input type="hidden" name="status" value="<?= e(in_array($status, ['open', 'closed'], true) ? $status : '') ?>">
+    <input class="form-control form-control-sm ms-auto" style="max-width:300px" name="q" type="search" value="<?= e($search) ?>" placeholder="Search customer or product" autocomplete="off">
+    <button class="btn btn-sm btn-soft" type="submit">Search</button>
+  </form>
+  <?php $threadRows = $productThreads['rows'] ?? []; ?>
+  <?php if ($threadRows === []): ?>
+    <div class="card-soft p-4 text-center small text-ink-500"><i class="bi bi-chat-dots fs-4 d-block mb-2"></i>No product enquiries match.</div>
+  <?php else: ?>
+    <div class="card-soft p-0"><div class="table-responsive"><table class="table table-admin align-middle mb-0">
+      <thead><tr><th>Customer</th><th>Product</th><th>Latest message</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+      <tbody>
+        <?php foreach ($threadRows as $thread): ?>
+          <tr>
+            <td><strong><?= e($thread['customer_name']) ?></strong><div class="small text-ink-500"><?= e($thread['customer_email']) ?></div></td>
+            <td><?= e($thread['product_title']) ?><div class="small text-ink-400">SKU <?= e($thread['product_sku']) ?></div></td>
+            <td class="small text-ink-600" style="max-width:280px"><span class="d-block text-truncate"><?= e((string) ($thread['latest_body'] ?: 'Image attachment')) ?></span><?php if ($thread['latest_sender'] === 'customer' && (int) $thread['unread_count'] > 0): ?><span class="badge text-bg-danger">New reply</span><?php endif; ?></td>
+            <td><span class="badge text-bg-<?= $thread['status'] === 'open' ? 'success' : 'secondary' ?>"><?= e(humanize($thread['status'])) ?></span></td>
+            <td class="small text-ink-500 text-nowrap"><?= e(time_ago((string) $thread['last_message_at'])) ?></td>
+            <td class="text-end"><a class="btn btn-sm btn-brand" href="<?= e(admin_url('seller-message.php', ['id' => (int) $thread['id']])) ?>">Open chat</a></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table></div></div>
+    <div class="mt-3"><?= pagination_links($productThreads['pager'], ['tab' => 'product', 'status' => $status, 'q' => $search]) ?></div>
+  <?php endif; ?>
 <?php else: ?>
   <form class="card-soft p-2 mb-3 d-flex flex-wrap gap-2 align-items-center" method="get"
         action="<?= e(admin_url('messages.php')) ?>" data-live-filter>

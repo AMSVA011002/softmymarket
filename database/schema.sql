@@ -601,6 +601,59 @@ CREATE TABLE IF NOT EXISTS `contact_messages` (
   KEY `idx_contact_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------ seller conversations
+CREATE TABLE IF NOT EXISTS `seller_conversations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `product_id` BIGINT UNSIGNED DEFAULT NULL,
+  `product_title` VARCHAR(200) NOT NULL,
+  `product_sku` VARCHAR(60) NOT NULL DEFAULT '',
+  `status` ENUM('open','closed') NOT NULL DEFAULT 'open',
+  `last_message_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_team_read_at` DATETIME DEFAULT NULL,
+  `last_customer_read_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_seller_conversations_user` (`user_id`,`last_message_at`),
+  KEY `idx_seller_conversations_status` (`status`,`last_message_at`),
+  KEY `idx_seller_conversations_product` (`product_id`),
+  CONSTRAINT `fk_seller_conversations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_seller_conversations_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `seller_messages` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `conversation_id` BIGINT UNSIGNED NOT NULL,
+  `sender_id` BIGINT UNSIGNED DEFAULT NULL,
+  `sender_name` VARCHAR(120) NOT NULL,
+  `sender_role` ENUM('customer','staff','admin') NOT NULL,
+  `body` TEXT NOT NULL,
+  `customer_read_at` DATETIME DEFAULT NULL,
+  `team_read_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_seller_messages_conversation` (`conversation_id`,`created_at`),
+  KEY `idx_seller_messages_team_unread` (`team_read_at`,`sender_role`,`conversation_id`),
+  KEY `idx_seller_messages_customer_unread` (`customer_read_at`,`sender_role`,`conversation_id`),
+  KEY `idx_seller_messages_sender` (`sender_id`),
+  CONSTRAINT `fk_seller_messages_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `seller_conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_seller_messages_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `seller_message_attachments` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `message_id` BIGINT UNSIGNED NOT NULL,
+  `storage_name` VARCHAR(100) NOT NULL,
+  `original_name` VARCHAR(180) NOT NULL,
+  `mime_type` VARCHAR(40) NOT NULL,
+  `file_size` INT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_seller_attachments_message` (`message_id`),
+  CONSTRAINT `fk_seller_attachments_message` FOREIGN KEY (`message_id`) REFERENCES `seller_messages` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ------------------------------------------------------------- search terms
 CREATE TABLE IF NOT EXISTS `search_log` (
   `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

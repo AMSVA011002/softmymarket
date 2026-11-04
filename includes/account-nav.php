@@ -8,17 +8,21 @@ $accountItems = [
     ['wishlist', '/account/wishlist.php', 'bi-heart', 'Wishlist'],
     ['addresses', '/account/addresses.php', 'bi-geo-alt', 'Addresses'],
     ['reviews', '/account/reviews.php', 'bi-star', 'My reviews'],
+    ['messages', '/account/messages.php', 'bi-chat-dots', 'Messages'],
     ['notifications', '/account/notifications.php', 'bi-bell', 'Notifications'],
     ['settings', '/account/settings.php', 'bi-gear', 'Settings'],
 ];
 $accountUnread = Auth::check() ? Notifier::unreadCount(Auth::id()) : 0;
+$accountUnreadMessages = Auth::isCustomer()
+    ? Database::int("SELECT COUNT(*) FROM seller_messages m JOIN seller_conversations c ON c.id = m.conversation_id WHERE c.user_id = :uid AND m.sender_role IN ('admin','staff') AND m.customer_read_at IS NULL", ['uid' => (int) Auth::id()])
+    : 0;
 ?>
 <nav class="account-nav" aria-label="Account navigation">
   <?php foreach ($accountItems as [$key, $href, $icon, $label]): ?>
     <a class="<?= $accountActive === $key ? 'active' : '' ?>" href="<?= e($href) ?>">
       <i class="bi <?= e($icon) ?>"></i>
       <span><?= e($label) ?></span>
-      <?php if ($key === 'notifications' && $accountUnread > 0): ?><span class="badge text-bg-danger ms-auto"><?= (int) $accountUnread ?></span><?php endif; ?>
+      <?php if ($key === 'notifications' && $accountUnread > 0): ?><span class="badge text-bg-danger ms-auto"><?= (int) $accountUnread ?></span><?php elseif ($key === 'messages' && $accountUnreadMessages > 0): ?><span class="badge text-bg-danger ms-auto"><?= (int) $accountUnreadMessages ?></span><?php endif; ?>
     </a>
   <?php endforeach; ?>
   <form method="post" action="/logout.php" class="mt-2">

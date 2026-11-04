@@ -20,6 +20,7 @@ final class RateLimiter
         'track'      => ['max' => 20,   'window' => 600],
         'newsletter' => ['max' => 5,    'window' => 3600],
         'contact'    => ['max' => 5,    'window' => 3600],
+        'seller_message' => ['max' => 12, 'window' => 600],
         'review'     => ['max' => 10,   'window' => 3600],
         'search'     => ['max' => 120,  'window' => 60],
         'api'        => ['max' => 240,  'window' => 60],

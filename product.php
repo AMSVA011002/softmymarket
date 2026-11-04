@@ -180,6 +180,9 @@ require INCLUDES_PATH . '/layout/header.php';
             <i class="bi bi-heart me-1"></i> Notify me / save to wishlist
           </button>
         <?php endif; ?>
+        <button class="btn btn-outline-brand w-100 mb-3" type="button" data-bs-toggle="modal" data-bs-target="#askSellerModal">
+          <i class="bi bi-chat-dots me-1"></i> Ask From Seller
+        </button>
 
         <div class="card-soft p-3 mb-3">
           <div class="row g-2 small">
@@ -341,6 +344,41 @@ require INCLUDES_PATH . '/layout/header.php';
     </div>
   </section>
 <?php endif; ?>
+
+<div class="modal fade" id="askSellerModal" tabindex="-1" aria-labelledby="askSellerTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div><h2 class="modal-title h5 fw-bold" id="askSellerTitle">Ask From Seller</h2><div class="small text-ink-500"><?= e($product['title']) ?></div></div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <?php if (Auth::isCustomer()): ?>
+        <form method="post" action="/actions/seller-message.php" enctype="multipart/form-data" data-disable-on-submit>
+          <?= Csrf::field() ?>
+          <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+          <div class="modal-body">
+            <p class="small text-ink-500">Your message and any images are private to you and the store team. You can follow replies in Account → Messages.</p>
+            <label class="form-label small" for="ask-seller-message">Message</label>
+            <textarea class="form-control mb-3" id="ask-seller-message" name="body" rows="4" maxlength="4000" placeholder="Ask a question about this product…"><?= e((string) old('seller_message_body', '')) ?></textarea>
+            <label class="form-label small" for="ask-seller-files">Attach images (optional, up to 3)</label>
+            <input class="form-control form-control-sm" id="ask-seller-files" type="file" name="attachments[]" accept="image/jpeg,image/png,image/webp" multiple>
+            <div class="form-text">JPEG, PNG or WebP · maximum 2 MB each.</div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-soft" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand" type="submit"><i class="bi bi-send me-1"></i> Send message</button></div>
+        </form>
+      <?php else: ?>
+        <div class="modal-body">
+          <p class="small text-ink-600">Sign in with a customer account to ask the seller. Your conversation and replies will be saved in your account.</p>
+          <?php if (Auth::guest()): ?>
+            <a class="btn btn-brand" href="<?= e('/login.php?next=' . rawurlencode('/product.php?slug=' . (string) $product['slug'])) ?>"><i class="bi bi-box-arrow-in-right me-1"></i> Sign in to continue</a>
+          <?php else: ?>
+            <div class="alert alert-info small mb-0">A customer account is required to use product messages.</div>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
 
 <script type="application/ld+json" nonce="<?= e(Security::nonce()) ?>">
 <?= json_encode([

@@ -20,6 +20,7 @@ HTML/CSS/JS/PHP/MySQL stack.
 * 10,000+ products, faceted search (price, brand, rating, stock, condition, sale),
   sort, pagination, related products, flash deals
 * Product gallery with thumbnails, specs table, reviews with rating breakdown, wishlist
+* **Ask From Seller** product conversations: signed-in customers can send text and up to three private JPEG/PNG/WebP images (2 MB each), store staff can reply in Admin → Messages, and both sides retain conversation history
 * Cart, guest or account checkout, coupon codes, shipping rules, tax
 * Seven payment methods: **Cash on Delivery, Seylan Bank gateway (card),
   PayHere, bank transfer, KOKO, Payzy, Mintpay**
